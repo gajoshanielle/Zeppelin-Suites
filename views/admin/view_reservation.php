@@ -1153,13 +1153,9 @@ $isInHousePayment = strtolower((string)$paymentMethod) === 'in-house';
         </div>
       </div>
 
-      <div class="rounded-xl bg-emerald-50/80 border border-emerald-200 p-4 text-xs text-emerald-900 leading-relaxed space-y-1.5">
-        <p class="font-bold text-emerald-900 flex items-center gap-1.5">
-          <svg class="w-4 h-4 text-emerald-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-          Official Tenant Account Activation
-        </p>
+      <div class="rounded-xl bg-emerald-50/80 border border-emerald-200 p-4 text-xs text-emerald-900 leading-relaxed">
         <p class="text-emerald-800">
-          The client will have an official tenant account under Zeppelin Suites. An activation message with their default login password (<code class="bg-emerald-100 font-mono font-bold text-emerald-950 px-1.5 py-0.5 rounded text-[11px]">tenantzepellinsuites</code>) will be sent to <strong><?= e($res['client_email']) ?></strong>. They can log in and change their password anytime.
+          The client will be provided an account to be an official tenant under Zeppelin Suites (visible in <a href="<?= htmlspecialchars($baseUrl) ?>/admin/residents" target="_blank" class="underline font-bold text-emerald-950 hover:text-emerald-700">Residents</a>) and can log in to the Tenant Portal with the default password: <code class="bg-emerald-100 font-mono font-bold text-emerald-950 px-1.5 py-0.5 rounded text-[11px]">tenantzepellinsuites</code>. They can change their password at any time.
         </p>
       </div>
 

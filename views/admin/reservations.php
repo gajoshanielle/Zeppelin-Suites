@@ -330,30 +330,10 @@ if (!function_exists('badge')) {
         </div>
       </div>
 
-      <div class="rounded-xl bg-emerald-50/80 border border-emerald-200 p-4 space-y-1.5 text-xs text-emerald-900">
-        <p class="font-bold flex items-center gap-1.5 text-emerald-800">
-          <svg class="w-4 h-4 text-emerald-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-          What happens upon handover confirmation:
+      <div class="rounded-xl bg-emerald-50/80 border border-emerald-200 p-4 text-xs text-emerald-900 leading-relaxed">
+        <p class="text-emerald-800">
+          The client will be provided an account to be an official tenant under Zeppelin Suites (visible in <a href="<?= htmlspecialchars($baseUrl) ?>/admin/residents" target="_blank" class="underline font-bold text-emerald-950 hover:text-emerald-700">Residents</a>) and can log in to the Tenant Portal with the default password: <code class="bg-emerald-100 font-mono font-bold text-emerald-950 px-1.5 py-0.5 rounded text-[11px]">tenantzepellinsuites</code>. They can change their password at any time.
         </p>
-        <ul class="list-disc list-inside space-y-1 text-emerald-800/90 pl-1">
-          <li>Reservation status updates to <strong>Moved In</strong> (Active).</li>
-          <li>Unit status automatically changes to <strong>Occupied</strong>.</li>
-          <li>A <strong>Tenant</strong> account is provisioned in <code class="bg-emerald-100/80 px-1 py-0.5 rounded text-[11px]">users_table</code> with <strong>Active</strong> status.</li>
-          <li>The resident will be immediately visible in <a href="<?= htmlspecialchars($baseUrl) ?>/admin/residents" target="_blank" class="underline font-semibold hover:text-emerald-950">Residents</a> and can log in to the Tenant Portal.</li>
-        </ul>
-      </div>
-
-      <div>
-        <label class="block text-xs font-bold text-slate-600 uppercase tracking-wide mb-1.5">
-          Tenant Initial Password <span class="font-normal text-slate-400 normal-case">(optional, defaults to "password123")</span>
-        </label>
-        <div class="relative">
-          <input type="password" id="handoverPassword" name="password" placeholder="password123" class="zep-input w-full pl-4 pr-11 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-medium">
-          <button type="button" onclick="togglePasswordVisibility('handoverPassword', this)" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 transition-colors p-1" title="Toggle password visibility">
-            <svg class="w-4 h-4 eye-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
-            <svg class="w-4 h-4 eye-slash-icon hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l18 18"/></svg>
-          </button>
-        </div>
       </div>
 
       <div class="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
@@ -438,27 +418,11 @@ function filterSearch() {
   });
 }
 
-function togglePasswordVisibility(inputId, btn) {
-  const input = document.getElementById(inputId);
-  const eyeIcon = btn.querySelector('.eye-icon');
-  const eyeSlashIcon = btn.querySelector('.eye-slash-icon');
-  if (input.type === 'password') {
-    input.type = 'text';
-    if (eyeIcon) eyeIcon.classList.add('hidden');
-    if (eyeSlashIcon) eyeSlashIcon.classList.remove('hidden');
-  } else {
-    input.type = 'password';
-    if (eyeIcon) eyeIcon.classList.remove('hidden');
-    if (eyeSlashIcon) eyeSlashIcon.classList.add('hidden');
-  }
-}
-
 function openHandoverModal(resId, clientName, clientEmail, unitDisplay) {
   document.getElementById('handoverResId').value = resId;
   document.getElementById('handoverClientName').textContent = clientName || '—';
   document.getElementById('handoverClientEmail').textContent = clientEmail || '—';
   document.getElementById('handoverUnitDisplay').textContent = unitDisplay || '—';
-  document.getElementById('handoverPassword').value = '';
 
   const modal = document.getElementById('handoverModal');
   modal.classList.remove('hidden');
