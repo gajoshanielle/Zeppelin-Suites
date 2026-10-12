@@ -161,7 +161,7 @@ class Unit extends Model {
      */
     public function getUnitAvailabilityInfo(int $unitId, string $status, string $currentMoveOutDate): array {
         $statusLower = strtolower(trim($status));
-        if ($statusLower === 'resale') {
+        if ($statusLower === 'resale' || $statusLower === 'for resale') {
             return ['range' => 'Available for Resale', 'duration' => 'Ready for purchase'];
         }
         if ($statusLower === 'under maintenance') {
@@ -297,7 +297,7 @@ class Unit extends Model {
      */
     public function getNextAvailability(int $unitId, string $status): array {
         $statusLower = strtolower(trim($status));
-        if ($statusLower === 'resale') {
+        if ($statusLower === 'resale' || $statusLower === 'for resale') {
             return ['text' => 'Available for Resale', 'sub' => 'Unit is currently listed for sale', 'is_occupied' => false];
         }
         if ($statusLower === 'under maintenance') {

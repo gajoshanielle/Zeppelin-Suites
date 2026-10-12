@@ -427,26 +427,7 @@ $isInHousePayment = strtolower((string)$paymentMethod) === 'in-house';
               <?php endif; ?>
             </div>
 
-            <?php if ($isResale): ?>
-              <!-- View Inquiry Action Button/Link for Resale -->
-              <div class="flex justify-end mt-6 pt-4 border-t border-slate-200/60">
-                <?php if (!empty($res['inq_id'])): ?>
-                  <a href="<?= htmlspecialchars($baseUrl) ?>/admin/inquiries?inq_id=<?= (int)$res['inq_id'] ?>" class="btn-press inline-flex items-center gap-2 px-4 py-2 text-xs font-bold text-slate-700 bg-white border border-slate-200 hover:bg-slate-900 hover:text-white hover:border-slate-900 rounded-xl transition-all shadow-xs active:scale-95">
-                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
-                    </svg>
-                    <span>View Inquiry</span>
-                  </a>
-                <?php else: ?>
-                  <a href="<?= htmlspecialchars($baseUrl) ?>/admin/inquiries" class="btn-press inline-flex items-center gap-2 px-4 py-2 text-xs font-bold text-slate-700 bg-white border border-slate-200 hover:bg-slate-900 hover:text-white hover:border-slate-900 rounded-xl transition-all shadow-xs active:scale-95">
-                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
-                    </svg>
-                    <span>View Inquiries</span>
-                  </a>
-                <?php endif; ?>
-              </div>
-            <?php endif; ?>
+
           </div>
 
           <?php if (!$isResale): ?>
@@ -491,24 +472,7 @@ $isInHousePayment = strtolower((string)$paymentMethod) === 'in-house';
               </div>
             </div>
 
-            <!-- View Inquiry Action Button/Link -->
-            <div class="flex justify-end mt-6 pt-4 border-t border-slate-200/60">
-              <?php if (!empty($res['inq_id'])): ?>
-                <a href="<?= htmlspecialchars($baseUrl) ?>/admin/inquiries?inq_id=<?= (int)$res['inq_id'] ?>" class="btn-press inline-flex items-center gap-2 px-4 py-2 text-xs font-bold text-slate-700 bg-white border border-slate-200 hover:bg-slate-900 hover:text-white hover:border-slate-900 rounded-xl transition-all shadow-xs active:scale-95">
-                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
-                  </svg>
-                  <span>View Inquiry</span>
-                </a>
-              <?php else: ?>
-                <a href="<?= htmlspecialchars($baseUrl) ?>/admin/inquiries" class="btn-press inline-flex items-center gap-2 px-4 py-2 text-xs font-bold text-slate-700 bg-white border border-slate-200 hover:bg-slate-900 hover:text-white hover:border-slate-900 rounded-xl transition-all shadow-xs active:scale-95">
-                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
-                  </svg>
-                  <span>View Inquiries</span>
-                </a>
-              <?php endif; ?>
-            </div>
+
           </div>
           <?php endif; ?>
 
@@ -543,13 +507,41 @@ $isInHousePayment = strtolower((string)$paymentMethod) === 'in-house';
                 <p id="cancel_reason_display" class="text-sm text-red-900 mt-1 leading-relaxed"><?= e($res['cancellation_reason'] ?: 'No reason provided.') ?></p>
               </div>
 
-              <button 
-                type="button"
-                id="btnApproveCancellation"
-                class="btn-press w-full bg-red-600 hover:bg-red-700 text-white text-sm font-bold px-4 py-3 rounded-xl transition-all shadow-sm active:scale-98">
-                Approve Cancellation &amp; Release Unit
-              </button>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <button 
+                  type="button"
+                  id="btnApproveCancellation"
+                  class="btn-press w-full bg-red-600 hover:bg-red-700 text-white text-sm font-bold px-4 py-3 rounded-xl transition-all shadow-sm active:scale-98 flex items-center justify-center gap-2">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                  <span>Approve Cancellation &amp; Release Unit</span>
+                </button>
+                <button 
+                  type="button"
+                  id="btnRejectCancellation"
+                  onclick="openRejectCancellationModal()"
+                  class="btn-press w-full bg-slate-900 hover:bg-slate-800 text-white text-sm font-bold px-4 py-3 rounded-xl transition-all shadow-sm active:scale-98 flex items-center justify-center gap-2">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                  <span>Reject Cancellation Request</span>
+                </button>
+              </div>
             </section>
+          <?php endif; ?>
+
+          <?php if ($cancellationStatusLower === 'declined'): ?>
+            <div class="mt-6 bg-slate-50 border border-slate-200 rounded-2xl p-5 shadow-sm">
+              <div class="flex items-center gap-2.5">
+                <div class="w-8 h-8 rounded-xl bg-slate-200 text-slate-700 flex items-center justify-center font-bold text-xs shrink-0">✕</div>
+                <div>
+                  <h3 class="text-xs font-bold text-slate-800 uppercase tracking-wider">Cancellation Request Declined</h3>
+                  <p class="text-xs text-slate-500 mt-0.5">The previous cancellation request was declined by administration. The reservation remains active.</p>
+                </div>
+              </div>
+              <?php if (!empty($res['admin_cancel_remarks'])): ?>
+                <p class="text-xs text-slate-700 mt-2.5 bg-white border border-slate-200 rounded-xl p-3">
+                  <strong>Remarks:</strong> <?= e($res['admin_cancel_remarks']) ?>
+                </p>
+              <?php endif; ?>
+            </div>
           <?php endif; ?>
         </div>
 
@@ -1155,7 +1147,7 @@ $isInHousePayment = strtolower((string)$paymentMethod) === 'in-house';
 
       <div class="rounded-xl bg-emerald-50/80 border border-emerald-200 p-4 text-xs text-emerald-900 leading-relaxed">
         <p class="text-emerald-800">
-          The client will be provided an account to be an official tenant under Zeppelin Suites (visible in <a href="<?= htmlspecialchars($baseUrl) ?>/admin/residents" target="_blank" class="underline font-bold text-emerald-950 hover:text-emerald-700">Residents</a>) and can log in to the Tenant Portal with the default password: <code class="bg-emerald-100 font-mono font-bold text-emerald-950 px-1.5 py-0.5 rounded text-[11px]">tenantzepellinsuites</code>. They can change their password at any time.
+          The client will be provided an account to be an official tenant under Zeppelin Suites (visible in <a href="<?= htmlspecialchars($baseUrl) ?>/admin/residents" target="_blank" class="underline font-bold text-emerald-950 hover:text-emerald-700">Residents</a>). Once the client logs in for the first time, their account will be activated. Default password: <code class="bg-emerald-100 font-mono font-bold text-emerald-950 px-1.5 py-0.5 rounded text-[11px]">tenantzepellinsuites</code>. They can change their password at any time.
         </p>
       </div>
 
@@ -1439,14 +1431,20 @@ $isInHousePayment = strtolower((string)$paymentMethod) === 'in-house';
 
   // --- Cancellation Approval ---
   function approveCancellationRequest() {
+    const btn = document.getElementById('btnApproveCancellation');
     const reason = document.getElementById('cancel_reason_display')?.textContent.trim();
-    if (!confirm('Approve this cancellation request? This will cancel the reservation and release the unit back to availability.')) {
+    if (!confirm('Approve this cancellation request? This will cancel the reservation, release the unit back to availability, and send an email update to the client.')) {
       return;
+    }
+
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = 'Processing & Sending Email...';
     }
 
     const formData = new FormData();
     formData.append('reservation_id', currentReservationId);
-    formData.append('remarks', reason || 'Approved cancellation request from unit owner.');
+    formData.append('remarks', reason || 'Approved cancellation request.');
 
     fetch('<?= htmlspecialchars($baseUrl) ?>/admin/reservations/cancel', {
       method: 'POST',
@@ -1457,15 +1455,78 @@ $isInHousePayment = strtolower((string)$paymentMethod) === 'in-house';
       alert(data.message);
       if (data.success) {
         window.location.href = '<?= htmlspecialchars($baseUrl) ?>/admin/reservations';
+      } else if (btn) {
+        btn.disabled = false;
+        btn.textContent = 'Approve Cancellation & Release Unit';
       }
     })
     .catch(error => {
       console.error(error);
       alert('Something went wrong while approving cancellation.');
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = 'Approve Cancellation & Release Unit';
+      }
     });
   }
 
   document.getElementById('btnApproveCancellation')?.addEventListener('click', approveCancellationRequest);
+
+  // --- Cancellation Rejection ---
+  function openRejectCancellationModal() {
+    const modal = document.getElementById('rejectCancellationModal');
+    const remarks = document.getElementById('rejectCancellationRemarks');
+    if (remarks) remarks.value = '';
+    modal?.classList.remove('hidden');
+    modal?.classList.add('flex');
+  }
+
+  function closeRejectCancellationModal() {
+    const modal = document.getElementById('rejectCancellationModal');
+    modal?.classList.add('hidden');
+    modal?.classList.remove('flex');
+  }
+
+  function submitRejectCancellation() {
+    const remarks = document.getElementById('rejectCancellationRemarks')?.value.trim();
+    if (!remarks) {
+      alert('Please provide a reason or remarks for declining the cancellation request.');
+      return;
+    }
+
+    const btn = document.getElementById('btnConfirmRejectCancellation');
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = 'Processing & Sending Email...';
+    }
+
+    const formData = new FormData();
+    formData.append('reservation_id', currentReservationId);
+    formData.append('remarks', remarks);
+
+    fetch('<?= htmlspecialchars($baseUrl) ?>/admin/reservations/reject-cancellation', {
+      method: 'POST',
+      body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+      alert(data.message);
+      if (data.success) {
+        window.location.reload();
+      } else if (btn) {
+        btn.disabled = false;
+        btn.textContent = 'Confirm Rejection';
+      }
+    })
+    .catch(error => {
+      console.error(error);
+      alert('Something went wrong while rejecting the cancellation request.');
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = 'Confirm Rejection';
+      }
+    });
+  }
 
   // --- Handover Handling ---
   function togglePasswordVisibility(inputId, btn) {
@@ -1702,6 +1763,37 @@ $isInHousePayment = strtolower((string)$paymentMethod) === 'in-house';
     <div class="flex justify-end gap-2.5 pt-2 border-t border-slate-100">
       <button type="button" onclick="closeSigningModal()" class="px-4 py-2 border border-slate-200 hover:bg-slate-50 rounded-xl text-xs font-semibold text-slate-700">Cancel</button>
       <button type="button" id="btnConfirmSigning" onclick="submitLeaseSigningAction()" class="px-5 py-2 bg-[#0f172a] hover:bg-[#1e293b] text-white rounded-xl text-xs font-bold">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<!-- Reject Cancellation Modal -->
+<div id="rejectCancellationModal" class="fixed inset-0 z-[70] hidden items-center justify-center bg-black/50 px-4">
+  <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden border border-slate-100">
+    <div class="bg-slate-900 px-6 py-4 flex items-center justify-between">
+      <h3 class="text-base font-bold text-white flex items-center gap-2">
+        <svg class="w-5 h-5 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        Reject Cancellation Request
+      </h3>
+      <button type="button" onclick="closeRejectCancellationModal()" class="p-1 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+
+    <div class="p-6 space-y-4">
+      <p class="text-xs sm:text-sm text-slate-700 leading-relaxed">
+        Are you sure you want to decline this cancellation request? The reservation will remain active and the unit hold will not be released.
+      </p>
+
+      <div>
+        <label class="block text-xs font-semibold text-slate-700 mb-1">Reason / Remarks for Rejection (sent via email)</label>
+        <textarea id="rejectCancellationRemarks" rows="3" placeholder="Provide a reason for declining this cancellation request..." class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 resize-none focus:outline-none focus:border-slate-900"></textarea>
+      </div>
+    </div>
+
+    <div class="flex items-center justify-end gap-2.5 px-6 py-4 border-t border-slate-100 bg-slate-50">
+      <button type="button" onclick="closeRejectCancellationModal()" class="px-4 py-2 border border-slate-200 hover:bg-slate-100 rounded-xl text-xs font-semibold text-slate-700">Cancel</button>
+      <button type="button" id="btnConfirmRejectCancellation" onclick="submitRejectCancellation()" class="px-5 py-2 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-xl shadow-sm">Confirm Rejection</button>
     </div>
   </div>
 </div>

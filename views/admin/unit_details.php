@@ -79,7 +79,7 @@ $stayCategory = trim((string)($unit['stay_category'] ?? 'Long term'));
 $leaseRate = (float)($unit['lease_rate'] ?? 0);
 $resellingPrice = (float)($unit['resellling_price'] ?? $unit['reselling_price'] ?? 0);
 $currentOwnerId = $unit['unit_owner_id'] !== null ? (int)$unit['unit_owner_id'] : null;
-$isResale = (strcasecmp($listingType, 'Resale') === 0 || strcasecmp($currentStatus, 'Resale') === 0 || stripos($listingType, 'resell') !== false);
+$isResale = (strcasecmp($listingType, 'Resale') === 0 || strcasecmp($currentStatus, 'Resale') === 0 || strcasecmp($currentStatus, 'For Resale') === 0 || stripos($listingType, 'resell') !== false);
 
 $statusLower = strtolower($currentStatus);
 if ($statusLower === 'ready for occupancy') {
@@ -91,7 +91,7 @@ if ($statusLower === 'ready for occupancy') {
 } elseif ($statusLower === 'occupied') {
     $statusClass = 'bg-rose-50 text-rose-700 border-rose-200';
     $statusDot = 'bg-rose-500';
-} elseif ($statusLower === 'resale') {
+} elseif ($statusLower === 'resale' || $statusLower === 'for resale') {
     $statusClass = 'bg-blue-50 text-blue-700 border-blue-200';
     $statusDot = 'bg-blue-500';
 } elseif ($statusLower === 'on hold') {
@@ -101,6 +101,7 @@ if ($statusLower === 'ready for occupancy') {
     $statusClass = 'bg-slate-50 text-slate-700 border-slate-200';
     $statusDot = 'bg-slate-400';
 }
+$displayStatus = ($statusLower === 'resale' || $statusLower === 'for resale') ? 'For Resale' : $currentStatus;
 
 $activeTenant = $activeTenant ?? null;
 $nextAvailability = $nextAvailability ?? ['text' => 'Immediately Available', 'sub' => 'Ready for new move-in', 'is_occupied' => false];
@@ -206,7 +207,7 @@ tailwind.config = {
               </h1>
               <span id="displayStatusBadge" class="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-0.5 rounded-full border <?= $statusClass ?>">
                 <span id="displayStatusDot" class="w-1.5 h-1.5 rounded-full <?= $statusDot ?>"></span>
-                <span id="displayStatusText"><?= clean($currentStatus) ?></span>
+                <span id="displayStatusText"><?= clean($displayStatus) ?></span>
               </span>
             </div>
             <p class="text-xs text-slate-500 mt-1 flex items-center gap-1.5 flex-wrap">

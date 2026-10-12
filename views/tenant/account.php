@@ -340,6 +340,30 @@ foreach ($maintenance ?? [] as $m) {
         </div>
       </div>
 
+      <section class="bg-white rounded-2xl border border-slate-100 shadow-xs p-6 md:p-8">
+        <div class="max-w-2xl">
+          <h2 class="text-base font-bold text-slate-900">Change Password</h2>
+          <p class="text-xs text-slate-400 mt-1 mb-5">Enter your current password and choose a new password with at least 8 characters.</p>
+          <form method="POST" action="<?= htmlspecialchars($baseUrl) ?>/tenant/account" class="space-y-4">
+            <input type="hidden" name="action" value="change_password">
+            <input type="hidden" name="csrf_token" value="<?= clean($passwordCsrfToken ?? '') ?>">
+            <div>
+              <label for="tenantCurrentPassword" class="block text-xs font-bold text-slate-700 mb-1.5">Current Password</label>
+              <input id="tenantCurrentPassword" type="password" name="current_password" required autocomplete="current-password" class="zep-input w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm">
+            </div>
+            <div>
+              <label for="tenantNewPassword" class="block text-xs font-bold text-slate-700 mb-1.5">New Password</label>
+              <input id="tenantNewPassword" type="password" name="new_password" required minlength="8" autocomplete="new-password" class="zep-input w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm">
+            </div>
+            <div>
+              <label for="tenantConfirmPassword" class="block text-xs font-bold text-slate-700 mb-1.5">Confirm New Password</label>
+              <input id="tenantConfirmPassword" type="password" name="confirm_password" required minlength="8" autocomplete="new-password" class="zep-input w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm">
+            </div>
+            <button type="submit" class="btn-press px-5 py-2.5 text-sm font-semibold bg-slate-900 text-white rounded-xl hover:bg-slate-800 shadow-md">Change Password</button>
+          </form>
+        </div>
+      </section>
+
     </div>
   </div>
 </div>
@@ -380,11 +404,6 @@ foreach ($maintenance ?? [] as $m) {
       <div>
         <label class="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">Additional Email</label>
         <input type="email" name="additional_email" value="<?= clean($tenant['additional_email'] ?? '') ?>" class="zep-input w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium" placeholder="Optional">
-      </div>
-
-      <div class="pt-2 border-t border-slate-100">
-        <label class="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">New Password (Leave blank to keep current)</label>
-        <input type="password" name="new_password" placeholder="••••••••" class="zep-input w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium">
       </div>
 
       <div class="pt-4 flex items-center justify-end gap-3 border-t border-slate-100">

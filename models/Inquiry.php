@@ -74,6 +74,13 @@ class Inquiry extends Model {
             FROM owner_approval_requests r
             LEFT JOIN units_table u ON r.unit_id = u.unit_id
             LEFT JOIN users_table owner ON r.unit_owner_id = owner.user_id
+            WHERE NOT EXISTS (
+                SELECT 1
+                FROM owner_approval_requests newer
+                WHERE newer.inq_id = r.inq_id
+                  AND newer.unit_id = r.unit_id
+                  AND newer.request_id > r.request_id
+            )
             ORDER BY r.requested_at ASC
         ";
         $allRequests = $this->fetchAll($reqSql);
@@ -368,7 +375,7 @@ class Inquiry extends Model {
                 FROM units_table u
                 LEFT JOIN users_table owner ON u.unit_owner_id = owner.user_id
                 WHERE u.unit_type = ?
-                AND u.unit_current_status = 'Resale'
+                AND (u.unit_current_status = 'For Resale' OR u.unit_current_status = 'Resale')
                 AND u.unit_owner_id IS NOT NULL
                 AND u.unit_id NOT IN (
                     SELECT unit_id FROM owner_approval_requests
@@ -486,7 +493,7 @@ class Inquiry extends Model {
                 AND b.start_date <= CURDATE()
                 AND b.end_date >= CURDATE()
             WHERE u.unit_type = ?
-            AND u.unit_current_status NOT IN ('Resale', 'On Hold', 'Under maintenance', 'Archived')
+            AND u.unit_current_status NOT IN ('For Resale', 'Resale', 'On Hold', 'Under maintenance', 'Archived')
             AND u.unit_owner_id IS NOT NULL
             AND u.unit_id NOT IN (
                 SELECT unit_id FROM owner_approval_requests
@@ -749,6 +756,13 @@ class Inquiry extends Model {
                 LEFT JOIN units_table u ON r.unit_id = u.unit_id
                 LEFT JOIN users_table owner ON r.unit_owner_id = owner.user_id
                 WHERE r.inq_id = ?
+                  AND NOT EXISTS (
+                    SELECT 1
+                    FROM owner_approval_requests newer
+                    WHERE newer.inq_id = r.inq_id
+                      AND newer.unit_id = r.unit_id
+                      AND newer.request_id > r.request_id
+                  )
                 ORDER BY r.requested_at ASC
             ";
             $allRequests = $this->fetchAll($requestsSql, [$inqId]);

@@ -25,8 +25,16 @@ if (!function_exists('format_date_nice')) {
 $unitNumber = $leaseInfo['unit_number'] ?? '—';
 $unitType = $leaseInfo['unit_type'] ?? 'Standard Suite';
 $unitOwnerName = $leaseInfo['owner_name'] ?? 'Zeppelin Suites Management';
-$moveInDate = $leaseInfo['move_in_date'] ?? null;
+$isResale = strcasecmp((string)($leaseInfo['transaction_type'] ?? ''), 'Unit Resale') === 0;
+$moveInDate = $leaseInfo['preferred_move_in_time'] ?? $leaseInfo['move_in_date'] ?? null;
+// For resale: if no move-in date, fall back to confirmed contract signing date
+if ($isResale && empty($moveInDate)) {
+    $moveInDate = $leaseInfo['confirmed_signing_date'] ?? null;
+}
 $moveOutDate = $leaseInfo['move_out_date'] ?? null;
+$unitSqm = !empty($leaseInfo['sqm']) ? number_format((float)$leaseInfo['sqm'], 2) : null;
+$moveInLabel = $isResale ? 'Contract Signing' : 'Move-in Date';
+$moveOutLabel = $isResale ? 'Turnover Date' : 'Turnover Date';
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -101,7 +109,7 @@ $moveOutDate = $leaseInfo['move_out_date'] ?? null;
               </div>
               <div>
                 <h2 class="text-sm font-bold text-slate-900">Assigned Residence</h2>
-                <p class="text-xs text-slate-400"><?= clean($unitType) ?><?= !empty($leaseInfo['floor_number']) ? ' • Floor ' . clean($leaseInfo['floor_number']) : '' ?></p>
+                <p class="text-xs text-slate-400"><?= clean($unitType) ?><?= !empty($leaseInfo['floor_number']) ? ' • Floor ' . clean($leaseInfo['floor_number']) : '' ?><?= $unitSqm ? ' • ' . $unitSqm . ' sqm' : '' ?></p>
               </div>
             </div>
             <span class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0">
@@ -120,11 +128,19 @@ $moveOutDate = $leaseInfo['move_out_date'] ?? null;
           <!-- Key Details -->
           <div class="pt-4 border-t border-slate-100 grid grid-cols-2 gap-4 text-xs">
             <div>
-              <span class="text-slate-400 block mb-0.5">Move-in Date</span>
+              <span class="text-slate-400 block mb-0.5">Floor</span>
+              <span class="font-bold text-slate-800 font-mono text-sm"><?= !empty($leaseInfo['floor_number']) ? 'Floor ' . clean($leaseInfo['floor_number']) : '—' ?></span>
+            </div>
+            <div>
+              <span class="text-slate-400 block mb-0.5">Floor Area</span>
+              <span class="font-bold text-slate-800 font-mono text-sm"><?= $unitSqm ? clean($unitSqm) . ' sqm' : '—' ?></span>
+            </div>
+            <div>
+              <span class="text-slate-400 block mb-0.5"><?= clean($moveInLabel) ?></span>
               <span class="font-bold text-slate-800 font-mono text-sm"><?= clean(format_date_nice($moveInDate)) ?></span>
             </div>
             <div>
-              <span class="text-slate-400 block mb-0.5">Turnover Date</span>
+              <span class="text-slate-400 block mb-0.5"><?= clean($moveOutLabel) ?></span>
               <span class="font-bold text-slate-800 font-mono text-sm"><?= clean(format_date_nice($moveOutDate)) ?></span>
             </div>
             <div class="col-span-2 pt-2 border-t border-slate-100 flex items-center justify-between">

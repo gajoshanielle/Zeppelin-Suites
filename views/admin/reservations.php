@@ -234,15 +234,7 @@ if (!function_exists('badge')) {
                     </td>
 
                     <td class="px-4 py-3.5 whitespace-nowrap align-middle">
-                      <div class="flex items-center gap-2">
-                        <?= badge((string)$row['payment_status']) ?>
-                        <?php if (in_array($row['amount_match_status'] ?? '', ['short', 'over'], true)): ?>
-                          <span title="Declared amount does not match required amount"
-                                class="w-6 h-6 inline-flex items-center justify-center rounded-full bg-amber-50 text-amber-600 border border-amber-200">
-                            <span class="text-xs font-black">!</span>
-                          </span>
-                        <?php endif; ?>
-                      </div>
+                      <?= badge((string)$row['payment_status']) ?>
                     </td>
 
                     <td class="px-4 py-3.5 whitespace-nowrap align-middle">
@@ -332,7 +324,7 @@ if (!function_exists('badge')) {
 
       <div class="rounded-xl bg-emerald-50/80 border border-emerald-200 p-4 text-xs text-emerald-900 leading-relaxed">
         <p class="text-emerald-800">
-          The client will be provided an account to be an official tenant under Zeppelin Suites (visible in <a href="<?= htmlspecialchars($baseUrl) ?>/admin/residents" target="_blank" class="underline font-bold text-emerald-950 hover:text-emerald-700">Residents</a>) and can log in to the Tenant Portal with the default password: <code class="bg-emerald-100 font-mono font-bold text-emerald-950 px-1.5 py-0.5 rounded text-[11px]">tenantzepellinsuites</code>. They can change their password at any time.
+          The client will be provided an account to be an official tenant under Zeppelin Suites (visible in <a href="<?= htmlspecialchars($baseUrl) ?>/admin/residents" target="_blank" class="underline font-bold text-emerald-950 hover:text-emerald-700">Residents</a>). Once the client logs in for the first time, their account will be activated. Default password: <code class="bg-emerald-100 font-mono font-bold text-emerald-950 px-1.5 py-0.5 rounded text-[11px]">tenantzepellinsuites</code>. They can change their password at any time.
         </p>
       </div>
 

@@ -640,7 +640,7 @@ tailwind.config = {
 <!-- CREATE MAINTENANCE REQUEST MODAL -->
 <div class="modal-backdrop fixed inset-0 bg-black/40 backdrop-blur-xs z-[80] flex items-center justify-center p-4" id="createModal" onclick="handleModalBackdropClick(event,'createModal')">
   <form 
-    action="<?= htmlspecialchars($baseUrl) ?>/unitOwnerPages/ActionsUOP/submitMaintenanceRequest.php" 
+    action="<?= htmlspecialchars($baseUrl) ?>/owner/maintenance" 
     method="POST" 
     enctype="multipart/form-data"
     class="modal-card bg-white rounded-3xl shadow-2xl w-full max-w-xl border border-slate-100 overflow-hidden flex flex-col max-h-[90vh]"

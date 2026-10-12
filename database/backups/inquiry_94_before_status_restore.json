@@ -1,0 +1,21 @@
+{
+    "inquiry": {
+        "inq_id": 94,
+        "inquiry_type": "Unit Lease / Rental Reservation",
+        "status": "declined",
+        "approval_status": "declined",
+        "owner_remarks": "",
+        "timestamp": "2026-10-09 15:29:28"
+    },
+    "owner_requests": [
+        {
+            "request_id": 130,
+            "unit_id": 16,
+            "unit_owner_id": 2,
+            "request_status": "declined",
+            "owner_remarks": "",
+            "requested_at": "2026-10-09 15:35:41",
+            "responded_at": "2026-10-09 15:36:05"
+        }
+    ]
+}

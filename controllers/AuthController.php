@@ -96,6 +96,12 @@ class AuthController extends Controller {
 
         $user = $result['user'];
 
+        // Automatically activate account on first login if resident status is Inactive
+        if (isset($user['resident_status']) && strtolower((string)$user['resident_status']) === 'inactive') {
+            $this->userModel->activateResidentStatus((int)$user['user_id']);
+            $user['resident_status'] = 'Active';
+        }
+
         // Securely initialize session
         session_regenerate_id(true);
 

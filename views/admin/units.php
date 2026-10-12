@@ -222,7 +222,7 @@ tailwind.config = {
             <select id="filterStatus" onchange="applyFilters()" class="zep-select w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs font-semibold text-slate-700 cursor-pointer focus:border-slate-900 focus:outline-none">
               <option value="">All Statuses</option>
               <option value="Ready for Occupancy">Ready for Occupancy</option>
-              <option value="Resale">Resale</option>
+              <option value="For Resale">For Resale</option>
               <option value="On Hold">On Hold</option>
               <option value="Reserved">Reserved</option>
               <option value="Occupied">Occupied</option>
@@ -309,7 +309,7 @@ tailwind.config = {
                                 } elseif ($status_lower === 'on hold') {
                                     $status_class = 'bg-amber-50 text-amber-700 border-amber-200';
                                     $dot_class = 'bg-amber-500';
-                                } elseif ($status_lower === 'resale') {
+                                } elseif ($status_lower === 'resale' || $status_lower === 'for resale') {
                                     $status_class = 'bg-blue-50 text-blue-700 border-blue-200';
                                     $dot_class = 'bg-blue-500';
                                 } elseif ($status_lower === 'reserved') {
@@ -332,7 +332,8 @@ tailwind.config = {
                                 $hasTenant = (!empty($row['tenant_name']) && $row['tenant_name'] !== 'No Tenant');
 
                                 $listing_type = strtolower(trim((string)($row['listing_type'] ?? 'for lease')));
-                                $is_resale = ($listing_type === 'resale' || $status_lower === 'resale');
+                                $is_resale = ($listing_type === 'resale' || $status_lower === 'resale' || $status_lower === 'for resale');
+                                $display_status = ($status_lower === 'resale' || $status_lower === 'for resale') ? 'For Resale' : $unit_current_status;
                                 $resale_val = (float)($row['resellling_price'] ?? $row['reselling_price'] ?? 0);
 
                                 if ($is_resale && $resale_val > 0) {
@@ -355,8 +356,8 @@ tailwind.config = {
                                 data-sqm="<?= $sqm_formatted ?>"
                                 data-floor-number="<?= $floorNum ?>"
                                 data-floor-title="<?= clean($floorTitle) ?>"
-                                data-unit-current-status="<?= $unit_current_status ?>"
-                                data-search-text="<?= strtolower("{$unit_number} {$unit_type} {$sqm_formatted} sqm {$floorTitle} Floor {$floorNum} {$listing_type} {$unit_current_status} {$unit_owner_name} {$unit_owner_email} {$tenant_name}") ?>">
+                                data-unit-current-status="<?= $display_status ?>"
+                                data-search-text="<?= strtolower("{$unit_number} {$unit_type} {$sqm_formatted} sqm {$floorTitle} Floor {$floorNum} {$listing_type} {$display_status} {$unit_owner_name} {$unit_owner_email} {$tenant_name}") ?>">
                                 
                                 <!-- 1. UNIT -->
                                 <td class="px-5 py-3.5 whitespace-nowrap align-middle">
@@ -372,7 +373,7 @@ tailwind.config = {
                                 <td class="px-4 py-3.5 whitespace-nowrap align-middle">
                                     <span class="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full border <?= $status_class ?>">
                                         <span class="w-1.5 h-1.5 rounded-full <?= $dot_class ?>"></span>
-                                        <?= $unit_current_status ?>
+                                        <?= $display_status ?>
                                     </span>
                                 </td>
 
@@ -566,7 +567,7 @@ tailwind.config = {
           <select name="unit_current_status" required
               class="w-full border border-slate-200 rounded-xl px-3.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900 bg-white">
               <option value="Ready for Occupancy">Ready for Occupancy</option>
-              <option value="Resale">Resale</option>
+              <option value="For Resale">For Resale</option>
               <option value="On Hold">On Hold</option>
               <option value="Reserved">Reserved</option>
               <option value="Occupied">Occupied</option>
@@ -630,7 +631,7 @@ function applyFilters() {
       const searchText = row.dataset.searchText || '';
 
       const typeMatches = !typeVal || rowType === typeVal;
-      const statusMatches = !statusVal || rowStatus === statusVal;
+      const statusMatches = !statusVal || rowStatus === statusVal || (statusVal === 'for resale' && (rowStatus === 'resale' || rowStatus === 'for resale'));
       const queryMatches = !query || searchText.includes(query);
 
       if (typeMatches && statusMatches && queryMatches) {

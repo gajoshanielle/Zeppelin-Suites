@@ -341,6 +341,30 @@ tailwind.config = {
         </div>
       </div>
 
+      <section class="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 md:p-8">
+        <div class="max-w-2xl">
+          <h2 class="text-base font-bold text-slate-900">Change Password</h2>
+          <p class="text-xs text-slate-400 mt-1 mb-5">Enter your current password and choose a new password with at least 8 characters.</p>
+          <form method="POST" action="<?= htmlspecialchars($baseUrl) ?>/owner/account" class="space-y-4">
+            <input type="hidden" name="action" value="change_password">
+            <input type="hidden" name="csrf_token" value="<?= e($passwordCsrfToken ?? '') ?>">
+            <div>
+              <label for="ownerCurrentPassword" class="block text-xs font-bold text-slate-700 mb-1.5">Current Password</label>
+              <input id="ownerCurrentPassword" type="password" name="current_password" required autocomplete="current-password" class="zep-input w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm">
+            </div>
+            <div>
+              <label for="ownerNewPassword" class="block text-xs font-bold text-slate-700 mb-1.5">New Password</label>
+              <input id="ownerNewPassword" type="password" name="new_password" required minlength="8" autocomplete="new-password" class="zep-input w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm">
+            </div>
+            <div>
+              <label for="ownerConfirmPassword" class="block text-xs font-bold text-slate-700 mb-1.5">Confirm New Password</label>
+              <input id="ownerConfirmPassword" type="password" name="confirm_password" required minlength="8" autocomplete="new-password" class="zep-input w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm">
+            </div>
+            <button type="submit" class="btn-press px-5 py-2.5 text-sm font-semibold bg-slate-900 text-white rounded-xl hover:bg-slate-800 shadow-md">Change Password</button>
+          </form>
+        </div>
+      </section>
+
     </div>
   </div>
 </div>
@@ -381,17 +405,6 @@ tailwind.config = {
       <div>
         <label class="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">Additional Email</label>
         <input type="email" name="additional_email" value="<?= e($owner['additional_email'] ?? '') ?>" class="zep-input w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium" placeholder="Optional">
-      </div>
-
-      <div class="pt-3 border-t border-slate-100">
-        <label class="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">Change Password</label>
-        <div class="relative">
-          <input type="password" id="editOwnerPassword" name="new_password" placeholder="Leave blank to keep current password" class="zep-input w-full pl-4 pr-11 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium">
-          <button type="button" onclick="togglePasswordVisibility('editOwnerPassword', this)" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 transition-colors p-1" title="Toggle password visibility">
-            <svg class="w-4 h-4 eye-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
-            <svg class="w-4 h-4 eye-slash-icon hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l18 18"/></svg>
-          </button>
-        </div>
       </div>
 
       <div class="pt-4 flex items-center justify-end gap-3">

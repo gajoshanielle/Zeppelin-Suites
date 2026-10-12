@@ -88,6 +88,36 @@ class User extends Model {
     }
 
     /**
+     * Verify the current password and securely replace it for an authenticated user.
+     */
+    public function changePassword(int $userId, string $currentPassword, string $newPassword, string $confirmPassword): array {
+        if ($userId <= 0 || $currentPassword === '' || $newPassword === '' || $confirmPassword === '') {
+            return ['success' => false, 'message' => 'Complete all password fields.'];
+        }
+
+        if (!hash_equals($newPassword, $confirmPassword)) {
+            return ['success' => false, 'message' => 'The new password and confirmation do not match.'];
+        }
+
+        $passwordLength = function_exists('mb_strlen') ? mb_strlen($newPassword, 'UTF-8') : strlen($newPassword);
+        if ($passwordLength < 8) {
+            return ['success' => false, 'message' => 'The new password must be at least 8 characters long.'];
+        }
+
+        $user = $this->fetchOne("SELECT password FROM users_table WHERE user_id = ? LIMIT 1", [$userId]);
+        if (!$user || !password_verify($currentPassword, (string)($user['password'] ?? ''))) {
+            return ['success' => false, 'message' => 'The current password is incorrect.'];
+        }
+
+        $newHash = password_hash($newPassword, PASSWORD_BCRYPT);
+        if ($newHash === false || !$this->execute("UPDATE users_table SET password = ? WHERE user_id = ?", [$newHash, $userId])) {
+            return ['success' => false, 'message' => 'Unable to change the password. Please try again.'];
+        }
+
+        return ['success' => true, 'message' => 'Your password has been changed successfully.'];
+    }
+
+    /**
      * Update user profile data.
      */
     public function updateProfile(int $userId, array $data): bool {
@@ -130,5 +160,13 @@ class User extends Model {
             'full_name' => $fullName,
             'initial'   => $initial,
         ];
+    }
+
+    /**
+     * Activate resident status upon first login.
+     */
+    public function activateResidentStatus(int $userId): bool {
+        $sql = "UPDATE users_table SET resident_status = 'Active' WHERE user_id = ?";
+        return $this->execute($sql, [$userId]);
     }
 }

@@ -22,6 +22,7 @@ class Tenant extends Model {
             SELECT 
                 r.reservation_id,
                 r.unit_id,
+                r.inq_id,
                 r.client_name,
                 r.client_email,
                 r.client_contact,
@@ -36,15 +37,20 @@ class Tenant extends Model {
                 u.unit_number,
                 u.unit_type,
                 u.floor_number,
+                u.sqm,
                 u.unit_current_status,
                 u.lease_rate,
                 owner.user_id AS owner_id,
                 owner.full_name AS owner_name,
                 owner.email AS owner_email,
-                owner.contact AS owner_contact
+                owner.contact AS owner_contact,
+                i.preferred_move_in_time,
+                r.confirmed_signing_date,
+                r.transaction_type
             FROM reservation_table r
             INNER JOIN units_table u ON r.unit_id = u.unit_id
             LEFT JOIN users_table owner ON u.unit_owner_id = owner.user_id
+            LEFT JOIN inquiry_table i ON r.inq_id = i.inq_id
             WHERE (r.client_email = ? OR r.client_name = ?)
               AND LOWER(r.reservation_status) NOT IN ('cancelled', 'rejected')
             ORDER BY 
@@ -114,6 +120,7 @@ class Tenant extends Model {
             SELECT 
                 r.reservation_id,
                 r.unit_id,
+                r.inq_id,
                 r.client_name,
                 r.client_email,
                 r.client_contact,
@@ -129,6 +136,7 @@ class Tenant extends Model {
                 u.unit_number,
                 u.unit_type,
                 u.floor_number,
+                u.sqm,
                 u.unit_current_status,
                 u.lease_rate,
                 owner.user_id AS owner_id,
@@ -174,7 +182,7 @@ class Tenant extends Model {
     }
 
     /**
-     * Update tenant profile information and optional password.
+     * Update tenant profile information.
      */
     public function updateProfile(int $tenantId, array $data): array {
         $fullName = trim((string)($data['full_name'] ?? ''));
@@ -182,7 +190,6 @@ class Tenant extends Model {
         $dob = !empty($data['date_of_birth']) ? (string)$data['date_of_birth'] : null;
         $addContact = !empty($data['additional_contact']) ? trim((string)$data['additional_contact']) : null;
         $addEmail = !empty($data['additional_email']) ? trim((string)$data['additional_email']) : null;
-        $newPassword = (string)($data['new_password'] ?? '');
 
         if ($fullName === '') {
             return ['success' => false, 'message' => 'Full name cannot be empty.'];
@@ -208,11 +215,6 @@ class Tenant extends Model {
                 $updates[] = "additional_email = ?";
                 $params[] = $addEmail;
             }
-            if (!empty($newPassword)) {
-                $updates[] = "password = ?";
-                $params[] = password_hash($newPassword, PASSWORD_BCRYPT);
-            }
-
             $params[] = $tenantId;
             $sql = "UPDATE users_table SET " . implode(', ', $updates) . " WHERE user_id = ?";
             $this->execute($sql, $params);
@@ -226,18 +228,19 @@ class Tenant extends Model {
     /**
      * Retrieve all units assigned to this tenant.
      */
-    public function getTenantUnits(string $email, string $name): array {
+    public function getTenantUnits(int $tenantId): array {
         $sql = "
             SELECT DISTINCT u.unit_id, u.unit_number, u.unit_type, u.floor_number, u.unit_owner_id,
                    owner.full_name AS owner_name
             FROM units_table u
             INNER JOIN reservation_table r ON r.unit_id = u.unit_id
+            INNER JOIN users_table tenant ON tenant.email = r.client_email
             LEFT JOIN users_table owner ON u.unit_owner_id = owner.user_id
-            WHERE (r.client_email = ? OR r.client_name = ?)
+            WHERE tenant.user_id = ?
               AND LOWER(r.reservation_status) NOT IN ('cancelled', 'rejected')
             ORDER BY u.unit_number ASC
         ";
-        return $this->fetchAll($sql, [$email, $name]);
+        return $this->fetchAll($sql, [$tenantId]);
     }
 
     /**
@@ -270,7 +273,14 @@ class Tenant extends Model {
             FROM maintenance_requests m
             INNER JOIN units_table u ON m.unit_id = u.unit_id
             LEFT JOIN users_table owner ON m.unit_owner_id = owner.user_id
-            WHERE m.submitted_by_user_id = ?
+            WHERE EXISTS (
+                SELECT 1
+                FROM reservation_table r
+                INNER JOIN users_table tenant ON tenant.email = r.client_email
+                WHERE r.unit_id = m.unit_id
+                  AND tenant.user_id = ?
+                  AND LOWER(r.reservation_status) NOT IN ('cancelled', 'rejected')
+            )
             ORDER BY m.submitted_at DESC
         ";
         return $this->fetchAll($sql, [$name, $tenantId]);
@@ -280,7 +290,6 @@ class Tenant extends Model {
      * Create a new maintenance ticket submitted by the tenant.
      */
     public function createMaintenanceRequest(int $tenantId, string $email, string $name, array $data, array $files): array {
-        $unitId = (int)($data['unit_id'] ?? 0);
         $subject = trim((string)($data['subject'] ?? ''));
         $category = trim((string)($data['category'] ?? ''));
         $priority = trim((string)($data['priority'] ?? 'normal'));
@@ -289,7 +298,7 @@ class Tenant extends Model {
         $allowedCategories = ['Plumbing', 'Electrical', 'Cleaning', 'Fixture', 'Structural', 'Other'];
         $allowedPriorities = ['low', 'normal', 'urgent'];
 
-        if ($unitId <= 0 || $subject === '' || $category === '' || $description === '') {
+        if ($subject === '' || $category === '' || $description === '') {
             return ['success' => false, 'message' => 'Please complete all required fields.'];
         }
 
@@ -301,23 +310,16 @@ class Tenant extends Model {
             return ['success' => false, 'message' => 'Invalid priority level.'];
         }
 
-        // Verify tenant authorization for this unit
-        $checkSql = "
-            SELECT u.unit_id, u.unit_number, u.unit_owner_id 
-            FROM units_table u
-            INNER JOIN reservation_table r ON r.unit_id = u.unit_id
-            WHERE u.unit_id = ? 
-              AND (r.client_email = ? OR r.client_name = ?)
-              AND LOWER(r.reservation_status) NOT IN ('cancelled', 'rejected')
-            LIMIT 1
-        ";
-        $unit = $this->fetchOne($checkSql, [$unitId, $email, $name]);
-        if (!$unit) {
+        // Tenants have one assigned unit; derive it from the authenticated user's reservation.
+        $tenantUnits = $this->getTenantUnits($tenantId);
+        if (count($tenantUnits) !== 1) {
             return [
                 'success' => false,
-                'message' => 'Unauthorized: You do not have an active lease for this unit.'
+                'message' => 'Unable to verify your assigned unit. Please contact management.'
             ];
         }
+        $unit = $tenantUnits[0];
+        $unitId = (int)$unit['unit_id'];
 
         $unitOwnerId = (int)($unit['unit_owner_id'] ?? 0);
 

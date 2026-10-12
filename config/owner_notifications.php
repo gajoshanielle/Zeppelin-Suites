@@ -35,7 +35,7 @@ function sendOwnerNotificationEmail(string $ownerEmail, string $ownerName, strin
         $mail->Host = SMTP_HOST;
         $mail->SMTPAuth = true;
         $mail->Username = $username;
-        $mail->Password = $password;
+        $mail->Password = str_replace(' ', '', (string)$password);
         $mail->SMTPSecure = (SMTP_PORT === 465) ? PHPMailer::ENCRYPTION_SMTPS : PHPMailer::ENCRYPTION_STARTTLS;
         $mail->Port = SMTP_PORT;
         $mail->SMTPOptions = [
@@ -132,11 +132,12 @@ function notifyTenantOfHandover(string $tenantEmail, string $tenantName, string 
 
     $body = "Dear {$tenantName},\n\n"
         . "Congratulations! The unit handover for {$unitDisplay} at Zeppelin Suites has been formally completed.\n\n"
-        . "Your Tenant Portal account has been activated with the following credentials:\n"
+        . "Your Tenant Portal account has been created. Once you log in for the first time, your account will be officially activated.\n\n"
+        . "Login Credentials:\n"
         . "--------------------------------------------------------\n"
         . "Tenant Portal URL: {$loginUrl}\n"
         . "Registered Email:  {$tenantEmail}\n"
-        . "Temporary Password: {$initialPassword}\n"
+        . "Default Password:  {$initialPassword}\n"
         . "--------------------------------------------------------\n\n"
         . "You can now log in to manage your tenant account, submit service & maintenance requests, and view announcements.\n\n"
         . "For security purposes, please change your password after logging in for the first time.\n\n"
@@ -145,4 +146,113 @@ function notifyTenantOfHandover(string $tenantEmail, string $tenantName, string 
         . "Zeppelin Suites Management Team";
 
     return sendOwnerNotificationEmail($tenantEmail, $tenantName, $subject, $body);
+}
+
+/**
+ * Notify the client that their reservation cancellation request has been approved.
+ */
+function notifyClientOfCancellationApproval(
+    string $clientEmail,
+    string $clientName,
+    int $reservationId,
+    string $unitDisplay,
+    ?string $cancellationReason = null,
+    ?string $adminRemarks = null
+): bool {
+    $subject = "Zeppelin Suites - Reservation #{$reservationId} Cancellation Approved";
+
+    $reasonText = (!empty($cancellationReason) && $cancellationReason !== 'No reason provided.')
+        ? "Cancellation Reason:\n{$cancellationReason}\n\n"
+        : "";
+    $remarksText = (!empty($adminRemarks) && $adminRemarks !== $cancellationReason && $adminRemarks !== 'Approved cancellation request from unit owner.' && $adminRemarks !== 'Approved cancellation request.')
+        ? "Admin Remarks:\n{$adminRemarks}\n\n"
+        : "";
+
+    $body = "Dear {$clientName},\n\n"
+        . "This is an official confirmation that the cancellation request for your reservation (#{$reservationId}) for {$unitDisplay} at Zeppelin Suites has been reviewed and approved by management.\n\n"
+        . "The reservation has been cancelled, and the unit hold has been officially released.\n\n"
+        . "--------------------------------------------------------\n"
+        . "Reservation ID: #{$reservationId}\n"
+        . "Unit:           {$unitDisplay}\n"
+        . "Status:         Cancelled (Approved)\n"
+        . "--------------------------------------------------------\n\n"
+        . ($reasonText !== '' ? $reasonText : '')
+        . ($remarksText !== '' ? $remarksText : '')
+        . "If you have questions regarding any payments, refunds, or require further assistance, please contact our administrative office.\n\n"
+        . "Thank you,\n"
+        . "Zeppelin Suites Management Team";
+
+    return sendOwnerNotificationEmail($clientEmail, $clientName, $subject, $body);
+}
+
+/**
+ * Notify the unit owner that a reservation cancellation on their unit was approved by admin.
+ */
+function notifyOwnerOfCancellation(
+    string $ownerEmail,
+    string $ownerName,
+    int $reservationId,
+    string $unitDisplay,
+    string $clientName,
+    ?string $cancellationReason = null,
+    ?string $adminRemarks = null
+): bool {
+    $subject = "Zeppelin Suites - Reservation #{$reservationId} Cancellation Approved for {$unitDisplay}";
+
+    $reasonText = (!empty($cancellationReason) && $cancellationReason !== 'No reason provided.')
+        ? "Cancellation Reason:\n{$cancellationReason}\n\n"
+        : "";
+    $remarksText = (!empty($adminRemarks) && $adminRemarks !== $cancellationReason && $adminRemarks !== 'Approved cancellation request from unit owner.' && $adminRemarks !== 'Approved cancellation request.')
+        ? "Admin Remarks:\n{$adminRemarks}\n\n"
+        : "";
+
+    $body = "Hi {$ownerName},\n\n"
+        . "Please be informed that the reservation (#{$reservationId}) by {$clientName} for your unit ({$unitDisplay}) has been officially cancelled following admin review and approval.\n\n"
+        . "The unit has been released back to active availability.\n\n"
+        . "--------------------------------------------------------\n"
+        . "Reservation ID: #{$reservationId}\n"
+        . "Unit:           {$unitDisplay}\n"
+        . "Client Name:    {$clientName}\n"
+        . "Status:         Cancelled\n"
+        . "--------------------------------------------------------\n\n"
+        . ($reasonText !== '' ? $reasonText : '')
+        . ($remarksText !== '' ? $remarksText : '')
+        . "You can check your updated property calendar and availability anytime in your portal:\n"
+        . OWNER_PORTAL_LOGIN_URL . "\n\n"
+        . "Thank you,\n"
+        . "Zeppelin Suites Management Team";
+
+    return sendOwnerNotificationEmail($ownerEmail, $ownerName, $subject, $body);
+}
+
+/**
+ * Notify recipient that a reservation cancellation request was declined by admin.
+ */
+function notifyCancellationDeclined(
+    string $recipientEmail,
+    string $recipientName,
+    int $reservationId,
+    string $unitDisplay,
+    string $adminRemarks
+): bool {
+    $subject = "Zeppelin Suites - Reservation #{$reservationId} Cancellation Request Declined";
+
+    $remarksText = !empty($adminRemarks)
+        ? "Admin Remarks:\n{$adminRemarks}\n\n"
+        : "Admin Remarks:\nYour cancellation request has been declined after review by management.\n\n";
+
+    $body = "Dear {$recipientName},\n\n"
+        . "Please be advised that the cancellation request for reservation #{$reservationId} ({$unitDisplay}) at Zeppelin Suites has been reviewed and declined by administration.\n\n"
+        . "Your reservation remains active in our system.\n\n"
+        . "--------------------------------------------------------\n"
+        . "Reservation ID: #{$reservationId}\n"
+        . "Unit:           {$unitDisplay}\n"
+        . "Status:         Active (Cancellation Request Declined)\n"
+        . "--------------------------------------------------------\n\n"
+        . $remarksText
+        . "If you have any questions or require further clarification, please contact our leasing and customer support office.\n\n"
+        . "Thank you,\n"
+        . "Zeppelin Suites Management Team";
+
+    return sendOwnerNotificationEmail($recipientEmail, $recipientName, $subject, $body);
 }

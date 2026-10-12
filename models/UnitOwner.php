@@ -403,6 +403,125 @@ class UnitOwner extends Model {
     }
 
     /**
+     * Create a maintenance request submitted by a unit owner.
+     */
+    public function createMaintenanceRequest(int $ownerId, array $data, array $files): array {
+        $unitId = (int)($data['unit_id'] ?? 0);
+        $subject = trim((string)($data['subject'] ?? ''));
+        $category = trim((string)($data['category'] ?? ''));
+        $priority = trim((string)($data['priority'] ?? 'normal'));
+        $description = trim((string)($data['description'] ?? ''));
+
+        $allowedCategories = ['Plumbing', 'Electrical', 'Cleaning', 'Fixture', 'Structural', 'Other'];
+        $allowedPriorities = ['low', 'normal', 'urgent'];
+
+        if ($unitId <= 0 || $subject === '' || $category === '' || $description === '') {
+            return ['success' => false, 'message' => 'Please fill in all required fields.'];
+        }
+
+        if (!in_array($category, $allowedCategories, true)) {
+            return ['success' => false, 'message' => 'Invalid maintenance category selected.'];
+        }
+
+        if (!in_array($priority, $allowedPriorities, true)) {
+            return ['success' => false, 'message' => 'Invalid priority selected.'];
+        }
+
+        // Verify the unit belongs to this owner
+        $unit = $this->fetchOne("SELECT unit_id FROM units_table WHERE unit_id = ? AND unit_owner_id = ? LIMIT 1", [$unitId, $ownerId]);
+        if (!$unit) {
+            return ['success' => false, 'message' => 'Invalid unit or unit is not assigned to your account.'];
+        }
+
+        // Handle photos upload
+        $photoPaths = [];
+        if (!empty($files['maintenance_photos']['name'][0])) {
+            $uploadDir = dirname(__DIR__) . '/images/maintenance/';
+            $dbDir = 'images/maintenance/';
+
+            if (!is_dir($uploadDir)) {
+                mkdir($uploadDir, 0775, true);
+            }
+
+            $allowedExt = ['jpg', 'jpeg', 'png', 'webp'];
+            $maxFiles = 5;
+            $maxSize = 5 * 1024 * 1024;
+            $fileCount = count($files['maintenance_photos']['name']);
+
+            if ($fileCount > $maxFiles) {
+                return ['success' => false, 'message' => 'You may upload up to 5 photos only.'];
+            }
+
+            for ($i = 0; $i < $fileCount; $i++) {
+                if ($files['maintenance_photos']['error'][$i] === UPLOAD_ERR_NO_FILE) {
+                    continue;
+                }
+
+                if ($files['maintenance_photos']['error'][$i] !== UPLOAD_ERR_OK) {
+                    return ['success' => false, 'message' => 'One of the uploaded photos failed to process.'];
+                }
+
+                if ($files['maintenance_photos']['size'][$i] > $maxSize) {
+                    return ['success' => false, 'message' => 'Each photo must be 5MB or below.'];
+                }
+
+                $originalName = (string)$files['maintenance_photos']['name'][$i];
+                $tmpName = (string)$files['maintenance_photos']['tmp_name'][$i];
+                $ext = strtolower(pathinfo($originalName, PATHINFO_EXTENSION));
+
+                if (!in_array($ext, $allowedExt, true)) {
+                    return ['success' => false, 'message' => 'Only JPG, PNG, and WEBP files are allowed.'];
+                }
+
+                $newName = 'maintenance_own_' . time() . '_' . bin2hex(random_bytes(8)) . '.' . $ext;
+                $targetPath = $uploadDir . $newName;
+                $dbPath = $dbDir . $newName;
+
+                if (!move_uploaded_file($tmpName, $targetPath)) {
+                    return ['success' => false, 'message' => 'Failed to upload photo.'];
+                }
+
+                $photoPaths[] = $dbPath;
+            }
+        }
+
+        $photoPathsValue = !empty($photoPaths) ? implode(',', $photoPaths) : null;
+
+        $insertSql = "
+            INSERT INTO maintenance_requests (
+                submitted_by_user_id,
+                submitted_by_role,
+                unit_owner_id,
+                unit_id,
+                subject,
+                category,
+                description,
+                priority,
+                status,
+                photo_paths,
+                submitted_at
+            ) VALUES (?, 'unit owner', ?, ?, ?, ?, ?, ?, 'pending', ?, NOW())
+        ";
+
+        try {
+            $this->execute($insertSql, [
+                $ownerId,
+                $ownerId,
+                $unitId,
+                $subject,
+                $category,
+                $description,
+                $priority,
+                $photoPathsValue,
+            ]);
+
+            return ['success' => true, 'message' => 'Maintenance request submitted successfully!'];
+        } catch (Throwable $e) {
+            return ['success' => false, 'message' => 'Database error: ' . $e->getMessage()];
+        }
+    }
+
+    /**
      * Retrieve timeline calendar data filtered for this owner's units.
      */
     public function getCalendarData(int $ownerId): array {
@@ -664,7 +783,6 @@ class UnitOwner extends Model {
         $dob = !empty($data['date_of_birth']) ? (string)$data['date_of_birth'] : null;
         $addContact = !empty($data['additional_contact']) ? trim((string)$data['additional_contact']) : null;
         $addEmail = !empty($data['additional_email']) ? trim((string)$data['additional_email']) : null;
-        $newPassword = (string)($data['new_password'] ?? '');
 
         if ($fullName === '') {
             return ['success' => false, 'message' => 'Full name cannot be empty.'];
@@ -689,11 +807,6 @@ class UnitOwner extends Model {
                 $updates[] = "additional_email = ?";
                 $params[] = $addEmail;
             }
-            if (!empty($newPassword)) {
-                $updates[] = "password = ?";
-                $params[] = password_hash($newPassword, PASSWORD_BCRYPT);
-            }
-
             $params[] = $ownerId;
             $sql = "UPDATE users_table SET " . implode(', ', $updates) . " WHERE user_id = ?";
             $this->execute($sql, $params);
@@ -793,10 +906,10 @@ class UnitOwner extends Model {
                 $pendingCount = (int)($countsRow['pending_count'] ?? 0);
                 $approvedCount = (int)($countsRow['approved_count'] ?? 0);
 
-                // If all owners responded and none approved, mark inquiry as declined
+                // Keep the inquiry's main status unchanged; owner decision is tracked separately.
                 if ($pendingCount === 0 && $approvedCount === 0) {
                     $this->execute(
-                        "UPDATE inquiry_table SET status = 'declined', approval_status = 'declined', owner_remarks = ? WHERE inq_id = ? AND approval_status != 'approved'",
+                        "UPDATE inquiry_table SET approval_status = 'declined', owner_remarks = ? WHERE inq_id = ? AND approval_status != 'approved'",
                         [$remarks, $inqId]
                     );
                 }
@@ -823,7 +936,7 @@ class UnitOwner extends Model {
      */
     public function updateUnitSettings(int $ownerId, int $unitId, array $data): array {
         // 1. Verify that the unit belongs to this owner
-        $sql = "SELECT unit_id, unit_current_status, lease_rate, COALESCE(resellling_price, reselling_price, NULL) as reselling_price FROM units_table WHERE unit_id = ? AND unit_owner_id = ? LIMIT 1";
+        $sql = "SELECT unit_id, unit_current_status, stay_category, lease_rate, COALESCE(resellling_price, reselling_price, NULL) as reselling_price FROM units_table WHERE unit_id = ? AND unit_owner_id = ? LIMIT 1";
         $unit = $this->fetchOne($sql, [$unitId, $ownerId]);
         if (!$unit) {
             throw new RuntimeException('Unit not found or access denied.');
@@ -836,9 +949,12 @@ class UnitOwner extends Model {
         }
 
         // 3. Validate stay_category
-        $stayCategory = trim((string)($data['stay_category'] ?? 'Long term'));
+        $existingStay = !empty($unit['stay_category']) ? (string)$unit['stay_category'] : 'Long term';
+        $stayCategory = isset($data['stay_category']) && trim((string)$data['stay_category']) !== '' 
+            ? trim((string)$data['stay_category']) 
+            : $existingStay;
         if (!in_array($stayCategory, ['Long term', 'Short term'], true)) {
-            $stayCategory = 'Long term';
+            $stayCategory = $existingStay;
         }
 
         // 4. Validate lease_rate and reselling_price
@@ -858,8 +974,8 @@ class UnitOwner extends Model {
         $newStatus = $currentStatus;
         if (!in_array(strtolower($currentStatus), ['occupied', 'under maintenance'], true)) {
             if ($listingType === 'Resale') {
-                $newStatus = 'Resale';
-            } elseif ($listingType === 'For Lease' && strtolower($currentStatus) === 'resale') {
+                $newStatus = 'For Resale';
+            } elseif ($listingType === 'For Lease' && in_array(strtolower($currentStatus), ['resale', 'for resale'], true)) {
                 $newStatus = 'Ready for Occupancy';
             }
         }
@@ -1039,7 +1155,7 @@ class UnitOwner extends Model {
         // Reject / Not Received
         $inquiryType = strtolower(trim((string)($res['inquiry_type'] ?? '')));
         $releasedStatus = ($inquiryType === 'resale inquiry' || strpos($inquiryType, 'resale') !== false) 
-            ? 'Resale' 
+            ? 'For Resale' 
             : 'Ready for Occupancy';
 
         $sql = "
@@ -1126,6 +1242,37 @@ class UnitOwner extends Model {
         }
 
         return ['success' => true, 'message' => 'Cancellation request submitted to admin successfully.'];
+    }
+
+    /**
+     * Cancel / withdraw a pending cancellation request for this owner's unit.
+     */
+    public function withdrawCancellationRequest(int $ownerId, int $reservationId): array {
+        $res = $this->getReservationDetails($ownerId, $reservationId);
+        if (!$res) {
+            return ['success' => false, 'message' => 'Reservation not found or unauthorized.'];
+        }
+
+        if (strtolower((string)($res['cancellation_status'] ?? 'none')) !== 'requested') {
+            return ['success' => false, 'message' => 'There is no pending cancellation request to cancel.'];
+        }
+
+        $success = $this->execute(
+            "UPDATE reservation_table 
+             SET cancellation_status = 'none',
+                 cancellation_reason = NULL,
+                 cancellation_requested_by = NULL,
+                 cancellation_requested_by_role = NULL,
+                 cancellation_requested_at = NULL
+             WHERE reservation_id = ?",
+            [$reservationId]
+        );
+
+        if (!$success) {
+            return ['success' => false, 'message' => 'Database error while cancelling cancellation request.'];
+        }
+
+        return ['success' => true, 'message' => 'Your cancellation request has been cancelled. The reservation remains active.'];
     }
 }
 

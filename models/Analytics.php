@@ -267,7 +267,7 @@ class Analytics extends Model {
             SELECT
                 COUNT(*) AS total_units,
                 COALESCE(SUM(CASE WHEN unit_current_status = 'Occupied' THEN 1 ELSE 0 END), 0) AS occupied_units,
-                COALESCE(SUM(CASE WHEN unit_current_status IN ('Ready for Occupancy', 'Resale', 'On Hold') THEN 1 ELSE 0 END), 0) AS available_units
+                COALESCE(SUM(CASE WHEN unit_current_status IN ('Ready for Occupancy', 'For Resale', 'Resale', 'On Hold') THEN 1 ELSE 0 END), 0) AS available_units
             FROM units_table
         ";
         $unitsRow = $this->fetchOne($unitsSql) ?: ['total_units' => 0, 'occupied_units' => 0, 'available_units' => 0];

@@ -301,6 +301,30 @@ class UnitOwnerController extends Controller {
     }
 
     /**
+     * Handle submission of a new maintenance request from unit owner.
+     */
+    public function storeMaintenance(): void {
+        $userSession = Middleware::requireRole(['unit owner']);
+        $baseUrl = rtrim((string)env('APP_URL', '/Zeppelin-Suites'), '/');
+
+        if (!$this->isPost()) {
+            $this->redirect("{$baseUrl}/owner/maintenance");
+            return;
+        }
+
+        $ownerId = (int)$userSession['user_id'];
+        $result = $this->ownerModel->createMaintenanceRequest($ownerId, $_POST, $_FILES);
+
+        if ($result['success']) {
+            $_SESSION['success_message'] = $result['message'];
+        } else {
+            $_SESSION['error_message'] = $result['message'];
+        }
+
+        $this->redirect("{$baseUrl}/owner/maintenance");
+    }
+
+    /**
      * Display and Update Owner Account Settings.
      */
     public function account(): void {
@@ -568,6 +592,28 @@ class UnitOwnerController extends Controller {
         }
 
         $result = $this->ownerModel->requestCancellation($ownerId, $reservationId, $reason);
+        $this->json($result, $result['success'] ? 200 : 422);
+    }
+
+    /**
+     * AJAX endpoint to cancel / withdraw a cancellation request (Unit Owner).
+     */
+    public function withdrawCancellation(): void {
+        $userSession = Middleware::requireRole(['unit owner']);
+        $ownerId = (int)$userSession['user_id'];
+
+        if (!$this->isPost()) {
+            $this->json(['success' => false, 'message' => 'Invalid request method.'], 405);
+            return;
+        }
+
+        $reservationId = (int)$this->getPost('reservation_id', 0);
+        if ($reservationId <= 0) {
+            $this->json(['success' => false, 'message' => 'Invalid reservation ID.'], 400);
+            return;
+        }
+
+        $result = $this->ownerModel->withdrawCancellationRequest($ownerId, $reservationId);
         $this->json($result, $result['success'] ? 200 : 422);
     }
 }
