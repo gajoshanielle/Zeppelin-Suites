@@ -8,6 +8,29 @@ declare(strict_types=1);
 $baseUrl = $baseUrl ?? rtrim((string) env('APP_URL', '/Zeppelin-Suites'), '/');
 $activeTab = $activeTab ?? '';
 
+if (empty($activeTab)) {
+  $requestUri = $_SERVER['REQUEST_URI'] ?? '';
+  if (strpos($requestUri, 'booking-calendar') !== false) {
+    $activeTab = 'bookingcalendar';
+  } elseif (strpos($requestUri, 'reservations') !== false) {
+    $activeTab = 'reservation';
+  } elseif (strpos($requestUri, 'units') !== false) {
+    $activeTab = 'units';
+  } elseif (strpos($requestUri, 'residents') !== false) {
+    $activeTab = 'residents';
+  } elseif (strpos($requestUri, 'maintenance') !== false) {
+    $activeTab = 'maintenance';
+  } elseif (strpos($requestUri, 'analytics') !== false) {
+    $activeTab = 'analytics';
+  } elseif (strpos($requestUri, 'inquiries') !== false) {
+    $activeTab = 'inquiry';
+  } elseif (strpos($requestUri, 'account') !== false) {
+    $activeTab = 'account';
+  } elseif (strpos($requestUri, 'home') !== false) {
+    $activeTab = 'home';
+  }
+}
+
 $navItems = [
   [
     'id' => 'home',
@@ -89,7 +112,12 @@ $navItems = [
   </div>
   <nav class="flex-1 px-2 py-4 space-y-0.5 overflow-y-auto overflow-x-hidden">
     <?php foreach ($navItems as $item): ?>
-      <?php $isActive = ($activeTab === $item['id']); ?>
+      <?php 
+        $isActive = ($activeTab === $item['id'])
+          || ($item['id'] === 'bookingcalendar' && in_array($activeTab, ['bookingcalendar', 'calendar', 'booking_calendar', 'booking-calendar'], true))
+          || ($item['id'] === 'reservation' && in_array($activeTab, ['reservation', 'reservations'], true))
+          || ($item['id'] === 'inquiry' && in_array($activeTab, ['inquiry', 'inquiries'], true));
+      ?>
       <a href="<?= htmlspecialchars($item['url']) ?>" data-tooltip="<?= htmlspecialchars($item['label']) ?>"
         class="sidebar-link <?= $isActive ? 'active' : '' ?> flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium <?= $isActive ? 'text-white' : 'text-slate-500' ?>">
         <?= $item['svg'] ?>

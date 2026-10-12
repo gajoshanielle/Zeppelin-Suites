@@ -6,6 +6,7 @@ declare(strict_types=1);
  * Pure MVC presentation template. Zero direct SQL or DB connections.
  */
 $baseUrl = $baseUrl ?? rtrim((string)env('APP_URL', '/Zeppelin-Suites'), '/');
+$activeTab = $activeTab ?? 'bookingcalendar';
 ?>
 <!DOCTYPE html>
 <html lang="en">

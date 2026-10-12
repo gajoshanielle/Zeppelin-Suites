@@ -30,7 +30,7 @@ class BookingCalendarController extends Controller {
 
         $this->render('admin/booking_calendar', [
             'pageTitle'           => 'Zeppelin Suites - Booking Calendar',
-            'activeTab'           => 'calendar',
+            'activeTab'           => 'bookingcalendar',
             'adminName'           => $userSession['full_name'],
             'adminInitial'        => $userSession['initial'],
             'baseUrl'             => $baseUrl,
