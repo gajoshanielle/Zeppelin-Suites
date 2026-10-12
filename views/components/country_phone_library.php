@@ -345,53 +345,9 @@ declare(strict_types=1);
       }
     });
 
-    // Smart typing detection: As the inquirer types the first few numbers,
-    // detect and automatically highlight the probable country landline code
+    // Synchronize hidden submission input when typing phone number without altering selected country
     phoneInput.addEventListener('input', () => {
-      const val = phoneInput.value.trim();
       syncHiddenValue();
-
-      if (!val) return;
-
-      // 1. If starts with "+" (e.g. +1, +44, +63, +81, +82, etc.)
-      if (val.startsWith('+')) {
-        const cleanDigits = val.substring(1).replace(/[^0-9]/g, '');
-        // Search sorted by longest dial digits first
-        let bestMatch = null;
-        let bestLen = 0;
-        for (const c of window.ZepCountries.list) {
-          const dDigits = c.dial.replace(/[^0-9]/g, '');
-          if (cleanDigits.startsWith(dDigits) && dDigits.length > bestLen) {
-            bestMatch = c;
-            bestLen = dDigits.length;
-          }
-        }
-        if (bestMatch && bestMatch.code !== selectedCountry.code) {
-          updateSelectedUI(bestMatch, true);
-        }
-      }
-      // 2. If user types Philippine standard prefixes (09... or 63...)
-      else if (val.startsWith('09') || val.startsWith('639')) {
-        const ph = window.ZepCountries.list.find(c => c.code === 'PH');
-        if (ph && selectedCountry.code !== 'PH') {
-          updateSelectedUI(ph, true);
-        }
-      }
-      // 3. If numbers match known international dial digits directly
-      else {
-        const digitsOnly = val.replace(/[^0-9]/g, '');
-        if (digitsOnly.length >= 2) {
-          for (const c of window.ZepCountries.list) {
-            const dDigits = c.dial.replace(/[^0-9]/g, '');
-            if (digitsOnly.startsWith(dDigits) && dDigits.length >= 2) {
-              if (c.code !== selectedCountry.code) {
-                updateSelectedUI(c, true);
-              }
-              break;
-            }
-          }
-        }
-      }
     });
 
     // Initial pre-fill handling
