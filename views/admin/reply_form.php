@@ -439,9 +439,56 @@ function handleReplySubmit(e) {
 function copyReplyText() {
   const text = document.getElementById('emailBody').value;
   navigator.clipboard.writeText(text).then(() => {
-    alert('Email body copied to clipboard!');
+    showStatusModal(true, 'Copied!', 'Email body copied to clipboard.');
   });
 }
+
+function showStatusModal(isSuccess, title, message) {
+  const modal = document.getElementById('replyStatusModal');
+  const icon = document.getElementById('replyStatusIcon');
+  const t = document.getElementById('replyStatusTitle');
+  const m = document.getElementById('replyStatusMessage');
+  if (t) t.textContent = title;
+  if (m) m.textContent = message;
+  if (icon) {
+    if (isSuccess) {
+      icon.className = 'w-14 h-14 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto mb-4 border border-emerald-100';
+      icon.innerHTML = '<svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>';
+    } else {
+      icon.className = 'w-14 h-14 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center mx-auto mb-4 border border-rose-100';
+      icon.innerHTML = '<svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>';
+    }
+  }
+  if (modal) {
+    modal.classList.remove('hidden');
+    requestAnimationFrame(() => modal.classList.add('open'));
+    setTimeout(() => {
+      modal.classList.remove('open');
+      setTimeout(() => modal.classList.add('hidden'), 250);
+    }, 2000);
+  }
+}
 </script>
+
+<!-- Reply Status Modal -->
+<div id="replyStatusModal"
+  class="modal-backdrop fixed inset-0 z-[200] bg-slate-900/40 flex items-center justify-center p-4 hidden pointer-events-none"
+  style="backdrop-filter: blur(2px);">
+  <div class="modal-card bg-white rounded-3xl shadow-2xl border border-slate-100 p-6 max-w-xs w-full text-center pointer-events-auto">
+    <div id="replyStatusIcon" class="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4 border"></div>
+    <h3 class="text-base font-bold text-slate-900 mb-1" id="replyStatusTitle">Done</h3>
+    <p class="text-xs text-slate-500 leading-relaxed" id="replyStatusMessage"></p>
+  </div>
+</div>
+
+<style>
+  .modal-backdrop { transition: opacity 0.2s ease; }
+  .modal-backdrop.open { opacity: 1; pointer-events: auto; }
+  .modal-backdrop:not(.open) { opacity: 0; }
+  .modal-card { transition: transform 0.25s cubic-bezier(.34,1.56,.64,1), opacity 0.2s ease; }
+  .modal-backdrop:not(.open) .modal-card { transform: scale(0.92); opacity: 0; }
+  .modal-backdrop.open .modal-card { transform: scale(1); opacity: 1; }
+</style>
+
 </body>
 </html>

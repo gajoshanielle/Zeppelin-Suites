@@ -56,6 +56,7 @@ $dropdownClass = function (bool $isActive): string {
       </div>
     </div>
 
+    <a href="<?= htmlspecialchars($baseUrl) ?>/amenities" class="<?= $linkClass($activePage === 'amenities') ?>">Amenities</a>
     <a href="<?= htmlspecialchars($baseUrl) ?>/faq" class="<?= $linkClass($activePage === 'faq') ?>">FAQ</a>
     <a href="<?= htmlspecialchars($baseUrl) ?>/about" class="<?= $linkClass($activePage === 'about') ?>">About Us</a>
     <a href="<?= htmlspecialchars($baseUrl) ?>/contact" class="<?= $linkClass($activePage === 'contact') ?>">Contact</a>
@@ -90,6 +91,7 @@ $dropdownClass = function (bool $isActive): string {
       </div>
     </div>
 
+    <a href="<?= htmlspecialchars($baseUrl) ?>/amenities" class="px-4 py-2 rounded-lg text-sm <?= $activePage === 'amenities' ? 'bg-zinc-100 font-bold text-zinc-900' : 'text-zinc-700 hover:bg-zinc-50' ?>">Amenities</a>
     <a href="<?= htmlspecialchars($baseUrl) ?>/faq" class="px-4 py-2 rounded-lg text-sm <?= $activePage === 'faq' ? 'bg-zinc-100 font-bold text-zinc-900' : 'text-zinc-700 hover:bg-zinc-50' ?>">FAQ</a>
     <a href="<?= htmlspecialchars($baseUrl) ?>/about" class="px-4 py-2 rounded-lg text-sm <?= $activePage === 'about' ? 'bg-zinc-100 font-bold text-zinc-900' : 'text-zinc-700 hover:bg-zinc-50' ?>">About Us</a>
     <a href="<?= htmlspecialchars($baseUrl) ?>/contact" class="px-4 py-2 rounded-lg text-sm <?= $activePage === 'contact' ? 'bg-zinc-100 font-bold text-zinc-900' : 'text-zinc-700 hover:bg-zinc-50' ?>">Contact</a>

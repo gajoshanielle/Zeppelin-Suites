@@ -329,13 +329,13 @@ function handleRestoreSubmit(event) {
   event.preventDefault();
   const fileInput = document.getElementById('backupFileInput');
   if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
-    alert('Please select a .sql file to restore.');
+    showStatusModal(false, 'No File Selected', 'Please select a .sql file to restore.');
     return;
   }
 
   const file = fileInput.files[0];
   if (!file.name.toLowerCase().endsWith('.sql')) {
-    alert('Please select a valid .sql backup file.');
+    showStatusModal(false, 'Invalid File', 'Please select a valid .sql backup file.');
     return;
   }
 
@@ -379,10 +379,9 @@ function executeDatabaseRestore() {
     closeRestoreModal();
 
     if (data.success) {
-      alert('Success: ' + (data.message || 'Database restored successfully!'));
-      window.location.reload();
+      showStatusModal(true, 'Restore Successful', data.message || 'Database restored successfully!', true);
     } else {
-      alert('Error: ' + (data.message || 'Failed to restore database.'));
+      showStatusModal(false, 'Restore Failed', data.message || 'Failed to restore database.');
     }
   })
   .catch(err => {
@@ -390,10 +389,70 @@ function executeDatabaseRestore() {
     btn.innerHTML = originalText;
     closeRestoreModal();
     console.error(err);
-    alert('Network or server error while restoring database.');
+    showStatusModal(false, 'Network Error', 'Network or server error while restoring database.');
   });
 }
+
+let _acctShouldReload = false;
+function showStatusModal(isSuccess, title, message, reloadOnClose = false) {
+  _acctShouldReload = reloadOnClose;
+  const modal = document.getElementById('acctStatusModal');
+  const icon = document.getElementById('acctStatusIcon');
+  const t = document.getElementById('acctStatusTitle');
+  const m = document.getElementById('acctStatusMessage');
+  const btn = document.getElementById('acctStatusBtn');
+  if (t) t.textContent = title;
+  if (m) m.textContent = message;
+  if (icon) {
+    if (isSuccess) {
+      icon.className = 'w-14 h-14 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto mb-4 border border-emerald-100';
+      icon.innerHTML = '<svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>';
+    } else {
+      icon.className = 'w-14 h-14 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center mx-auto mb-4 border border-rose-100';
+      icon.innerHTML = '<svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>';
+    }
+  }
+  if (btn) btn.textContent = isSuccess ? 'Continue' : 'Dismiss';
+  if (modal) {
+    modal.classList.remove('hidden');
+    requestAnimationFrame(() => modal.classList.add('open'));
+  }
+}
+function closeAcctStatusModal() {
+  const modal = document.getElementById('acctStatusModal');
+  if (!modal || !modal.classList.contains('open')) return;
+  modal.classList.remove('open');
+  setTimeout(() => {
+    if (!modal.classList.contains('open')) modal.classList.add('hidden');
+    if (_acctShouldReload) window.location.reload();
+  }, 250);
+}
 </script>
+
+<!-- Account Status Modal -->
+<div id="acctStatusModal"
+  class="modal-backdrop fixed inset-0 z-[200] bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 hidden"
+  style="--tw-backdrop-blur: blur(2px);"
+  onclick="if(event.target===this)closeAcctStatusModal()">
+  <div class="modal-card bg-white rounded-3xl shadow-2xl border border-slate-100 p-6 sm:p-7 max-w-sm w-full text-center" onclick="event.stopPropagation()">
+    <div id="acctStatusIcon" class="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4 border"></div>
+    <h3 class="text-base sm:text-lg font-bold text-slate-900 mb-1" id="acctStatusTitle">Notification</h3>
+    <p class="text-xs text-slate-500 mb-6 leading-relaxed" id="acctStatusMessage"></p>
+    <button type="button" id="acctStatusBtn" onclick="closeAcctStatusModal()"
+      class="w-full py-2.5 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold transition-all shadow-sm">
+      Continue
+    </button>
+  </div>
+</div>
+
+<style>
+  .modal-backdrop { transition: opacity 0.2s ease; }
+  .modal-backdrop.open { opacity: 1; }
+  .modal-backdrop:not(.open) { opacity: 0; pointer-events: none; }
+  .modal-card { transition: transform 0.25s cubic-bezier(.34,1.56,.64,1), opacity 0.2s ease; }
+  .modal-backdrop:not(.open) .modal-card { transform: scale(0.92); opacity: 0; }
+  .modal-backdrop.open .modal-card { transform: scale(1); opacity: 1; }
+</style>
 
 </body>
 </html>

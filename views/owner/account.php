@@ -277,9 +277,9 @@ tailwind.config = {
                           Download QR
                         </a>
 
-                        <form method="POST" action="<?= htmlspecialchars($baseUrl) ?>/owner/account" onsubmit="return confirm('Are you sure you want to remove your GCash QR code?')" class="inline">
+                        <form id="removeGcashQrForm" method="POST" action="<?= htmlspecialchars($baseUrl) ?>/owner/account" class="inline">
                           <input type="hidden" name="action" value="delete_gcash_qr">
-                          <button type="submit" class="btn-press flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl text-red-600 hover:bg-red-50 transition-all">
+                          <button type="button" onclick="openRemoveQrModal()" class="btn-press flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl text-red-600 hover:bg-red-50 transition-all">
                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                             Remove
                           </button>
@@ -490,6 +490,48 @@ tailwind.config = {
       if (eyeSlashIcon) eyeSlashIcon.classList.add('hidden');
     }
   }
-</script>
+
+  function openRemoveQrModal() {
+      const m = document.getElementById('removeQrConfirmModal');
+      if (m) {
+        m.classList.remove('hidden');
+        m.classList.add('flex');
+      }
+    }
+
+    function closeRemoveQrModal() {
+      const m = document.getElementById('removeQrConfirmModal');
+      if (m) {
+        m.classList.add('hidden');
+        m.classList.remove('flex');
+      }
+    }
+
+    function confirmRemoveQr() {
+      const f = document.getElementById('removeGcashQrForm');
+      if (f) f.submit();
+    }
+  </script>
+
+  <!-- Remove QR Confirmation Modal -->
+  <div id="removeQrConfirmModal" class="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs hidden items-center justify-center p-4">
+    <div class="bg-white rounded-3xl shadow-2xl border border-slate-100 max-w-sm w-full p-6 text-center transform transition-all">
+      <div class="w-14 h-14 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center mx-auto mb-4 border border-rose-100">
+        <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+      </div>
+      <h3 class="text-lg font-bold text-slate-900 mb-1">Remove GCash QR Code?</h3>
+      <p class="text-xs text-slate-500 mb-6 leading-relaxed">
+        Are you sure you want to remove your saved GCash QR code? Prospective tenants will not be able to use GCash QR to reserve your units until a new code is uploaded.
+      </p>
+      <div class="flex gap-2.5">
+        <button type="button" onclick="closeRemoveQrModal()" class="flex-1 py-2.5 px-4 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-semibold transition-all">
+          Cancel
+        </button>
+        <button type="button" onclick="confirmRemoveQr()" class="flex-1 py-2.5 px-4 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold transition-all shadow-sm">
+          Yes, Remove
+        </button>
+      </div>
+    </div>
+  </div>
 </body>
 </html>

@@ -1713,28 +1713,31 @@ $isInHousePayment = strtolower((string) $paymentMethod) === 'in-house';
     }
 
     function markOfficiallyBooked() {
-      if (!confirm('Mark this reservation as officially booked? This will set the unit status to Reserved.')) {
-        return;
-      }
+      showConfirmModal(
+        'Mark as Officially Booked',
+        'Mark this reservation as officially booked? This will set the unit status to Reserved.',
+        function() {
+          const formData = new FormData();
+          formData.append('reservation_id', currentReservationId);
 
-      const formData = new FormData();
-      formData.append('reservation_id', currentReservationId);
-
-      fetch('<?= htmlspecialchars($baseUrl) ?>/admin/reservations/officially-book', {
-        method: 'POST',
-        body: formData
-      })
-        .then(response => response.json())
-        .then(data => {
-          alert(data.message);
-          if (data.success) {
-            window.location.reload();
-          }
-        })
-        .catch(error => {
-          console.error(error);
-          alert('Something went wrong while officially booking this reservation.');
-        });
+          fetch('<?= htmlspecialchars($baseUrl) ?>/admin/reservations/officially-book', {
+            method: 'POST',
+            body: formData
+          })
+            .then(response => response.json())
+            .then(data => {
+              if (data.success) {
+                showReservationStatusModal(true, 'Officially Booked', data.message, true);
+              } else {
+                showReservationStatusModal(false, 'Action Failed', data.message);
+              }
+            })
+            .catch(error => {
+              console.error(error);
+              showReservationStatusModal(false, 'Error', 'Something went wrong while officially booking this reservation.');
+            });
+        }
+      );
     }
 
     document.getElementById('btnOfficiallyBooked')?.addEventListener('click', markOfficiallyBooked);
@@ -1742,29 +1745,33 @@ $isInHousePayment = strtolower((string) $paymentMethod) === 'in-house';
     // --- Cancellation Approval ---
     function approveCancellationRequest() {
       const reason = document.getElementById('cancel_reason_display')?.textContent.trim();
-      if (!confirm('Approve this cancellation request? This will cancel the reservation and release the unit back to availability.')) {
-        return;
-      }
+      showConfirmModal(
+        'Approve Cancellation',
+        'Approve this cancellation request? This will cancel the reservation and release the unit back to availability.',
+        function() {
+          const formData = new FormData();
+          formData.append('reservation_id', currentReservationId);
+          formData.append('remarks', reason || 'Approved cancellation request from unit owner.');
 
-      const formData = new FormData();
-      formData.append('reservation_id', currentReservationId);
-      formData.append('remarks', reason || 'Approved cancellation request from unit owner.');
-
-      fetch('<?= htmlspecialchars($baseUrl) ?>/admin/reservations/cancel', {
-        method: 'POST',
-        body: formData
-      })
-        .then(response => response.json())
-        .then(data => {
-          alert(data.message);
-          if (data.success) {
-            window.location.href = '<?= htmlspecialchars($baseUrl) ?>/admin/reservations';
-          }
-        })
-        .catch(error => {
-          console.error(error);
-          alert('Something went wrong while approving cancellation.');
-        });
+          fetch('<?= htmlspecialchars($baseUrl) ?>/admin/reservations/cancel', {
+            method: 'POST',
+            body: formData
+          })
+            .then(response => response.json())
+            .then(data => {
+              if (data.success) {
+                showReservationStatusModal(true, 'Cancellation Approved', data.message, false);
+                setTimeout(() => { window.location.href = '<?= htmlspecialchars($baseUrl) ?>/admin/reservations'; }, 1800);
+              } else {
+                showReservationStatusModal(false, 'Action Failed', data.message);
+              }
+            })
+            .catch(error => {
+              console.error(error);
+              showReservationStatusModal(false, 'Error', 'Something went wrong while approving cancellation.');
+            });
+        }
+      );
     }
 
     document.getElementById('btnApproveCancellation')?.addEventListener('click', approveCancellationRequest);
@@ -1821,17 +1828,18 @@ $isInHousePayment = strtolower((string) $paymentMethod) === 'in-house';
 
           if (data.success) {
             closeHandoverModal();
-            alert('✓ Handover Successful!\n\n' + data.message + '\n\nTenant Account Summary:\n• Email: ' + data.tenant.email + '\n• Initial Password: ' + data.tenant.password + '\n\nThe login credentials have been dispatched to the tenant.');
-            window.location.reload();
+            showReservationStatusModal(true, 'Handover Successful!',
+              data.message + ' Tenant credentials (Email: ' + data.tenant.email + ') have been dispatched via email.',
+              true);
           } else {
-            alert('Error: ' + (data.message || 'Unable to process handover.'));
+            showReservationStatusModal(false, 'Handover Failed', data.message || 'Unable to process handover.');
           }
         })
         .catch(err => {
           btn.disabled = false;
           btn.innerHTML = originalText;
           console.error(err);
-          alert('Network error while processing handover. Please try again.');
+          showReservationStatusModal(false, 'Network Error', 'Network error while processing handover. Please try again.');
         });
     }
 
@@ -1922,15 +1930,18 @@ $isInHousePayment = strtolower((string) $paymentMethod) === 'in-house';
         });
         const data = await res.json();
         if (data.success) {
-          window.location.reload();
+          closeSigningModal();
+          showReservationStatusModal(true, 'Lease Signing Updated', data.message || 'Lease signing status updated successfully.', true);
         } else {
-          alert(data.message || 'Failed to update lease signing status.');
+          closeSigningModal();
+          showReservationStatusModal(false, 'Update Failed', data.message || 'Failed to update lease signing status.');
           btn.disabled = false;
           btn.textContent = 'Confirm';
         }
       } catch (err) {
         console.error(err);
-        alert('Network error while updating lease signing.');
+        closeSigningModal();
+        showReservationStatusModal(false, 'Network Error', 'Network error while updating lease signing.');
         btn.disabled = false;
         btn.textContent = 'Confirm';
       }
@@ -1948,7 +1959,49 @@ $isInHousePayment = strtolower((string) $paymentMethod) === 'in-house';
         switchReservationTab('lease');
       }
     });
+    // --- Generic Confirm Modal ---
+    let _confirmCallback = null;
+    function showConfirmModal(title, message, onConfirm) {
+      _confirmCallback = onConfirm;
+      const modal = document.getElementById('genericConfirmModal');
+      const t = document.getElementById('genericConfirmTitle');
+      const m = document.getElementById('genericConfirmMessage');
+      if (t) t.textContent = title;
+      if (m) m.textContent = message;
+      if (modal) {
+        modal.classList.remove('hidden');
+        requestAnimationFrame(() => modal.classList.add('open'));
+      }
+    }
+    function closeConfirmModal() {
+      const modal = document.getElementById('genericConfirmModal');
+      if (!modal) return;
+      modal.classList.remove('open');
+      setTimeout(() => { if (!modal.classList.contains('open')) modal.classList.add('hidden'); }, 250);
+    }
+    function executeConfirm() {
+      closeConfirmModal();
+      if (typeof _confirmCallback === 'function') _confirmCallback();
+      _confirmCallback = null;
+    }
   </script>
+
+  <!-- Generic Confirm Modal -->
+  <div id="genericConfirmModal"
+    class="modal-backdrop fixed inset-0 z-[110] bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 hidden"
+    onclick="if(event.target===this)closeConfirmModal()">
+    <div class="modal-card bg-white rounded-3xl shadow-2xl border border-slate-100 p-6 sm:p-7 max-w-sm w-full text-center" onclick="event.stopPropagation()">
+      <div class="w-14 h-14 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mx-auto mb-4 border border-amber-100">
+        <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+      </div>
+      <h3 class="text-base sm:text-lg font-bold text-slate-900 mb-1" id="genericConfirmTitle">Confirm Action</h3>
+      <p class="text-xs text-slate-500 mb-6 leading-relaxed" id="genericConfirmMessage"></p>
+      <div class="flex gap-2.5">
+        <button type="button" onclick="closeConfirmModal()" class="flex-1 py-2.5 px-4 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-semibold transition-all">Cancel</button>
+        <button type="button" onclick="executeConfirm()" class="flex-1 py-2.5 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold transition-all shadow-sm">Confirm</button>
+      </div>
+    </div>
+  </div>
 
   <!-- Complete In-House Payment Modal -->
   <div id="completeInHousePaymentModal"
