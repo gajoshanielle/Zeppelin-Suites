@@ -149,7 +149,7 @@ function notifyTenantOfHandover(string $tenantEmail, string $tenantName, string 
 }
 
 /**
- * Notify the client that their reservation cancellation request has been approved.
+ * Notify the client that their reservation has been cancelled.
  */
 function notifyClientOfCancellationApproval(
     string $clientEmail,
@@ -157,11 +157,26 @@ function notifyClientOfCancellationApproval(
     int $reservationId,
     string $unitDisplay,
     ?string $cancellationReason = null,
-    ?string $adminRemarks = null
+    ?string $adminRemarks = null,
+    ?string $requestedByRole = null,
+    ?string $requestedByName = null
 ): bool {
-    $subject = "Zeppelin Suites - Reservation #{$reservationId} Cancellation Approved";
+    $subject = "Zeppelin Suites - Reservation #{$reservationId} Cancelled";
 
-    $reasonText = (!empty($cancellationReason) && $cancellationReason !== 'No reason provided.')
+    $roleLower = strtolower(trim((string)$requestedByRole));
+    if ($roleLower === 'unit owner') {
+        $ownerLabel = !empty($requestedByName) ? "the unit owner ({$requestedByName})" : "the unit owner";
+        $intro = "Please be advised that your reservation (#{$reservationId}) for {$unitDisplay} at Zeppelin Suites has been cancelled following a cancellation request submitted by {$ownerLabel} and approved by management.\n\n"
+            . "The unit hold has been officially released.\n\n";
+    } elseif ($roleLower === 'client') {
+        $intro = "This is an official confirmation that the cancellation request submitted by you for your reservation (#{$reservationId}) for {$unitDisplay} at Zeppelin Suites has been reviewed and approved by management.\n\n"
+            . "The reservation has been cancelled, and the unit hold has been officially released.\n\n";
+    } else {
+        $intro = "Please be advised that your reservation (#{$reservationId}) for {$unitDisplay} at Zeppelin Suites has been cancelled by administration.\n\n"
+            . "The reservation has been cancelled, and the unit hold has been officially released.\n\n";
+    }
+
+    $reasonText = (!empty($cancellationReason) && $cancellationReason !== 'No reason provided.' && $cancellationReason !== 'n/a')
         ? "Cancellation Reason:\n{$cancellationReason}\n\n"
         : "";
     $remarksText = (!empty($adminRemarks) && $adminRemarks !== $cancellationReason && $adminRemarks !== 'Approved cancellation request from unit owner.' && $adminRemarks !== 'Approved cancellation request.')
@@ -169,12 +184,12 @@ function notifyClientOfCancellationApproval(
         : "";
 
     $body = "Dear {$clientName},\n\n"
-        . "This is an official confirmation that the cancellation request for your reservation (#{$reservationId}) for {$unitDisplay} at Zeppelin Suites has been reviewed and approved by management.\n\n"
-        . "The reservation has been cancelled, and the unit hold has been officially released.\n\n"
+        . $intro
         . "--------------------------------------------------------\n"
         . "Reservation ID: #{$reservationId}\n"
         . "Unit:           {$unitDisplay}\n"
-        . "Status:         Cancelled (Approved)\n"
+        . ($roleLower === 'unit owner' ? "Cancelled By:   Unit Owner Request\n" : "")
+        . "Status:         Cancelled\n"
         . "--------------------------------------------------------\n\n"
         . ($reasonText !== '' ? $reasonText : '')
         . ($remarksText !== '' ? $remarksText : '')
@@ -195,11 +210,21 @@ function notifyOwnerOfCancellation(
     string $unitDisplay,
     string $clientName,
     ?string $cancellationReason = null,
-    ?string $adminRemarks = null
+    ?string $adminRemarks = null,
+    ?string $requestedByRole = null
 ): bool {
-    $subject = "Zeppelin Suites - Reservation #{$reservationId} Cancellation Approved for {$unitDisplay}";
+    $subject = "Zeppelin Suites - Reservation #{$reservationId} Cancelled for {$unitDisplay}";
 
-    $reasonText = (!empty($cancellationReason) && $cancellationReason !== 'No reason provided.')
+    $roleLower = strtolower(trim((string)$requestedByRole));
+    if ($roleLower === 'unit owner') {
+        $intro = "This is an official confirmation that your cancellation request for reservation (#{$reservationId}) by {$clientName} for your unit ({$unitDisplay}) has been approved by management.\n\n"
+            . "The unit has been released back to active availability.\n\n";
+    } else {
+        $intro = "Please be informed that the reservation (#{$reservationId}) by {$clientName} for your unit ({$unitDisplay}) has been officially cancelled following an approved cancellation request.\n\n"
+            . "The unit has been released back to active availability.\n\n";
+    }
+
+    $reasonText = (!empty($cancellationReason) && $cancellationReason !== 'No reason provided.' && $cancellationReason !== 'n/a')
         ? "Cancellation Reason:\n{$cancellationReason}\n\n"
         : "";
     $remarksText = (!empty($adminRemarks) && $adminRemarks !== $cancellationReason && $adminRemarks !== 'Approved cancellation request from unit owner.' && $adminRemarks !== 'Approved cancellation request.')
@@ -207,8 +232,7 @@ function notifyOwnerOfCancellation(
         : "";
 
     $body = "Hi {$ownerName},\n\n"
-        . "Please be informed that the reservation (#{$reservationId}) by {$clientName} for your unit ({$unitDisplay}) has been officially cancelled following admin review and approval.\n\n"
-        . "The unit has been released back to active availability.\n\n"
+        . $intro
         . "--------------------------------------------------------\n"
         . "Reservation ID: #{$reservationId}\n"
         . "Unit:           {$unitDisplay}\n"
@@ -233,17 +257,23 @@ function notifyCancellationDeclined(
     string $recipientName,
     int $reservationId,
     string $unitDisplay,
-    string $adminRemarks
+    string $adminRemarks = '',
+    bool $isRequester = true
 ): bool {
     $subject = "Zeppelin Suites - Reservation #{$reservationId} Cancellation Request Declined";
 
-    $remarksText = !empty($adminRemarks)
-        ? "Admin Remarks:\n{$adminRemarks}\n\n"
-        : "Admin Remarks:\nYour cancellation request has been declined after review by management.\n\n";
+    $remarksText = !empty($adminRemarks) ? "Admin Remarks:\n{$adminRemarks}\n\n" : "";
+
+    if ($isRequester) {
+        $intro = "Please be advised that your cancellation request for reservation #{$reservationId} ({$unitDisplay}) at Zeppelin Suites has been reviewed and declined by administration.\n\n"
+            . "Your reservation remains active in our system.\n\n";
+    } else {
+        $intro = "Please be advised that the cancellation request submitted for reservation #{$reservationId} ({$unitDisplay}) has been reviewed and declined by administration.\n\n"
+            . "The reservation remains active in our system.\n\n";
+    }
 
     $body = "Dear {$recipientName},\n\n"
-        . "Please be advised that the cancellation request for reservation #{$reservationId} ({$unitDisplay}) at Zeppelin Suites has been reviewed and declined by administration.\n\n"
-        . "Your reservation remains active in our system.\n\n"
+        . $intro
         . "--------------------------------------------------------\n"
         . "Reservation ID: #{$reservationId}\n"
         . "Unit:           {$unitDisplay}\n"

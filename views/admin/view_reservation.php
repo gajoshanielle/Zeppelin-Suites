@@ -66,7 +66,10 @@ if ($unitDisplay === '') {
 
 $proofUrl = '';
 if (!empty($res['payment_proof'])) {
-    $proofUrl = '../' . ltrim($res['payment_proof'], '/');
+    $proofRaw = trim((string) $res['payment_proof']);
+    $proofUrl = (str_starts_with($proofRaw, 'http://') || str_starts_with($proofRaw, 'https://'))
+        ? $proofRaw
+        : '../' . ltrim($proofRaw, '/');
 }
 
 $cancellationRequestedBy = 'Unit Owner';
@@ -78,7 +81,7 @@ if (($res['cancellation_requested_by_role'] ?? '') === 'client') {
 
 $paymentStatusLower = strtolower($res['payment_status'] ?? 'pending review');
 $resStatusLower = strtolower($res['reservation_status'] ?? 'submitted');
-$cancellationStatusLower = strtolower($res['cancellation_status'] ?? 'none');
+$cancellationStatusLower = ($resStatusLower === 'cancellation requested') ? 'requested' : (($resStatusLower === 'cancelled') ? 'approved' : 'none');
 
 // Determine Transaction Type (Resale vs Lease)
 $transactionType = (string)($res['transaction_type'] ?? '');
@@ -124,8 +127,8 @@ $ownerEmailDisplay = !empty($res['owner_email']) ? $res['owner_email'] : 'johndo
 $ownerPhoneDisplay = !empty($res['owner_contact']) ? $res['owner_contact'] : '0912 345 7890';
 
 $isFlexibleSigning = !empty($res['is_flexible_signing']) && (int)$res['is_flexible_signing'] === 1;
-$confirmedSigningDate = !empty($res['confirmed_signing_date']) && $res['confirmed_signing_date'] !== '0000-00-00'
-    ? (string)$res['confirmed_signing_date']
+$confirmedSigningDate = !empty($res['lease_signing_date']) && $res['lease_signing_date'] !== '0000-00-00'
+    ? (string)$res['lease_signing_date']
     : null;
 
 // Parse applicant's candidate/preferred dates
@@ -154,7 +157,8 @@ $hasConfirmedSchedule = !empty($confirmedSigningDate);
 $confirmedDateTs = $hasConfirmedSchedule ? strtotime($confirmedSigningDate) : null;
 $confirmedDateDisplay = $confirmedDateTs ? date('F j, Y', $confirmedDateTs) : null;
 
-$signingStatus = !empty($res['lease_signing_status']) ? $res['lease_signing_status'] : 'Pending Signing';
+$isSigningCompleted = !empty($res['lease_signed_at']);
+$signingStatus = $isSigningCompleted ? 'Completed' : 'Pending Signing';
 $isSigningCompleted = strtolower((string)$signingStatus) === 'completed';
 $paymentMethod = !empty($res['payment_method']) ? $res['payment_method'] : 'GCash QR';
 $isInHousePayment = strtolower((string)$paymentMethod) === 'in-house';
@@ -536,9 +540,9 @@ $isInHousePayment = strtolower((string)$paymentMethod) === 'in-house';
                   <p class="text-xs text-slate-500 mt-0.5">The previous cancellation request was declined by administration. The reservation remains active.</p>
                 </div>
               </div>
-              <?php if (!empty($res['admin_cancel_remarks'])): ?>
+              <?php if (!empty($res['cancellation_reason'])): ?>
                 <p class="text-xs text-slate-700 mt-2.5 bg-white border border-slate-200 rounded-xl p-3">
-                  <strong>Remarks:</strong> <?= e($res['admin_cancel_remarks']) ?>
+                  <strong>Remarks:</strong> <?= e($res['cancellation_reason']) ?>
                 </p>
               <?php endif; ?>
             </div>
@@ -575,7 +579,7 @@ $isInHousePayment = strtolower((string)$paymentMethod) === 'in-house';
                   </div>
                   <h4 class="text-xs font-bold text-slate-900 uppercase">In-House Settlement Notice</h4>
                   <p class="text-xs text-slate-700 mt-2 leading-relaxed">
-                    The applicant selected <strong>Pay In-House</strong>. No electronic proof upload was required. The downpayment (<strong><?= peso($res['required_amount'] ?: ($res['price_basis'] * $res['payment_percentage'])) ?></strong>) will be collected directly in cash or manager's check during the scheduled lease signing appointment.
+                    The applicant selected <strong>Pay In-House</strong>. No electronic proof upload was required. The downpayment (<strong><?= peso($res['required_amount']) ?></strong>) will be collected directly in cash or manager's check during the scheduled lease signing appointment.
                   </p>
                 </div>
 
@@ -629,16 +633,16 @@ $isInHousePayment = strtolower((string)$paymentMethod) === 'in-house';
                       <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1.5"></span>
                       Payment Complete
                     </span>
-                    <?php if ($res['payment_verified_at']): ?>
-                      <span class="text-xs text-slate-500 font-mono">(Verified: <?= e(format_datetime_text($res['payment_verified_at'])) ?>)</span>
+                    <?php if ($res['payment_reviewed_at']): ?>
+                      <span class="text-xs text-slate-500 font-mono">(Verified: <?= e(format_datetime_text($res['payment_reviewed_at'])) ?>)</span>
                     <?php endif; ?>
                   <?php elseif ($paymentStatusLower === 'rejected'): ?>
                     <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-red-50 text-red-700 border border-red-200">
                       <span class="w-1.5 h-1.5 rounded-full bg-red-500 mr-1.5"></span>
                       Payment Not Received
                     </span>
-                    <?php if ($res['payment_rejected_at']): ?>
-                      <span class="text-xs text-slate-500 font-mono">(Rejected: <?= e(format_datetime_text($res['payment_rejected_at'])) ?>)</span>
+                    <?php if ($res['payment_reviewed_at']): ?>
+                      <span class="text-xs text-slate-500 font-mono">(Rejected: <?= e(format_datetime_text($res['payment_reviewed_at'])) ?>)</span>
                     <?php endif; ?>
                   <?php else: ?>
                     <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">
@@ -689,7 +693,7 @@ $isInHousePayment = strtolower((string)$paymentMethod) === 'in-house';
               <div>
                 <h4 class="text-sm font-bold text-slate-900">In-House Downpayment Settlement</h4>
                 <p class="text-xs text-slate-500 mt-0.5">
-                  Downpayment (<strong><?= peso($res['required_amount'] ?: ($res['price_basis'] * $res['payment_percentage'])) ?></strong>) to be collected in cash or check.
+                  Downpayment (<strong><?= peso($res['required_amount']) ?></strong>) to be collected in cash or check.
                 </p>
               </div>
               <div class="flex items-center gap-3">
@@ -878,7 +882,7 @@ $isInHousePayment = strtolower((string)$paymentMethod) === 'in-house';
                 <?php if ($isInHousePayment): ?>
                   <div class="pt-2 text-xs text-amber-800 bg-amber-50/80 border border-amber-200/80 rounded-lg p-2.5 flex items-center gap-2">
                     <svg class="w-4 h-4 text-amber-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
-                    <span>In-House Payment: Collect <strong><?= peso($res['required_amount'] ?: ($res['price_basis'] * $res['payment_percentage'])) ?></strong> upon signing.</span>
+                    <span>In-House Payment: Collect <strong><?= peso($res['required_amount']) ?></strong> upon signing.</span>
                   </div>
                 <?php endif; ?>
               </div>
@@ -947,7 +951,7 @@ $isInHousePayment = strtolower((string)$paymentMethod) === 'in-house';
               </div>
               <div>
                 <h2 class="text-sm font-bold text-slate-900 uppercase tracking-wider">Document Tracking</h2>
-                <p class="text-xs text-slate-500">View applicant requirement submissions (managed by Unit Owner)</p>
+                <p class="text-xs text-slate-500">Directly upload and manage applicant requirements (synced with Unit Owner)</p>
               </div>
             </div>
           </div>
@@ -967,13 +971,12 @@ $isInHousePayment = strtolower((string)$paymentMethod) === 'in-house';
                 <tr class="bg-slate-50 border-b border-slate-200">
                   <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Document</th>
                   <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Status</th>
-                  <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Storage</th>
-                  <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Link</th>
+                  <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Direct Upload / Link</th>
                 </tr>
               </thead>
               <tbody id="documentsTableBody" class="divide-y divide-slate-100">
                 <tr>
-                  <td colspan="4" class="px-4 py-8 text-center text-xs text-slate-400">Loading documents...</td>
+                  <td colspan="3" class="px-4 py-8 text-center text-xs text-slate-400">Loading documents...</td>
                 </tr>
               </tbody>
             </table>
@@ -1006,21 +1009,6 @@ $isInHousePayment = strtolower((string)$paymentMethod) === 'in-house';
               </p>
             </div>
           <?php endif; ?>
-
-          <div class="mt-5 bg-slate-50 border border-slate-200/80 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-            <div>
-              <p class="text-xs font-semibold text-slate-400 uppercase tracking-wide">Last Updated By</p>
-              <p id="requirements_updated_by_display" class="text-sm font-semibold text-slate-800 mt-0.5">
-                <?= e($res['requirements_updated_by_name'] ?: 'Not updated yet') ?> (<?= e($res['requirements_updated_by_role'] ?: '-') ?>)
-              </p>
-            </div>
-            <div class="sm:text-right">
-              <p class="text-xs font-semibold text-slate-400 uppercase tracking-wide">Timestamp</p>
-              <p id="requirements_updated_at_display" class="text-xs text-slate-500 font-mono mt-0.5">
-                <?= e(format_datetime_text($res['requirements_updated_at'])) ?>
-              </p>
-            </div>
-          </div>
         </section>
       </div>
       <!-- END RESERVATION FORM DETAILS -->
@@ -1290,12 +1278,7 @@ $isInHousePayment = strtolower((string)$paymentMethod) === 'in-house';
     return escapeHtml(value).replace(/"/g, '&quot;');
   }
 
-  function storageDisplayLabel(doc) {
-    if (doc.storage === 'dropbox') return 'Dropbox';
-    if (doc.storage === 'gdrive') return 'Google Drive';
-    if (doc.storage === 'other') return doc.storage_other_label || 'Other';
-    return '-';
-  }
+
 
   function updateRequirementDecisionUI(reservationStatus) {
     const status = (reservationStatus || '').toLowerCase();
@@ -1359,7 +1342,7 @@ $isInHousePayment = strtolower((string)$paymentMethod) === 'in-house';
       .then(response => response.json())
       .then(data => {
         if (!data.success) {
-          tbody.innerHTML = '<tr><td colspan="4" class="px-4 py-6 text-center text-xs text-red-500">' + escapeHtml(data.message || 'Failed to load documents.') + '</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="3" class="px-4 py-6 text-center text-xs text-red-500">' + escapeHtml(data.message || 'Failed to load documents.') + '</td></tr>';
           return;
         }
 
@@ -1369,7 +1352,7 @@ $isInHousePayment = strtolower((string)$paymentMethod) === 'in-house';
       })
       .catch(error => {
         console.error(error);
-        tbody.innerHTML = '<tr><td colspan="4" class="px-4 py-6 text-center text-xs text-red-500">Something went wrong while loading documents.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="3" class="px-4 py-6 text-center text-xs text-red-500">Something went wrong while loading documents.</td></tr>';
       });
   }
 
@@ -1378,28 +1361,133 @@ $isInHousePayment = strtolower((string)$paymentMethod) === 'in-house';
     if (!tbody) return;
 
     if (!currentDocuments.length) {
-      tbody.innerHTML = '<tr><td colspan="4" class="px-4 py-6 text-center text-xs text-slate-400">No documents found for this reservation.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="3" class="px-4 py-6 text-center text-xs text-slate-400">No documents found for this reservation.</td></tr>';
       return;
     }
 
     tbody.innerHTML = currentDocuments.map(doc => {
-      const statusBadge = doc.status === 'complete'
-        ? "<span class='text-xs font-semibold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200'>Complete</span>"
-        : "<span class='text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200'>Pending</span>";
+      const isComplete = (doc.status === 'complete' && doc.document_link && doc.document_link.trim().length > 0);
+      const statusBadge = isComplete
+        ? "<span class='inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200'><svg class='w-3 h-3 text-emerald-600' fill='none' stroke='currentColor' viewBox='0 0 24 24'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M5 13l4 4L19 7'/></svg>Complete</span>"
+        : "<span class='inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200'><span class='w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse'></span>Pending</span>";
 
-      const linkCell = doc.document_link
-        ? `<a href="${escapeHtmlAttr(doc.document_link)}" target="_blank" rel="noopener noreferrer" class="text-xs font-semibold text-blue-600 hover:underline inline-flex items-center gap-1"><span>View Link</span><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg></a>`
-        : "<span class='text-xs text-slate-400'>-</span>";
+
+
+      let actionCell = '';
+      if (isComplete) {
+        actionCell = `
+          <div class="flex items-center gap-2">
+            <a href="${escapeHtmlAttr(doc.document_link)}" target="_blank" rel="noopener noreferrer" class="btn-press inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 transition-all shadow-xs">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+              <span>View</span>
+            </a>
+            <button type="button" onclick="triggerDirectUpload(${doc.document_id})" class="btn-press inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold rounded-lg bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 transition-all">
+              <svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+              <span>Replace</span>
+            </button>
+            <button type="button" onclick="removeDirectDocument(${doc.document_id})" class="btn-press p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-all" title="Remove Document">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+            </button>
+            <input type="file" id="fileInputDoc_${doc.document_id}" accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx" class="hidden" onchange="executeDirectUpload(event, ${doc.document_id})">
+          </div>
+        `;
+      } else {
+        actionCell = `
+          <div class="flex items-center gap-2">
+            <button type="button" onclick="triggerDirectUpload(${doc.document_id})" id="btnUploadDoc_${doc.document_id}" class="btn-press inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-slate-900 text-white hover:bg-slate-800 transition-all shadow-sm">
+              <svg class="w-3.5 h-3.5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+              <span>Direct Upload</span>
+            </button>
+            <input type="file" id="fileInputDoc_${doc.document_id}" accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx" class="hidden" onchange="executeDirectUpload(event, ${doc.document_id})">
+          </div>
+        `;
+      }
 
       return `
         <tr class="hover:bg-slate-50/70 transition-colors">
-          <td class="px-4 py-3.5 font-medium text-slate-800">${escapeHtml(doc.document_name)}</td>
+          <td class="px-4 py-3.5 font-medium text-slate-800 flex items-center gap-2">
+            <div class="w-7 h-7 rounded-lg bg-slate-100 text-slate-500 flex items-center justify-center shrink-0">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+            </div>
+            <span>${escapeHtml(doc.document_name)}</span>
+          </td>
           <td class="px-4 py-3.5">${statusBadge}</td>
-          <td class="px-4 py-3.5 text-slate-600">${escapeHtml(storageDisplayLabel(doc))}</td>
-          <td class="px-4 py-3.5">${linkCell}</td>
+          <td class="px-4 py-3.5">${actionCell}</td>
         </tr>
       `;
     }).join('');
+  }
+
+  function triggerDirectUpload(documentId) {
+    const fileInput = document.getElementById(`fileInputDoc_${documentId}`);
+    if (fileInput) fileInput.click();
+  }
+
+  function executeDirectUpload(event, documentId) {
+    const input = event.target;
+    if (!input.files || !input.files[0]) return;
+    const file = input.files[0];
+
+    const btn = document.getElementById(`btnUploadDoc_${documentId}`);
+    if (btn) {
+      btn.disabled = true;
+      btn.innerHTML = `<svg class="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg><span>Uploading...</span>`;
+    }
+
+    const formData = new FormData();
+    formData.append('reservation_id', currentReservationId);
+    formData.append('document_id', documentId);
+    formData.append('document_file', file);
+
+    fetch('<?= htmlspecialchars($baseUrl) ?>/admin/reservations/upload-document', {
+      method: 'POST',
+      body: formData
+    })
+    .then(r => r.json())
+    .then(data => {
+      if (data.success) {
+        loadDocuments(currentReservationId);
+      } else {
+        alert(data.message || 'Upload failed.');
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = `<svg class="w-3.5 h-3.5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg><span>Direct Upload</span>`;
+        }
+      }
+    })
+    .catch(err => {
+      console.error(err);
+      alert('Upload error occurred.');
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = `<svg class="w-3.5 h-3.5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg><span>Direct Upload</span>`;
+      }
+    });
+  }
+
+  function removeDirectDocument(documentId) {
+    if (!confirm('Are you sure you want to remove this document?')) return;
+
+    const formData = new FormData();
+    formData.append('reservation_id', currentReservationId);
+    formData.append('document_id', documentId);
+
+    fetch('<?= htmlspecialchars($baseUrl) ?>/admin/reservations/delete-document', {
+      method: 'POST',
+      body: formData
+    })
+    .then(r => r.json())
+    .then(data => {
+      if (data.success) {
+        loadDocuments(currentReservationId);
+      } else {
+        alert(data.message || 'Failed to remove document.');
+      }
+    })
+    .catch(err => {
+      console.error(err);
+      alert('An error occurred while removing the document.');
+    });
   }
 
   function markOfficiallyBooked() {
@@ -1475,8 +1563,6 @@ $isInHousePayment = strtolower((string)$paymentMethod) === 'in-house';
   // --- Cancellation Rejection ---
   function openRejectCancellationModal() {
     const modal = document.getElementById('rejectCancellationModal');
-    const remarks = document.getElementById('rejectCancellationRemarks');
-    if (remarks) remarks.value = '';
     modal?.classList.remove('hidden');
     modal?.classList.add('flex');
   }
@@ -1488,12 +1574,6 @@ $isInHousePayment = strtolower((string)$paymentMethod) === 'in-house';
   }
 
   function submitRejectCancellation() {
-    const remarks = document.getElementById('rejectCancellationRemarks')?.value.trim();
-    if (!remarks) {
-      alert('Please provide a reason or remarks for declining the cancellation request.');
-      return;
-    }
-
     const btn = document.getElementById('btnConfirmRejectCancellation');
     if (btn) {
       btn.disabled = true;
@@ -1502,7 +1582,6 @@ $isInHousePayment = strtolower((string)$paymentMethod) === 'in-house';
 
     const formData = new FormData();
     formData.append('reservation_id', currentReservationId);
-    formData.append('remarks', remarks);
 
     fetch('<?= htmlspecialchars($baseUrl) ?>/admin/reservations/reject-cancellation', {
       method: 'POST',
@@ -1724,7 +1803,7 @@ $isInHousePayment = strtolower((string)$paymentMethod) === 'in-house';
 
     <div class="p-6 space-y-4">
       <p class="text-xs sm:text-sm text-slate-700 leading-relaxed">
-        Are you sure you want to mark this in-house payment as completed? Confirm that you have received the required downpayment of <strong><?= peso($res['required_amount'] ?: ($res['price_basis'] * $res['payment_percentage'])) ?></strong> in cash or check.
+        Are you sure you want to mark this in-house payment as completed? Confirm that you have received the required downpayment of <strong><?= peso($res['required_amount']) ?></strong> in cash or check.
       </p>
 
       <div class="rounded-xl bg-emerald-50 border border-emerald-200 p-3 text-xs text-emerald-800">
@@ -1780,15 +1859,10 @@ $isInHousePayment = strtolower((string)$paymentMethod) === 'in-house';
       </button>
     </div>
 
-    <div class="p-6 space-y-4">
+    <div class="p-6">
       <p class="text-xs sm:text-sm text-slate-700 leading-relaxed">
         Are you sure you want to decline this cancellation request? The reservation will remain active and the unit hold will not be released.
       </p>
-
-      <div>
-        <label class="block text-xs font-semibold text-slate-700 mb-1">Reason / Remarks for Rejection (sent via email)</label>
-        <textarea id="rejectCancellationRemarks" rows="3" placeholder="Provide a reason for declining this cancellation request..." class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 resize-none focus:outline-none focus:border-slate-900"></textarea>
-      </div>
     </div>
 
     <div class="flex items-center justify-end gap-2.5 px-6 py-4 border-t border-slate-100 bg-slate-50">

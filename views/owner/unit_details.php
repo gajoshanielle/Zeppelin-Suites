@@ -86,7 +86,7 @@ $currentStatus = trim((string) ($unit['unit_current_status'] ?? 'Ready for Occup
 $listingType = trim((string) ($unit['listing_type'] ?? 'For Lease'));
 $stayCategory = trim((string) ($unit['stay_category'] ?? 'Long term'));
 $leaseRate = (float) ($unit['lease_rate'] ?? 0);
-$resellingPrice = (float) ($unit['resellling_price'] ?? $unit['reselling_price'] ?? 0);
+$resellingPrice = (float) ($unit['reselling_price'] ?? 0);
 $isResale = (strcasecmp($listingType, 'Resale') === 0 || strcasecmp($currentStatus, 'Resale') === 0 || strcasecmp($currentStatus, 'For Resale') === 0 || stripos($listingType, 'resell') !== false);
 
 $statusLower = strtolower($currentStatus);
@@ -813,7 +813,7 @@ if ($statusLower === 'resale') {
                       <td class="px-4 py-4 whitespace-nowrap">
                         <p class="text-xs font-medium text-slate-800"><?= $transType ?></p>
                         <p class="text-[11px] text-slate-400 mt-0.5">
-                          <?= clean($l['resident_type'] ?: 'Standard Resident') ?></p>
+                          <?= clean('Resident' ?: 'Standard Resident') ?></p>
                       </td>
                       <td class="px-4 py-4 whitespace-nowrap text-xs font-mono text-slate-700"><?= $mIn ?></td>
                       <td class="px-4 py-4 whitespace-nowrap text-xs font-mono font-medium text-slate-900"><?= $mOut ?></td>
@@ -939,7 +939,7 @@ if ($statusLower === 'resale') {
             <div class="relative">
               <span
                 class="absolute left-3.5 top-1/2 -translate-y-1/2 font-bold text-slate-400 font-mono text-sm">₱</span>
-              <input type="number" step="1000" min="0" id="reselllingPriceInput" name="resellling_price"
+              <input type="number" step="1000" min="0" id="reselllingPriceInput" name="reselling_price"
                 value="<?= htmlspecialchars((string) ($resellingPrice > 0 ? $resellingPrice : '')) ?>" placeholder="0.00"
                 class="w-full pl-8 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-mono font-semibold text-slate-900 focus:outline-none focus:border-slate-900 transition-all">
             </div>

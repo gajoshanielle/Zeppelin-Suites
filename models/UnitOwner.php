@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../core/Model.php';
+require_once __DIR__ . '/../core/CloudStorage.php';
 
 /**
  * Zeppelin Suites - Unit Owner Model
@@ -83,7 +84,7 @@ class UnitOwner extends Model {
                 u.sqm,
                 u.floor_number,
                 u.lease_rate,
-                COALESCE(u.resellling_price, u.reselling_price, NULL) AS reselling_price,
+                u.reselling_price AS reselling_price,
                 u.listing_type,
                 u.stay_category,
                 u.unit_current_status,
@@ -188,7 +189,7 @@ class UnitOwner extends Model {
                 u.lease_rate,
                 u.sqm,
                 u.listing_type,
-                COALESCE(u.resellling_price, u.reselling_price, NULL) AS reselling_price,
+                u.reselling_price AS reselling_price,
                 u.unit_current_status,
                 (SELECT res.move_in_date 
                  FROM reservation_table res 
@@ -258,23 +259,14 @@ class UnitOwner extends Model {
                 client_user.resident_status AS client_resident_status,
                 client_user.contact AS client_user_contact,
                 client_user.date_of_birth AS client_dob,
-                updater.full_name AS requirements_updated_by_name,
-                official_user.full_name AS officially_booked_by_name,
-                cancelled_user.full_name AS cancelled_by_name,
                 cancel_requester.full_name AS cancellation_requested_by_name,
-                signer.full_name AS lease_signed_by_name,
-                confirmer.full_name AS confirmed_signing_by_name,
+                inq.inquiry_type AS inquiry_type,
                 inq.lease_duration AS inq_lease_duration
             FROM reservation_table r
             INNER JOIN units_table u ON r.unit_id = u.unit_id
             LEFT JOIN users_table owner ON u.unit_owner_id = owner.user_id
-            LEFT JOIN users_table updater ON r.requirements_updated_by = updater.user_id
-            LEFT JOIN users_table official_user ON r.officially_booked_by = official_user.user_id
-            LEFT JOIN users_table cancelled_user ON r.cancelled_by = cancelled_user.user_id
             LEFT JOIN users_table cancel_requester ON r.cancellation_requested_by = cancel_requester.user_id
             LEFT JOIN users_table client_user ON r.client_email = client_user.email
-            LEFT JOIN users_table signer ON r.lease_signed_by = signer.user_id
-            LEFT JOIN users_table confirmer ON r.confirmed_signing_by = confirmer.user_id
             LEFT JOIN inquiry_table inq ON r.inq_id = inq.inq_id
             WHERE r.reservation_id = ? AND u.unit_owner_id = ?
             LIMIT 1
@@ -711,7 +703,7 @@ class UnitOwner extends Model {
     }
 
     /**
-     * Upload and save owner GCash QR code image.
+     * Upload and save owner GCash QR code image to CloudStorage (Supabase).
      */
     public function uploadGcashQr(int $ownerId, array $file): array {
         if (!isset($file) || ($file['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE) {
@@ -725,38 +717,37 @@ class UnitOwner extends Model {
         }
 
         $allowedExt = ['jpg', 'jpeg', 'png', 'webp'];
-        $origName = $file['name'];
-        $tmpName = $file['tmp_name'];
+        $origName = (string)($file['name'] ?? '');
+        $tmpName = (string)($file['tmp_name'] ?? '');
         $ext = strtolower(pathinfo($origName, PATHINFO_EXTENSION));
 
         if (!in_array($ext, $allowedExt, true)) {
             return ['success' => false, 'message' => 'Only JPG, JPEG, PNG, and WEBP image files are allowed.'];
         }
 
-        $uploadDir = dirname(__DIR__) . '/images/payment_qr/';
-        if (!is_dir($uploadDir)) {
-            @mkdir($uploadDir, 0775, true);
-        }
+        // Upload to CloudStorage (folder: payment_qr/)
+        $cloudUrl = CloudStorage::uploadPaymentQr($tmpName, $origName, $ownerId);
 
-        $newName = 'gcash_qr_' . $ownerId . '_' . time() . '_' . bin2hex(random_bytes(4)) . '.' . $ext;
-        $targetPath = $uploadDir . $newName;
-        $dbPath = 'images/payment_qr/' . $newName;
-
-        if (move_uploaded_file($tmpName, $targetPath)) {
-            // Remove old QR image file if it exists
+        if ($cloudUrl !== null && $cloudUrl !== '') {
+            // Remove old QR image file or cloud object if it exists
             $oldRow = $this->fetchOne("SELECT gcash_QR FROM users_table WHERE user_id = ? LIMIT 1", [$ownerId]);
             if (!empty($oldRow['gcash_QR'])) {
-                $oldFile = dirname(__DIR__) . '/' . ltrim($oldRow['gcash_QR'], '/');
-                if (file_exists($oldFile) && is_file($oldFile)) {
-                    @unlink($oldFile);
+                $oldPath = (string) $oldRow['gcash_QR'];
+                if (str_starts_with($oldPath, 'http://') || str_starts_with($oldPath, 'https://')) {
+                    CloudStorage::deleteObject($oldPath);
+                } else {
+                    $oldFile = dirname(__DIR__) . '/' . ltrim($oldPath, '/');
+                    if (file_exists($oldFile) && is_file($oldFile)) {
+                        @unlink($oldFile);
+                    }
                 }
             }
 
-            $this->execute("UPDATE users_table SET gcash_QR = ? WHERE user_id = ?", [$dbPath, $ownerId]);
-            return ['success' => true, 'message' => 'Your GCash QR code has been saved successfully!'];
+            $this->execute("UPDATE users_table SET gcash_QR = ? WHERE user_id = ?", [$cloudUrl, $ownerId]);
+            return ['success' => true, 'message' => 'Your GCash QR code has been saved successfully to cloud storage!', 'url' => $cloudUrl];
         }
 
-        return ['success' => false, 'message' => 'Failed to save the uploaded image file.'];
+        return ['success' => false, 'message' => 'Failed to upload QR code to cloud storage. Please try again.'];
     }
 
     /**
@@ -765,9 +756,14 @@ class UnitOwner extends Model {
     public function deleteGcashQr(int $ownerId): array {
         $oldRow = $this->fetchOne("SELECT gcash_QR FROM users_table WHERE user_id = ? LIMIT 1", [$ownerId]);
         if (!empty($oldRow['gcash_QR'])) {
-            $oldFile = dirname(__DIR__) . '/' . ltrim($oldRow['gcash_QR'], '/');
-            if (file_exists($oldFile) && is_file($oldFile)) {
-                @unlink($oldFile);
+            $oldPath = (string) $oldRow['gcash_QR'];
+            if (str_starts_with($oldPath, 'http://') || str_starts_with($oldPath, 'https://')) {
+                CloudStorage::deleteObject($oldPath);
+            } else {
+                $oldFile = dirname(__DIR__) . '/' . ltrim($oldPath, '/');
+                if (file_exists($oldFile) && is_file($oldFile)) {
+                    @unlink($oldFile);
+                }
             }
         }
         $this->execute("UPDATE users_table SET gcash_QR = NULL WHERE user_id = ?", [$ownerId]);
@@ -936,7 +932,7 @@ class UnitOwner extends Model {
      */
     public function updateUnitSettings(int $ownerId, int $unitId, array $data): array {
         // 1. Verify that the unit belongs to this owner
-        $sql = "SELECT unit_id, unit_current_status, stay_category, lease_rate, COALESCE(resellling_price, reselling_price, NULL) as reselling_price FROM units_table WHERE unit_id = ? AND unit_owner_id = ? LIMIT 1";
+        $sql = "SELECT unit_id, unit_current_status, stay_category, lease_rate, reselling_price as reselling_price FROM units_table WHERE unit_id = ? AND unit_owner_id = ? LIMIT 1";
         $unit = $this->fetchOne($sql, [$unitId, $ownerId]);
         if (!$unit) {
             throw new RuntimeException('Unit not found or access denied.');
@@ -963,7 +959,7 @@ class UnitOwner extends Model {
             : (float)($unit['lease_rate'] ?? 0);
         if ($leaseRate < 0) $leaseRate = 0.0;
 
-        $rawResale = $data['resellling_price'] ?? $data['reselling_price'] ?? null;
+        $rawResale = $data['reselling_price'] ?? null;
         $resellingPrice = ($rawResale !== null && is_numeric($rawResale))
             ? round((float)$rawResale, 2)
             : ($unit['reselling_price'] !== null ? (float)$unit['reselling_price'] : null);
@@ -986,7 +982,6 @@ class UnitOwner extends Model {
             SET listing_type = ?,
                 stay_category = ?,
                 lease_rate = ?,
-                resellling_price = ?,
                 reselling_price = ?,
                 unit_current_status = ?
             WHERE unit_id = ? AND unit_owner_id = ?
@@ -1010,7 +1005,7 @@ class UnitOwner extends Model {
             'lease_rate_formatted'       => '₱' . number_format($leaseRate, 2),
             'reselling_price'            => $resellingPrice,
             'reselling_price_formatted'  => $resellingPrice !== null ? '₱' . number_format($resellingPrice, 2) : '—',
-            'resellling_price_formatted' => $resellingPrice !== null ? '₱' . number_format($resellingPrice, 2) : '—',
+            'reselling_price_formatted' => $resellingPrice !== null ? '₱' . number_format($resellingPrice, 2) : '—',
             'unit_current_status'        => $newStatus,
         ];
     }
@@ -1038,12 +1033,10 @@ class UnitOwner extends Model {
 
         $sql = "
             UPDATE reservation_table
-            SET confirmed_signing_date = ?,
-                confirmed_signing_by = ?,
-                confirmed_signing_at = NOW()
+            SET lease_signing_date = ?
             WHERE reservation_id = ?
         ";
-        $success = $this->execute($sql, [$cleanDate, $ownerId, $reservationId]);
+        $success = $this->execute($sql, [$cleanDate, $reservationId]);
         if (!$success) {
             return ['success' => false, 'message' => 'Database error while saving confirmed signing date.'];
         }
@@ -1070,24 +1063,18 @@ class UnitOwner extends Model {
             $status = 'Completed';
             $sql = "
                 UPDATE reservation_table
-                SET lease_signing_status = ?,
-                    lease_signed_at = ?,
-                    lease_signed_by = ?,
-                    lease_signing_remarks = ?
+                SET lease_signed_at = ?
                 WHERE reservation_id = ?
             ";
-            $params = [$status, $now, $ownerId, $remarks, $reservationId];
+            $params = [$now, $reservationId];
         } else {
             $status = 'Pending Signing';
             $sql = "
                 UPDATE reservation_table
-                SET lease_signing_status = ?,
-                    lease_signed_at = NULL,
-                    lease_signed_by = NULL,
-                    lease_signing_remarks = ?
+                SET lease_signed_at = NULL
                 WHERE reservation_id = ?
             ";
-            $params = [$status, $remarks, $reservationId];
+            $params = [$reservationId];
         }
 
         $success = $this->execute($sql, $params);
@@ -1128,15 +1115,14 @@ class UnitOwner extends Model {
             $sql = "
                 UPDATE reservation_table
                 SET payment_status = 'verified',
-                    payment_verified_at = ?,
-                    admin_payment_remarks = ?,
+                    payment_reviewed_at = ?,
                     reservation_status = CASE 
                         WHEN LOWER(reservation_status) = 'submitted' THEN 'pending' 
                         ELSE reservation_status 
                     END
                 WHERE reservation_id = ?
             ";
-            $success = $this->execute($sql, [$now, $remarks, $reservationId]);
+            $success = $this->execute($sql, [$now, $reservationId]);
             if (!$success) {
                 return ['success' => false, 'message' => 'Database error while marking payment as complete.'];
             }
@@ -1153,20 +1139,17 @@ class UnitOwner extends Model {
         }
 
         // Reject / Not Received
-        $inquiryType = strtolower(trim((string)($res['inquiry_type'] ?? '')));
-        $releasedStatus = ($inquiryType === 'resale inquiry' || strpos($inquiryType, 'resale') !== false) 
-            ? 'For Resale' 
-            : 'Ready for Occupancy';
+        $isResale = strcasecmp((string)($res['transaction_type'] ?? ''), 'Unit Resale') === 0 || strcasecmp((string)($res['listing_type'] ?? ''), 'Resale') === 0;
+        $releasedStatus = $isResale ? 'For Resale' : 'Ready for Occupancy';
 
         $sql = "
             UPDATE reservation_table
             SET payment_status = 'rejected',
                 reservation_status = 'rejected',
-                payment_rejected_at = ?,
-                admin_payment_remarks = ?
+                payment_reviewed_at = ?
             WHERE reservation_id = ?
         ";
-        $success = $this->execute($sql, [$now, $remarks, $reservationId]);
+        $success = $this->execute($sql, [$now, $reservationId]);
         if (!$success) {
             return ['success' => false, 'message' => 'Database error while rejecting payment.'];
         }
@@ -1228,10 +1211,9 @@ class UnitOwner extends Model {
 
         $success = $this->execute(
             "UPDATE reservation_table 
-             SET cancellation_status = 'requested',
+             SET reservation_status = 'cancellation requested',
                  cancellation_reason = ?,
                  cancellation_requested_by = ?,
-                 cancellation_requested_by_role = 'unit owner',
                  cancellation_requested_at = ?
              WHERE reservation_id = ?",
             [$reason, $ownerId, $now, $reservationId]
@@ -1253,16 +1235,15 @@ class UnitOwner extends Model {
             return ['success' => false, 'message' => 'Reservation not found or unauthorized.'];
         }
 
-        if (strtolower((string)($res['cancellation_status'] ?? 'none')) !== 'requested') {
+        if (strtolower((string)($res['reservation_status'] ?? '')) !== 'cancellation requested') {
             return ['success' => false, 'message' => 'There is no pending cancellation request to cancel.'];
         }
 
         $success = $this->execute(
             "UPDATE reservation_table 
-             SET cancellation_status = 'none',
+             SET reservation_status = CASE WHEN payment_status = 'verified' THEN 'reserved' ELSE 'submitted' END,
                  cancellation_reason = NULL,
                  cancellation_requested_by = NULL,
-                 cancellation_requested_by_role = NULL,
                  cancellation_requested_at = NULL
              WHERE reservation_id = ?",
             [$reservationId]

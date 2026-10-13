@@ -240,7 +240,12 @@ tailwind.config = {
               </div>
 
               <?php if (!empty($owner['gcash_QR'])): ?>
-                <?php $qrUrl = rtrim($baseUrl, '/') . '/' . ltrim($owner['gcash_QR'], '/'); ?>
+                <?php 
+                  $rawQr = (string)$owner['gcash_QR'];
+                  $qrUrl = (str_starts_with($rawQr, 'http://') || str_starts_with($rawQr, 'https://'))
+                      ? $rawQr
+                      : rtrim($baseUrl, '/') . '/' . ltrim($rawQr, '/');
+                ?>
                 <!-- CURRENT QR CODE CARD -->
                 <div class="p-6 rounded-2xl bg-slate-50/70 border border-slate-200/80">
                   <div class="grid grid-cols-1 md:grid-cols-[240px_1fr] gap-6 items-center">

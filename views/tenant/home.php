@@ -29,7 +29,7 @@ $isResale = strcasecmp((string)($leaseInfo['transaction_type'] ?? ''), 'Unit Res
 $moveInDate = $leaseInfo['preferred_move_in_time'] ?? $leaseInfo['move_in_date'] ?? null;
 // For resale: if no move-in date, fall back to confirmed contract signing date
 if ($isResale && empty($moveInDate)) {
-    $moveInDate = $leaseInfo['confirmed_signing_date'] ?? null;
+    $moveInDate = $leaseInfo['lease_signing_date'] ?? null;
 }
 $moveOutDate = $leaseInfo['move_out_date'] ?? null;
 $unitSqm = !empty($leaseInfo['sqm']) ? number_format((float)$leaseInfo['sqm'], 2) : null;

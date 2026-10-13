@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../core/Model.php';
+require_once __DIR__ . '/../core/CloudStorage.php';
 
 /**
  * Zeppelin Suites - Reservation Model
@@ -57,42 +58,29 @@ class Reservation extends Model
                 r.client_name,
                 r.client_email,
                 r.client_contact,
-                r.inquiry_type,
-                r.resident_type,
+                r.client_sex,
+                r.client_nationality,
+                i.inquiry_type,
                 r.transaction_type,
-                r.reservation_type,
                 r.move_in_date,
                 r.move_out_date,
+                r.lease_signing_date,
+                r.is_flexible_signing,
+                r.lease_signed_at,
                 r.price_basis,
-                r.payment_percentage,
                 r.required_amount,
                 r.payment_method,
-                r.payment_reference,
-                r.declared_amount,
-                r.amount_match_status,
                 r.payment_proof,
                 r.payment_status,
                 r.reservation_status,
-                r.admin_remarks,
+                r.client_remarks,
                 r.created_at,
-                r.payment_verified_at,
-                r.payment_rejected_at,
-                r.admin_payment_remarks,
-                r.requirements_updated_by,
-                r.requirements_updated_by_role,
-                r.requirements_updated_at,
+                r.payment_reviewed_at,
                 r.officially_booked_at,
-                r.officially_booked_by,
-                r.officially_booked_by_role,
                 r.cancelled_at,
-                r.cancelled_by,
-                r.cancelled_by_role,
-                r.admin_cancel_remarks,
-                r.cancellation_status,
                 r.cancellation_reason,
                 r.cancellation_requested_by,
                 r.cancellation_requested_at,
-                r.cancellation_requested_by_role,
 
                 u.unit_number,
                 u.unit_type,
@@ -100,19 +88,14 @@ class Reservation extends Model
 
                 owner.full_name AS owner_name,
                 owner.email AS owner_email,
-                updater.full_name AS requirements_updated_by_name,
-                official_user.full_name AS officially_booked_by_name,
-                cancelled_user.full_name AS cancelled_by_name,
                 cancel_requester.full_name AS cancellation_requested_by_name,
 
                 (SELECT COUNT(*) FROM reservation_documents d WHERE d.reservation_id = r.reservation_id) AS total_docs,
                 (SELECT COUNT(*) FROM reservation_documents d WHERE d.reservation_id = r.reservation_id AND d.status = 'complete') AS completed_docs
             FROM reservation_table r
+            LEFT JOIN inquiry_table i ON r.inq_id = i.inq_id
             LEFT JOIN units_table u ON r.unit_id = u.unit_id
             LEFT JOIN users_table owner ON u.unit_owner_id = owner.user_id
-            LEFT JOIN users_table updater ON r.requirements_updated_by = updater.user_id
-            LEFT JOIN users_table official_user ON r.officially_booked_by = official_user.user_id
-            LEFT JOIN users_table cancelled_user ON r.cancelled_by = cancelled_user.user_id
             LEFT JOIN users_table cancel_requester ON r.cancellation_requested_by = cancel_requester.user_id
             ORDER BY r.reservation_id DESC
         ";
@@ -169,7 +152,7 @@ class Reservation extends Model
      */
     public function getSalesSummary(string $start, string $end, ?string $unitType = null): array
     {
-        $dateExpr = "COALESCE(r.payment_verified_at, r.created_at)";
+        $dateExpr = "COALESCE(r.payment_reviewed_at, r.created_at)";
         $sql = "
             SELECT
                 COALESCE(SUM(r.required_amount), 0) AS collected_sales,
@@ -206,7 +189,7 @@ class Reservation extends Model
     public function getDailySales(string $start, string $end, int $daysInMonth, ?string $unitType = null): array
     {
         $counts = array_fill(1, $daysInMonth, 0.0);
-        $dateExpr = "COALESCE(r.payment_verified_at, r.created_at)";
+        $dateExpr = "COALESCE(r.payment_reviewed_at, r.created_at)";
         $sql = "
             SELECT DAY($dateExpr) AS day_num, COALESCE(SUM(r.required_amount), 0) AS total
             FROM reservation_table r
@@ -442,23 +425,14 @@ class Reservation extends Model
                 client_user.contact AS client_user_contact,
                 client_user.date_of_birth AS client_dob,
 
-                updater.full_name AS requirements_updated_by_name,
-                official_user.full_name AS officially_booked_by_name,
-                cancelled_user.full_name AS cancelled_by_name,
                 cancel_requester.full_name AS cancellation_requested_by_name,
-                signer.full_name AS lease_signed_by_name,
-                confirmer.full_name AS confirmed_signing_by_name,
+                inq.inquiry_type AS inquiry_type,
                 inq.lease_duration AS inq_lease_duration
             FROM reservation_table r
             LEFT JOIN units_table u ON r.unit_id = u.unit_id
             LEFT JOIN users_table owner ON u.unit_owner_id = owner.user_id
-            LEFT JOIN users_table updater ON r.requirements_updated_by = updater.user_id
-            LEFT JOIN users_table official_user ON r.officially_booked_by = official_user.user_id
-            LEFT JOIN users_table cancelled_user ON r.cancelled_by = cancelled_user.user_id
             LEFT JOIN users_table cancel_requester ON r.cancellation_requested_by = cancel_requester.user_id
             LEFT JOIN users_table client_user ON r.client_email = client_user.email
-            LEFT JOIN users_table signer ON r.lease_signed_by = signer.user_id
-            LEFT JOIN users_table confirmer ON r.confirmed_signing_by = confirmer.user_id
             LEFT JOIN inquiry_table inq ON r.inq_id = inq.inq_id
             WHERE r.reservation_id = ?
             LIMIT 1
@@ -545,7 +519,7 @@ class Reservation extends Model
                 owner.gcash_QR AS owner_gcash_qr
             FROM owner_approval_requests r
             INNER JOIN units_table u ON r.unit_id = u.unit_id
-            LEFT JOIN users_table owner ON r.unit_owner_id = owner.user_id
+            LEFT JOIN users_table owner ON owner.user_id = COALESCE(u.unit_owner_id, r.unit_owner_id)
             WHERE r.inq_id = ? AND r.request_status = 'approved'
             ORDER BY u.unit_number ASC
         ";
@@ -615,10 +589,16 @@ class Reservation extends Model
             $ownerHasQr = false;
             $ownerQrPath = '';
             if (!empty($u['owner_gcash_qr'])) {
-                $qrClean = ltrim((string) $u['owner_gcash_qr'], '/');
-                if (file_exists($projectRoot . '/' . $qrClean) || file_exists($projectRoot . '/public/' . $qrClean)) {
+                $rawQr = trim((string) $u['owner_gcash_qr']);
+                if (str_starts_with($rawQr, 'http://') || str_starts_with($rawQr, 'https://')) {
                     $ownerHasQr = true;
-                    $ownerQrPath = $qrClean;
+                    $ownerQrPath = $rawQr;
+                } else {
+                    $qrClean = ltrim($rawQr, '/');
+                    if (file_exists($projectRoot . '/' . $qrClean) || file_exists($projectRoot . '/public/' . $qrClean)) {
+                        $ownerHasQr = true;
+                        $ownerQrPath = $qrClean;
+                    }
                 }
             }
 
@@ -744,7 +724,6 @@ class Reservation extends Model
     {
         $token = trim((string) ($post['reservation_token'] ?? ''));
         $paymentPercentage = (float) ($post['payment_percentage'] ?? 0);
-        $paymentReference = trim((string) ($post['payment_reference'] ?? ''));
         $declaredAmount = (float) ($post['declared_amount'] ?? 0);
         $moveInDate = trim((string) ($post['move_in_date'] ?? ''));
         $moveOutDate = trim((string) ($post['move_out_date'] ?? ''));
@@ -858,9 +837,9 @@ class Reservation extends Model
         if ($paymentMethod === 'GCash QR') {
             $targetUnitId = (int) ($data['unit_id'] ?? 0);
             $ownerCheck = $this->fetchOne("
-                SELECT uo.gcash_qr_image 
+                SELECT owner.gcash_QR AS gcash_qr_image 
                 FROM units_table u 
-                LEFT JOIN unit_owners uo ON u.unit_owner_id = uo.user_id 
+                LEFT JOIN users_table owner ON u.unit_owner_id = owner.user_id 
                 WHERE u.unit_id = ? 
                 LIMIT 1
             ", [$targetUnitId]);
@@ -886,22 +865,31 @@ class Reservation extends Model
                 return ['success' => false, 'error' => 'File too large. Maximum size is 10MB.'];
             }
 
-            $uploadDir = dirname(__DIR__) . '/images/payment_proofs/';
-            if (!is_dir($uploadDir)) {
-                mkdir($uploadDir, 0777, true);
+            // Attempt CloudStorage upload first, fallback to local storage
+            $cloudUrl = null;
+            if (class_exists('CloudStorage')) {
+                $cloudUrl = CloudStorage::uploadPaymentProof($fileTmp, $fileName, (int) $data['inq_id']);
             }
 
-            $newFileName = 'payment_' . $data['inq_id'] . '_' . time() . '_' . bin2hex(random_bytes(6)) . '.' . $fileExt;
-            $uploadedFsPath = $uploadDir . $newFileName;
+            if ($cloudUrl) {
+                $dbFilePath = $cloudUrl;
+            } else {
+                $uploadDir = dirname(__DIR__) . '/images/payment_proofs/';
+                if (!is_dir($uploadDir)) {
+                    mkdir($uploadDir, 0777, true);
+                }
 
-            if (!move_uploaded_file($fileTmp, $uploadedFsPath)) {
-                return ['success' => false, 'error' => 'Failed to upload payment proof.'];
+                $newFileName = 'payment_' . $data['inq_id'] . '_' . time() . '_' . bin2hex(random_bytes(6)) . '.' . $fileExt;
+                $uploadedFsPath = $uploadDir . $newFileName;
+
+                if (!move_uploaded_file($fileTmp, $uploadedFsPath)) {
+                    return ['success' => false, 'error' => 'Failed to upload payment proof.'];
+                }
+
+                $dbFilePath = 'images/payment_proofs/' . $newFileName;
             }
-
-            $dbFilePath = 'images/payment_proofs/' . $newFileName;
         } else {
-            $dbFilePath = 'Pay In-House (During Lease Signing)';
-            $paymentReference = 'In-House';
+            $dbFilePath = null;
         }
 
         try {
@@ -946,38 +934,25 @@ class Reservation extends Model
                 throw new RuntimeException("Reservation already submitted.");
             }
 
-            // Check GCash reference
-            if ($paymentReference !== '' && $paymentReference !== 'N/A' && $paymentReference !== 'In-House') {
-                $dupRefStmt = $this->db->prepare("
-                    SELECT reservation_id
-                    FROM reservation_table
-                    WHERE payment_reference = ?
-                      AND reservation_status NOT IN ('cancelled', 'rejected')
-                    LIMIT 1
-                ");
-                $dupRefStmt->execute([$paymentReference]);
-                if ($dupRefStmt->fetch()) {
-                    throw new RuntimeException("This GCash reference number has already been used for another reservation.");
-                }
-            }
+
 
             // Insert into reservation_table
             $insertSql = "
                 INSERT INTO reservation_table (
                     inq_id, unit_id, client_name, client_email, client_contact,
-                    client_sex, client_age, client_nationality,
-                    inquiry_type, resident_type, transaction_type, reservation_type,
+                    client_sex, client_nationality,
+                    transaction_type,
                     move_in_date, move_out_date, lease_signing_date, is_flexible_signing,
-                    price_basis, payment_percentage, required_amount,
-                    payment_method, payment_reference, declared_amount, amount_match_status,
+                    price_basis, required_amount,
+                    payment_method,
                     payment_proof, payment_status, reservation_status, client_remarks
                 ) VALUES (
                     ?, ?, ?, ?, ?,
-                    ?, ?, ?,
+                    ?, ?,
+                    ?,
                     ?, ?, ?, ?,
-                    ?, ?, ?, ?,
-                    ?, ?, ?,
-                    ?, ?, ?, ?,
+                    ?, ?,
+                    ?,
                     ?, 'pending review', 'submitted', ?
                 )
             ";
@@ -990,23 +965,15 @@ class Reservation extends Model
                 $data['sender_email'],
                 $data['sender_contact'],
                 $clientSex,
-                $clientAge,
                 $clientNationality,
-                $data['inquiry_type'],
-                $residentType,
                 $transactionType,
-                $reservationType,
                 $moveInDate,
                 $moveOutDate,
                 $leaseSigningDate,
                 $isFlexibleSigning,
                 $priceBasis,
-                $paymentPercentage,
                 $requiredAmount,
                 $paymentMethod,
-                $paymentReference,
-                $declaredAmount,
-                $amountMatchStatus,
                 $dbFilePath,
                 $clientRemarks
             ]);
@@ -1079,7 +1046,6 @@ class Reservation extends Model
                 r.client_email,
                 r.reservation_status,
                 r.payment_status,
-                r.cancellation_status,
                 r.client_cancel_token_expires_at,
                 u.unit_type,
                 u.unit_number
@@ -1106,7 +1072,7 @@ class Reservation extends Model
             return ['status' => 'error', 'message' => 'Cancellation request is no longer available for this reservation.'];
         }
 
-        if ($res['cancellation_status'] === 'requested') {
+        if (strtolower((string)($res['reservation_status'] ?? '')) === 'cancellation requested') {
             return ['status' => 'error', 'message' => 'A cancellation request has already been submitted for this reservation.'];
         }
 
@@ -1133,7 +1099,6 @@ class Reservation extends Model
                     reservation_id,
                     payment_status,
                     reservation_status,
-                    cancellation_status,
                     client_cancel_token_expires_at
                 FROM reservation_table
                 WHERE client_cancel_token = ?
@@ -1161,20 +1126,19 @@ class Reservation extends Model
                 throw new RuntimeException("Cancellation request is no longer available for this reservation.");
             }
 
-            if ($res['cancellation_status'] === 'requested') {
+            if (strtolower((string)($res['reservation_status'] ?? '')) === 'cancellation requested') {
                 throw new RuntimeException("A cancellation request has already been submitted.");
             }
 
-            if ($res['cancellation_status'] === 'approved') {
+            if (strtolower((string)($res['reservation_status'] ?? '')) === 'cancelled') {
                 throw new RuntimeException("This cancellation request was already approved.");
             }
 
             $updateSql = "
                 UPDATE reservation_table
-                SET cancellation_status = 'requested',
+                SET reservation_status = 'cancellation requested',
                     cancellation_reason = ?,
                     cancellation_requested_by = NULL,
-                    cancellation_requested_by_role = 'client',
                     cancellation_requested_at = NOW(),
                     client_cancel_token = NULL,
                     client_cancel_token_expires_at = NULL
@@ -1218,12 +1182,10 @@ class Reservation extends Model
 
         $sql = "
             UPDATE reservation_table
-            SET confirmed_signing_date = ?,
-                confirmed_signing_by = ?,
-                confirmed_signing_at = NOW()
+            SET lease_signing_date = ?
             WHERE reservation_id = ?
         ";
-        $success = $this->execute($sql, [$cleanDate, $userId, $reservationId]);
+        $success = $this->execute($sql, [$cleanDate, $reservationId]);
         if (!$success) {
             return ['success' => false, 'message' => 'Database error while saving confirmed signing date.'];
         }
@@ -1251,7 +1213,7 @@ class Reservation extends Model
         }
 
         $isPaymentVerified = strtolower((string) ($res['payment_status'] ?? '')) === 'verified';
-        $isSigningComplete = strtolower((string) ($res['lease_signing_status'] ?? '')) === 'completed';
+        $isSigningComplete = !empty($res['lease_signed_at']);
 
         $counts = $this->fetchOne(
             "SELECT COUNT(*) AS total, SUM(CASE WHEN status = 'complete' THEN 1 ELSE 0 END) AS completed 
@@ -1267,11 +1229,9 @@ class Reservation extends Model
             $this->execute(
                 "UPDATE reservation_table 
                  SET reservation_status = 'reserved',
-                     officially_booked_at = ?,
-                     officially_booked_by = ?,
-                     officially_booked_by_role = ?
+                     officially_booked_at = ?
                  WHERE reservation_id = ?",
-                [$now, $userId, $userRole, $reservationId]
+                [$now, $reservationId]
             );
 
             if (!empty($res['unit_id'])) {
@@ -1298,27 +1258,19 @@ class Reservation extends Model
 
         $now = date('Y-m-d H:i:s');
         if ($action === 'complete') {
-            $status = 'Completed';
             $sql = "
                 UPDATE reservation_table
-                SET lease_signing_status = ?,
-                    lease_signed_at = ?,
-                    lease_signed_by = ?,
-                    lease_signing_remarks = ?
+                SET lease_signed_at = ?
                 WHERE reservation_id = ?
             ";
-            $params = [$status, $now, $userId, $remarks, $reservationId];
+            $params = [$now, $reservationId];
         } else {
-            $status = 'Pending Signing';
             $sql = "
                 UPDATE reservation_table
-                SET lease_signing_status = ?,
-                    lease_signed_at = NULL,
-                    lease_signed_by = NULL,
-                    lease_signing_remarks = ?
+                SET lease_signed_at = NULL
                 WHERE reservation_id = ?
             ";
-            $params = [$status, $remarks, $reservationId];
+            $params = [$reservationId];
         }
 
         $success = $this->execute($sql, $params);
@@ -1359,15 +1311,14 @@ class Reservation extends Model
             $sql = "
                 UPDATE reservation_table
                 SET payment_status = 'verified',
-                    payment_verified_at = ?,
-                    admin_payment_remarks = ?,
+                    payment_reviewed_at = ?,
                     reservation_status = CASE 
                         WHEN LOWER(reservation_status) = 'submitted' THEN 'pending' 
                         ELSE reservation_status 
                     END
                 WHERE reservation_id = ?
             ";
-            $success = $this->execute($sql, [$now, $remarks, $reservationId]);
+            $success = $this->execute($sql, [$now, $reservationId]);
             if (!$success) {
                 return ['success' => false, 'message' => 'Database error while verifying payment.'];
             }
@@ -1383,20 +1334,17 @@ class Reservation extends Model
         }
 
         // Reject / Not Received
-        $inquiryType = strtolower(trim((string) ($res['inquiry_type'] ?? '')));
-        $releasedStatus = ($inquiryType === 'resale inquiry' || strpos($inquiryType, 'resale') !== false)
-            ? 'For Resale'
-            : 'Ready for Occupancy';
+        $isResale = strcasecmp((string)($res['transaction_type'] ?? ''), 'Unit Resale') === 0 || strcasecmp((string)($res['listing_type'] ?? ''), 'Resale') === 0;
+        $releasedStatus = $isResale ? 'For Resale' : 'Ready for Occupancy';
 
         $sql = "
             UPDATE reservation_table
             SET payment_status = 'rejected',
                 reservation_status = 'rejected',
-                payment_rejected_at = ?,
-                admin_payment_remarks = ?
+                payment_reviewed_at = ?
             WHERE reservation_id = ?
         ";
-        $success = $this->execute($sql, [$now, $remarks, $reservationId]);
+        $success = $this->execute($sql, [$now, $reservationId]);
         if (!$success) {
             return ['success' => false, 'message' => 'Database error while rejecting payment.'];
         }
@@ -1441,7 +1389,7 @@ class Reservation extends Model
 
             foreach ($defaultDocs as $d) {
                 $this->execute(
-                    "INSERT INTO reservation_documents (reservation_id, document_key, document_name, status, created_at) VALUES (?, ?, ?, 'pending', NOW())",
+                    "INSERT INTO reservation_documents (reservation_id, document_key, document_name, status) VALUES (?, ?, ?, 'pending')",
                     [$reservationId, $d['key'], $d['name']]
                 );
             }
@@ -1483,8 +1431,6 @@ class Reservation extends Model
             if ($docId <= 0)
                 continue;
 
-            $storage = in_array($doc['storage'] ?? '', ['dropbox', 'gdrive', 'other'], true) ? $doc['storage'] : null;
-            $storageOther = !empty($doc['storage_other_label']) ? trim((string) $doc['storage_other_label']) : null;
             $docLink = !empty($doc['document_link']) ? trim((string) $doc['document_link']) : null;
 
             // Automatically determine status: complete if link provided, pending if empty
@@ -1493,14 +1439,11 @@ class Reservation extends Model
             $this->execute(
                 "UPDATE reservation_documents 
                  SET status = ?, 
-                     storage = ?, 
-                     storage_other_label = ?, 
                      document_link = ?, 
                      updated_by = ?, 
-                     updated_by_role = ?, 
                      updated_at = ? 
                  WHERE document_id = ? AND reservation_id = ?",
-                [$status, $storage, $storageOther, $docLink, $userId, $userRole, $now, $docId, $reservationId]
+                [$status, $docLink, $userId, $now, $docId, $reservationId]
             );
         }
 
@@ -1521,31 +1464,25 @@ class Reservation extends Model
             if (!$isPromoted) {
                 $this->execute(
                     "UPDATE reservation_table 
-                     SET requirements_updated_by = ?,
-                         requirements_updated_by_role = ?,
-                         requirements_updated_at = ?,
-                         reservation_status = CASE 
+                     SET reservation_status = CASE 
                              WHEN LOWER(reservation_status) IN ('submitted', 'under review', 'pending review', 'requirements pending', 'requested', 'flagged for review') 
                              THEN 'requirements completed' 
                              ELSE reservation_status 
                          END
                      WHERE reservation_id = ?",
-                    [$userId, $userRole, $now, $reservationId]
+                    [$reservationId]
                 );
             }
         } else {
             $this->execute(
                 "UPDATE reservation_table 
-                 SET requirements_updated_by = ?,
-                     requirements_updated_by_role = ?,
-                     requirements_updated_at = ?,
-                     reservation_status = CASE 
+                 SET reservation_status = CASE 
                          WHEN LOWER(reservation_status) = 'requirements completed' 
                          THEN 'requirements pending' 
                          ELSE reservation_status 
                      END
                  WHERE reservation_id = ?",
-                [$userId, $userRole, $now, $reservationId]
+                [$reservationId]
             );
         }
 
@@ -1571,11 +1508,9 @@ class Reservation extends Model
         $this->execute(
             "UPDATE reservation_table 
              SET reservation_status = 'reserved',
-                 officially_booked_at = ?,
-                 officially_booked_by = ?,
-                 officially_booked_by_role = ?
+                 officially_booked_at = ?
              WHERE reservation_id = ?",
-            [$now, $userId, $userRole, $reservationId]
+            [$now, $reservationId]
         );
 
         if (!empty($res['unit_id'])) {
@@ -1608,13 +1543,9 @@ class Reservation extends Model
         $this->execute(
             "UPDATE reservation_table 
              SET reservation_status = 'cancelled',
-                 cancellation_status = 'approved',
-                 cancelled_at = ?,
-                 cancelled_by = ?,
-                 cancelled_by_role = ?,
-                 admin_cancel_remarks = ?
+                 cancelled_at = ?
              WHERE reservation_id = ?",
-            [$now, $userId, $userRole, $remarks, $reservationId]
+            [$now, $reservationId]
         );
 
         if (!empty($res['unit_id'])) {
@@ -1634,6 +1565,13 @@ class Reservation extends Model
             $unitDisplay = 'Unit not specified';
         }
         $cancellationReason = trim((string) ($res['cancellation_reason'] ?? ''));
+        $requestedByRole = strtolower(trim((string) ($res['cancellation_requested_by_role'] ?? '')));
+        $requestedByName = trim((string) ($res['cancellation_requested_by_name'] ?? ''));
+        if ($requestedByRole === 'unit owner' && $requestedByName === '') {
+            $requestedByName = trim((string) ($res['owner_name'] ?? 'Unit Owner'));
+        } elseif ($requestedByRole === 'client' && $requestedByName === '') {
+            $requestedByName = $clientName;
+        }
 
         $clientEmailSent = false;
         if ($clientEmail !== '') {
@@ -1643,7 +1581,9 @@ class Reservation extends Model
                 $reservationId,
                 $unitDisplay,
                 $cancellationReason,
-                $remarks
+                $remarks,
+                $requestedByRole,
+                $requestedByName
             );
         }
 
@@ -1658,7 +1598,8 @@ class Reservation extends Model
                 $unitDisplay,
                 $clientName,
                 $cancellationReason,
-                $remarks
+                $remarks,
+                $requestedByRole
             );
         }
 
@@ -1676,6 +1617,179 @@ class Reservation extends Model
     }
 
     /**
+     * Directly upload a reservation requirement document to CloudStorage (Admin).
+     */
+    public function uploadReservationDocument(int $reservationId, int $documentId, array $file, int $userId, string $userRole): array
+    {
+        if ($reservationId <= 0 || $documentId <= 0) {
+            return ['success' => false, 'message' => 'Invalid reservation ID or document ID.'];
+        }
+
+        if (!isset($file) || ($file['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE) {
+            return ['success' => false, 'message' => 'Please select a document file to upload.'];
+        }
+
+        if ($file['error'] !== UPLOAD_ERR_OK) {
+            return ['success' => false, 'message' => 'File upload error code: ' . $file['error']];
+        }
+
+        if ($file['size'] > 15 * 1024 * 1024) {
+            return ['success' => false, 'message' => 'Document size must be 15MB or below.'];
+        }
+
+        $allowedExt = ['pdf', 'jpg', 'jpeg', 'png', 'webp', 'doc', 'docx'];
+        $origName = (string) ($file['name'] ?? '');
+        $tmpName = (string) ($file['tmp_name'] ?? '');
+        $ext = strtolower(pathinfo($origName, PATHINFO_EXTENSION));
+
+        if (!in_array($ext, $allowedExt, true)) {
+            return ['success' => false, 'message' => 'Invalid file format. Allowed formats: PDF, JPG, PNG, WEBP, DOC, DOCX.'];
+        }
+
+        $docRow = $this->fetchOne(
+            "SELECT * FROM reservation_documents WHERE document_id = ? AND reservation_id = ? LIMIT 1",
+            [$documentId, $reservationId]
+        );
+
+        if (!$docRow) {
+            return ['success' => false, 'message' => 'Document record not found for this reservation.'];
+        }
+
+        // Determine category folder
+        $key = strtolower((string) ($docRow['document_key'] ?? ''));
+        $name = strtolower((string) ($docRow['document_name'] ?? ''));
+
+        if (str_contains($key, 'valid_id') || str_contains($name, 'valid id')) {
+            $category = 'valid_ids';
+        } elseif (str_contains($key, 'tin') || str_contains($name, 'tin')) {
+            $category = 'tin_number';
+        } elseif (str_contains($key, 'agreement') || str_contains($name, 'agreement')) {
+            $category = 'agreement_forms';
+        } else {
+            $category = 'valid_ids';
+        }
+
+        $cloudUrl = CloudStorage::uploadDocument($tmpName, $origName, $category, $reservationId);
+
+        if ($cloudUrl === null || $cloudUrl === '') {
+            return ['success' => false, 'message' => 'Failed to upload document to Cloud Storage. Please check connection and try again.'];
+        }
+
+        // Clean up previous cloud file if existing
+        if (!empty($docRow['document_link'])) {
+            $oldLink = (string) $docRow['document_link'];
+            if (str_starts_with($oldLink, 'http://') || str_starts_with($oldLink, 'https://')) {
+                CloudStorage::deleteObject($oldLink);
+            }
+        }
+
+        $now = date('Y-m-d H:i:s');
+        $this->execute(
+            "UPDATE reservation_documents 
+             SET status = 'complete', 
+                 document_link = ?, 
+                 updated_by = ?, 
+                 updated_at = ? 
+             WHERE document_id = ? AND reservation_id = ?",
+            [$cloudUrl, $userId, $now, $documentId, $reservationId]
+        );
+
+        // Check if all documents completed
+        $counts = $this->fetchOne(
+            "SELECT COUNT(*) AS total, SUM(CASE WHEN status = 'complete' THEN 1 ELSE 0 END) AS completed 
+             FROM reservation_documents WHERE reservation_id = ?",
+            [$reservationId]
+        );
+
+        $total = (int) ($counts['total'] ?? 0);
+        $completed = (int) ($counts['completed'] ?? 0);
+        $allComplete = ($total > 0 && $completed === $total);
+
+        if ($allComplete) {
+            $isPromoted = $this->checkAndPromoteToOfficiallyBooked($reservationId, $userId, $userRole);
+            if (!$isPromoted) {
+                $this->execute(
+                    "UPDATE reservation_table 
+                     SET reservation_status = CASE 
+                             WHEN LOWER(reservation_status) IN ('submitted', 'under review', 'pending review', 'requirements pending', 'requested', 'flagged for review') 
+                             THEN 'requirements completed' 
+                             ELSE reservation_status 
+                         END
+                     WHERE reservation_id = ?",
+                    [$reservationId]
+                );
+            }
+        } else {
+            $this->execute(
+                "UPDATE reservation_table 
+                 SET updated_at = NOW() WHERE reservation_id = ?",
+                [$userId, $userRole, $now, $reservationId]
+            );
+        }
+
+        return [
+            'success' => true,
+            'message' => 'Document uploaded directly to Cloud Storage successfully!',
+            'url' => $cloudUrl,
+            'document_id' => $documentId,
+            'all_completed' => $allComplete,
+        ];
+    }
+
+    /**
+     * Remove an uploaded reservation document (Admin).
+     */
+    public function deleteReservationDocument(int $reservationId, int $documentId, int $userId, string $userRole): array
+    {
+        $docRow = $this->fetchOne(
+            "SELECT * FROM reservation_documents WHERE document_id = ? AND reservation_id = ? LIMIT 1",
+            [$documentId, $reservationId]
+        );
+
+        if (!$docRow) {
+            return ['success' => false, 'message' => 'Document record not found.'];
+        }
+
+        if (!empty($docRow['document_link'])) {
+            $oldLink = (string) $docRow['document_link'];
+            if (str_starts_with($oldLink, 'http://') || str_starts_with($oldLink, 'https://')) {
+                CloudStorage::deleteObject($oldLink);
+            }
+        }
+
+        $now = date('Y-m-d H:i:s');
+        $this->execute(
+            "UPDATE reservation_documents 
+             SET status = 'pending', 
+                 document_link = NULL, 
+                 updated_by = ?, 
+                 updated_at = ? 
+             WHERE document_id = ? AND reservation_id = ?",
+            [$userId, $now, $documentId, $reservationId]
+        );
+
+        // Update reservation status to pending requirements if it was completed
+        $this->execute(
+            "UPDATE reservation_table 
+             SET updated_at = ?,
+                 reservation_status = CASE 
+                     WHEN LOWER(reservation_status) = 'requirements completed' 
+                     THEN 'requirements pending' 
+                     ELSE reservation_status 
+                 END
+             WHERE reservation_id = ?",
+            [$now, $reservationId]
+        );
+
+        return [
+            'success' => true,
+            'message' => 'Document removed successfully.',
+            'document_id' => $documentId,
+            'all_completed' => false,
+        ];
+    }
+
+    /**
      * Reject a cancellation request and keep reservation active (Admin).
      */
     public function rejectCancellationRequest(int $reservationId, string $remarks, int $userId, string $userRole): array
@@ -1685,21 +1799,15 @@ class Reservation extends Model
             return ['success' => false, 'message' => 'Reservation not found.'];
         }
 
-        if (strtolower((string) ($res['cancellation_status'] ?? 'none')) !== 'requested') {
+        if (strtolower((string) ($res['reservation_status'] ?? '')) !== 'cancellation requested') {
             return ['success' => false, 'message' => 'This reservation does not have a pending cancellation request.'];
-        }
-
-        $cleanRemarks = trim($remarks);
-        if ($cleanRemarks === '') {
-            $cleanRemarks = 'Cancellation request declined by administration.';
         }
 
         $this->execute(
             "UPDATE reservation_table 
-             SET cancellation_status = 'declined',
-                 admin_cancel_remarks = ?
+             SET reservation_status = CASE WHEN payment_status = 'verified' THEN 'reserved' ELSE 'submitted' END
              WHERE reservation_id = ?",
-            [$cleanRemarks, $reservationId]
+            [$reservationId]
         );
 
         // Send email notifications to client and owner
@@ -1712,6 +1820,8 @@ class Reservation extends Model
             $unitDisplay = 'Unit not specified';
         }
 
+        $requestedByRole = strtolower(trim((string) ($res['cancellation_requested_by_role'] ?? '')));
+
         $clientEmailSent = false;
         if ($clientEmail !== '') {
             $clientEmailSent = notifyCancellationDeclined(
@@ -1719,7 +1829,8 @@ class Reservation extends Model
                 $clientName,
                 $reservationId,
                 $unitDisplay,
-                $cleanRemarks
+                $cleanRemarks,
+                $requestedByRole === 'client'
             );
         }
 
@@ -1732,7 +1843,8 @@ class Reservation extends Model
                 $ownerName,
                 $reservationId,
                 $unitDisplay,
-                $cleanRemarks
+                $cleanRemarks,
+                $requestedByRole === 'unit owner'
             );
         }
 

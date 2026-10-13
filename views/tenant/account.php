@@ -40,6 +40,8 @@ if (!empty($tenant['date_of_birth']) && $tenant['date_of_birth'] !== '0000-00-00
 $additionalPhone = !empty($tenant['additional_contact']) ? (string)$tenant['additional_contact'] : '—';
 $additionalEmail = !empty($tenant['additional_email']) ? (string)$tenant['additional_email'] : '—';
 
+$documents = $documents ?? [];
+$documentsCount = count($documents);
 $leasesCount = count($leases ?? []);
 $requestsCount = count($maintenance ?? []);
 $pendingRequests = 0;
@@ -172,9 +174,9 @@ foreach ($maintenance ?? [] as $m) {
           <div class="bg-white rounded-2xl border border-slate-100 shadow-xs p-6 md:p-8">
             <div class="flex items-center gap-6 border-b border-slate-100 pb-3 overflow-x-auto">
               <button type="button" onclick="setProfileTab('profile', this)" class="profile-tab active text-sm font-semibold pb-3 whitespace-nowrap">Profile</button>
-              <button type="button" onclick="setProfileTab('lease', this)" class="profile-tab text-sm font-semibold pb-3 flex items-center gap-2 whitespace-nowrap">
-                Lease Information
-                <span class="text-[11px] font-bold bg-slate-100 text-slate-700 px-2 py-0.5 rounded-full"><?= $leasesCount ?></span>
+              <button type="button" onclick="setProfileTab('documents', this)" class="profile-tab text-sm font-semibold pb-3 flex items-center gap-2 whitespace-nowrap">
+                Documents
+                <span class="text-[11px] font-bold bg-slate-100 text-slate-700 px-2 py-0.5 rounded-full"><?= $documentsCount ?></span>
               </button>
               <button type="button" onclick="setProfileTab('request', this)" class="profile-tab text-sm font-semibold pb-3 flex items-center gap-2 whitespace-nowrap">
                 Maintenance
@@ -213,62 +215,72 @@ foreach ($maintenance ?? [] as $m) {
               </dl>
             </div>
 
-            <!-- TAB 2: Lease Details (Showing Move-in and Turnover Dates) -->
-            <div id="tab-lease" class="pt-6 hidden">
+            <!-- TAB 2: Documents (Showing Uploaded Requirement Documents & Agreements) -->
+            <div id="tab-documents" class="pt-6 hidden">
               <div class="flex items-center justify-between mb-4">
                 <div>
-                  <h3 class="text-sm font-bold text-slate-900">Lease Contracts &amp; Stay Details</h3>
-                  <p class="text-xs text-slate-400">View move-in and turnover schedule for your units</p>
+                  <h3 class="text-sm font-bold text-slate-900">Reservation &amp; Lease Documents</h3>
+                  <p class="text-xs text-slate-400">View verified applicant documents and lease agreements for your unit</p>
                 </div>
                 <span class="text-xs font-semibold px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 font-mono">
-                  <?= $leasesCount ?> <?= $leasesCount === 1 ? 'Record' : 'Records' ?>
+                  <?= $documentsCount ?> <?= $documentsCount === 1 ? 'Document' : 'Documents' ?>
                 </span>
               </div>
-              <?php if (empty($leases)): ?>
+              <?php if (empty($documents)): ?>
                 <div class="p-8 text-center border border-dashed border-slate-200 rounded-2xl">
-                  <p class="text-sm text-slate-500">No active lease contracts found under your account.</p>
+                  <p class="text-sm text-slate-500">No documents found under your reservation.</p>
                 </div>
               <?php else: ?>
-                <div class="overflow-x-auto rounded-2xl border border-slate-100">
+                <div class="overflow-x-auto rounded-2xl border border-slate-100 bg-white">
                   <table class="w-full text-sm">
                     <thead>
                       <tr class="bg-slate-50/60 border-b border-slate-100 text-slate-400 text-xs font-semibold uppercase tracking-wide text-left">
-                        <th class="px-4 py-3">Unit</th>
-                        <th class="px-4 py-3">Unit Owner</th>
-                        <th class="px-4 py-3">Move-In Date</th>
-                        <th class="px-4 py-3">Turnover Date</th>
-                        <th class="px-4 py-3">Monthly Rent</th>
+                        <th class="px-4 py-3">Document</th>
                         <th class="px-4 py-3">Status</th>
+                        <th class="px-4 py-3 text-right sm:text-left">Link</th>
                       </tr>
                     </thead>
                     <tbody class="divide-y divide-slate-50">
-                      <?php foreach ($leases as $l): ?>
+                      <?php foreach ($documents as $doc): ?>
                         <?php
-                          $rate = (float)($l['lease_rate'] ?? $l['required_amount'] ?? 0);
-                          $status = $l['reservation_status'] ?? 'Active';
+                          $isComplete = (($doc['status'] ?? '') === 'complete' && !empty($doc['document_link']));
+                          $docLink = trim((string)($doc['document_link'] ?? ''));
+                          $unitText = !empty($doc['unit_number']) ? 'Unit ' . clean($doc['unit_number']) : '';
                         ?>
                         <tr class="hover:bg-slate-50/50 transition-colors">
-                          <td class="px-4 py-3.5 font-semibold text-slate-900">
-                            <span style="font-family:'DM Mono',monospace">Unit <?= clean($l['unit_number']) ?></span>
-                            <span class="block text-xs font-normal text-slate-400"><?= clean($l['unit_type'] ?: 'Standard') ?></span>
-                          </td>
-                          <td class="px-4 py-3.5 text-slate-800">
-                            <span class="font-medium"><?= clean($l['owner_name'] ?: 'Zeppelin Suites Management') ?></span>
-                            <span class="block text-xs text-slate-400"><?= clean($l['owner_contact'] ?: '—') ?></span>
-                          </td>
-                          <td class="px-4 py-3.5 text-slate-700 whitespace-nowrap font-medium" style="font-family:'DM Mono',monospace">
-                            <?= clean(format_date_short($l['move_in_date'])) ?>
-                          </td>
-                          <td class="px-4 py-3.5 text-slate-700 whitespace-nowrap font-medium" style="font-family:'DM Mono',monospace">
-                            <?= clean(format_date_short($l['move_out_date'])) ?>
-                          </td>
-                          <td class="px-4 py-3.5 font-semibold text-slate-900" style="font-family:'DM Mono',monospace">
-                            ₱<?= number_format($rate, 2) ?>
+                          <td class="px-4 py-3.5 font-medium text-slate-800 flex items-center gap-2.5">
+                            <div class="w-8 h-8 rounded-lg bg-slate-100 text-slate-500 flex items-center justify-center shrink-0">
+                              <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                            </div>
+                            <div>
+                              <span class="font-semibold text-slate-900"><?= clean($doc['document_name']) ?></span>
+                              <?php if ($unitText): ?>
+                                <span class="block text-[11px] text-slate-400 font-normal"><?= $unitText ?></span>
+                              <?php endif; ?>
+                            </div>
                           </td>
                           <td class="px-4 py-3.5">
-                            <span class="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 capitalize">
-                              <?= clean($status) ?>
-                            </span>
+                            <?php if ($isComplete): ?>
+                              <span class="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                <svg class="w-3 h-3 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                                Complete
+                              </span>
+                            <?php else: ?>
+                              <span class="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
+                                <span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+                                Pending
+                              </span>
+                            <?php endif; ?>
+                          </td>
+                          <td class="px-4 py-3.5 text-right sm:text-left">
+                            <?php if ($isComplete && $docLink): ?>
+                              <a href="<?= clean($docLink) ?>" target="_blank" rel="noopener noreferrer" class="btn-press text-xs font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-200 px-3 py-1.5 rounded-lg inline-flex items-center gap-1.5 transition-all shadow-2xs">
+                                <span>View Document</span>
+                                <svg class="w-3 h-3 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                              </a>
+                            <?php else: ?>
+                              <span class="text-xs text-slate-400">Not uploaded yet</span>
+                            <?php endif; ?>
                           </td>
                         </tr>
                       <?php endforeach; ?>
@@ -277,6 +289,7 @@ foreach ($maintenance ?? [] as $m) {
                 </div>
               <?php endif; ?>
             </div>
+
 
             <!-- TAB 3: Maintenance Requests -->
             <div id="tab-request" class="pt-6 hidden">

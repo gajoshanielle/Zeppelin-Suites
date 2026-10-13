@@ -155,9 +155,7 @@ class ReservationController extends Controller
         $this->json($result, $result['success'] ? 200 : 422);
     }
 
-    /**
-     * AJAX endpoint to update payment status (Admin Override).
-     */
+    
     public function updatePaymentStatus(): void
     {
         $userSession = Middleware::requireRole(['admin']);
@@ -181,26 +179,10 @@ class ReservationController extends Controller
             $action,
             $remarks,
             (int) $userSession['user_id'],
-            (string) ($userSession['full_name'] ?? $userSession['role'] ?? 'admin')
+            (string) $userSession['full_name']
         );
 
         $this->json($result, $result['success'] ? 200 : 422);
-    }
-
-    /**
-     * Alias for updatePaymentStatus.
-     */
-    public function updatePayment(): void
-    {
-        $this->updatePaymentStatus();
-    }
-
-    /**
-     * Alias for saveDocuments.
-     */
-    public function updateDocuments(): void
-    {
-        $this->saveDocuments();
     }
 
     /**
@@ -244,6 +226,68 @@ class ReservationController extends Controller
         $result = $this->reservationModel->saveDocuments(
             $reservationId,
             $documents,
+            (int) $userSession['user_id'],
+            'admin'
+        );
+
+        $this->json($result, $result['success'] ? 200 : 422);
+    }
+
+    /**
+     * AJAX endpoint to directly upload a reservation requirement document to CloudStorage (Admin).
+     */
+    public function uploadDocument(): void
+    {
+        $userSession = Middleware::requireRole(['admin']);
+
+        if (!$this->isPost()) {
+            $this->json(['success' => false, 'message' => 'Invalid request method.'], 405);
+            return;
+        }
+
+        $reservationId = (int) $this->getPost('reservation_id', 0);
+        $documentId = (int) $this->getPost('document_id', 0);
+        $file = $_FILES['document_file'] ?? [];
+
+        if ($reservationId <= 0 || $documentId <= 0 || empty($file)) {
+            $this->json(['success' => false, 'message' => 'Reservation ID, Document ID, and file are required.'], 400);
+            return;
+        }
+
+        $result = $this->reservationModel->uploadReservationDocument(
+            $reservationId,
+            $documentId,
+            $file,
+            (int) $userSession['user_id'],
+            'admin'
+        );
+
+        $this->json($result, $result['success'] ? 200 : 422);
+    }
+
+    /**
+     * AJAX endpoint to remove an uploaded reservation document (Admin).
+     */
+    public function deleteDocument(): void
+    {
+        $userSession = Middleware::requireRole(['admin']);
+
+        if (!$this->isPost()) {
+            $this->json(['success' => false, 'message' => 'Invalid request method.'], 405);
+            return;
+        }
+
+        $reservationId = (int) $this->getPost('reservation_id', 0);
+        $documentId = (int) $this->getPost('document_id', 0);
+
+        if ($reservationId <= 0 || $documentId <= 0) {
+            $this->json(['success' => false, 'message' => 'Reservation ID and Document ID are required.'], 400);
+            return;
+        }
+
+        $result = $this->reservationModel->deleteReservationDocument(
+            $reservationId,
+            $documentId,
             (int) $userSession['user_id'],
             'admin'
         );
@@ -321,10 +365,7 @@ class ReservationController extends Controller
         }
 
         $reservationId = (int) $this->getPost('reservation_id', 0);
-        $remarks = trim((string) ($this->getPost('remarks') ?? 'Cancellation request declined by admin.'));
-        if ($remarks === '') {
-            $remarks = 'Cancellation request declined by admin.';
-        }
+        $remarks = trim((string) ($this->getPost('remarks') ?? ''));
 
         if ($reservationId <= 0) {
             $this->json(['success' => false, 'message' => 'Invalid reservation ID.'], 400);

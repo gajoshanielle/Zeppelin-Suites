@@ -220,11 +220,11 @@ $totalCount = count($reservations);
                         'unit_display'            => $unitDisplay,
                         'created_at'              => format_timeline_datetime($row['created_at'] ?? null),
                         'payment_status'          => strtolower(trim((string)($row['payment_status'] ?? 'pending review'))),
-                        'payment_verified_at'     => format_timeline_datetime($row['payment_verified_at'] ?? null),
-                        'payment_rejected_at'     => format_timeline_datetime($row['payment_rejected_at'] ?? null),
+                        'payment_reviewed_at'     => format_timeline_datetime($row['payment_reviewed_at'] ?? null),
+                        
                         'reservation_status'      => $resStatus,
                         'officially_booked_at'    => format_timeline_datetime($row['officially_booked_at'] ?? null),
-                        'requirements_updated_at' => format_timeline_datetime($row['requirements_updated_at'] ?? null),
+                        
                         'move_in_date'            => !empty($row['move_in_date']) && $row['move_in_date'] !== '0000-00-00' ? date('M d, Y', strtotime((string)$row['move_in_date'])) : '',
                         'total_docs'              => (int)($row['total_docs'] ?? 0),
                         'completed_docs'          => (int)($row['completed_docs'] ?? 0),
@@ -360,7 +360,7 @@ function renderActivityTimelineSteps(data) {
       state: 'completed',
       title: 'Payment Verified',
       badge: null,
-      timestamp: data.payment_verified_at || 'Payment confirmed',
+      timestamp: data.payment_reviewed_at || 'Payment confirmed',
       desc: 'Payment has been verified by unit owner'
     };
   } else if (isPaymentRejected) {
@@ -369,7 +369,7 @@ function renderActivityTimelineSteps(data) {
       state: 'rejected',
       title: 'Payment Rejected',
       badge: '<span class="inline-flex items-center text-[11px] font-semibold px-2 py-0.5 rounded-full bg-red-50 text-red-600 border border-red-200">Rejected</span>',
-      timestamp: data.payment_rejected_at || 'Payment not accepted',
+      timestamp: data.payment_reviewed_at || 'Payment not accepted',
       desc: 'Payment was rejected by unit owner.'
     };
   } else {
@@ -399,7 +399,7 @@ function renderActivityTimelineSteps(data) {
       state: 'completed',
       title: 'Lease Signing',
       badge: null,
-      timestamp: data.officially_booked_at || data.requirements_updated_at || 'Lease agreement signed',
+      timestamp: data.officially_booked_at || data.officially_booked_at || 'Lease agreement signed',
       desc: 'The lease agreement has been signed'
     };
   } else {
@@ -408,7 +408,7 @@ function renderActivityTimelineSteps(data) {
       state: 'in_progress',
       title: 'Lease Signing',
       badge: '<span class="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 border border-blue-200"><span class="w-1.5 h-1.5 rounded-full bg-blue-600 animate-pulse"></span>In Progress</span>',
-      timestamp: data.payment_verified_at || '',
+      timestamp: data.payment_reviewed_at || '',
       desc: 'The lease agreement is ready for signing.'
     };
   }
@@ -429,7 +429,7 @@ function renderActivityTimelineSteps(data) {
       state: 'completed',
       title: 'Documents',
       badge: null,
-      timestamp: data.requirements_updated_at || '',
+      timestamp: data.officially_booked_at || '',
       desc: 'All required documents has been submitted and verified.'
     };
   } else if (areDocsInProgress) {

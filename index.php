@@ -128,6 +128,8 @@ $router->get('/admin/reservations', [ReservationController::class, 'index'], ['a
 $router->get('/admin/reservations/view', [ReservationController::class, 'show'], ['admin']);
 $router->get('/admin/reservations/documents', [ReservationController::class, 'getDocuments'], ['admin']);
 $router->post('/admin/reservations/documents', [ReservationController::class, 'saveDocuments'], ['admin']);
+$router->post('/admin/reservations/upload-document', [ReservationController::class, 'uploadDocument'], ['admin']);
+$router->post('/admin/reservations/delete-document', [ReservationController::class, 'deleteDocument'], ['admin']);
 $router->post('/admin/reservations/officially-book', [ReservationController::class, 'markOfficiallyBooked'], ['admin']);
 $router->post('/admin/reservations/officially-booked', [ReservationController::class, 'markOfficiallyBooked'], ['admin']);
 $router->post('/admin/reservations/cancel', [ReservationController::class, 'cancelReservation'], ['admin']);

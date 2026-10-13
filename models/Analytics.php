@@ -280,7 +280,7 @@ class Analytics extends Model {
             FROM reservation_table
             WHERE payment_status = 'pending review'
                OR reservation_status IN ('submitted', 'under review', 'requirements pending', 'requirements completed')
-               OR cancellation_status = 'requested'
+               OR reservation_status = 'cancellation requested'
         ";
         $resRow = $this->fetchOne($resSql);
 

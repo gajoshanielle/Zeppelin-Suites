@@ -30,8 +30,7 @@ class Tenant extends Model {
                 r.move_out_date,
                 r.price_basis,
                 r.required_amount,
-                r.declared_amount,
-                r.payment_status,
+                                r.payment_status,
                 r.reservation_status,
                 r.officially_booked_at,
                 u.unit_number,
@@ -45,7 +44,7 @@ class Tenant extends Model {
                 owner.email AS owner_email,
                 owner.contact AS owner_contact,
                 i.preferred_move_in_time,
-                r.confirmed_signing_date,
+                r.lease_signing_date,
                 r.transaction_type
             FROM reservation_table r
             INNER JOIN units_table u ON r.unit_id = u.unit_id
@@ -128,8 +127,7 @@ class Tenant extends Model {
                 r.move_out_date,
                 r.price_basis,
                 r.required_amount,
-                r.declared_amount,
-                r.payment_status,
+                                r.payment_status,
                 r.reservation_status,
                 r.officially_booked_at,
                 r.created_at,
@@ -150,6 +148,27 @@ class Tenant extends Model {
             ORDER BY r.created_at DESC
         ";
         $leases = $this->fetchAll($leaseSql, [$email, $name]);
+
+        // Fetch Documents for Tenant's Reservation(s)
+        $docSql = "
+            SELECT 
+                d.document_id,
+                d.reservation_id,
+                d.document_key,
+                d.document_name,
+                d.status,
+                d.document_link,
+                d.updated_at,
+                r.reservation_status,
+                u.unit_number,
+                u.unit_type
+            FROM reservation_documents d
+            INNER JOIN reservation_table r ON d.reservation_id = r.reservation_id
+            INNER JOIN units_table u ON r.unit_id = u.unit_id
+            WHERE (r.client_email = ? OR r.client_name = ?)
+            ORDER BY r.reservation_id DESC, d.document_id ASC
+        ";
+        $documents = $this->fetchAll($docSql, [$email, $name]);
 
         // Fetch Maintenance Requests
         $mSql = "
@@ -177,6 +196,7 @@ class Tenant extends Model {
         return [
             'tenant'      => $tenant,
             'leases'      => $leases,
+            'documents'   => $documents,
             'maintenance' => $maintenance,
         ];
     }

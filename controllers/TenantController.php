@@ -90,6 +90,7 @@ class TenantController extends Controller {
         $accountData = $this->tenantModel->getAccountData($tenantId);
         $tenant = $accountData['tenant'] ?? null;
         $leases = $accountData['leases'] ?? [];
+        $documents = $accountData['documents'] ?? [];
         $maintenance = $accountData['maintenance'] ?? [];
 
         $name = (string)($tenant['full_name'] ?? $userSession['full_name']);
@@ -101,6 +102,7 @@ class TenantController extends Controller {
             'baseUrl'        => $baseUrl,
             'tenant'         => $tenant,
             'leases'         => $leases,
+            'documents'      => $documents,
             'maintenance'    => $maintenance,
             'passwordCsrfToken' => (string)$_SESSION['tenant_password_csrf'],
             'tenantName'     => $name,

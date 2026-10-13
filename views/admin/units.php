@@ -334,7 +334,7 @@ tailwind.config = {
                                 $listing_type = strtolower(trim((string)($row['listing_type'] ?? 'for lease')));
                                 $is_resale = ($listing_type === 'resale' || $status_lower === 'resale' || $status_lower === 'for resale');
                                 $display_status = ($status_lower === 'resale' || $status_lower === 'for resale') ? 'For Resale' : $unit_current_status;
-                                $resale_val = (float)($row['resellling_price'] ?? $row['reselling_price'] ?? 0);
+                                $resale_val = (float)($row['reselling_price'] ?? 0);
 
                                 if ($is_resale && $resale_val > 0) {
                                     $price_value = peso($resale_val);

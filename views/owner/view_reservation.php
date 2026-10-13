@@ -62,12 +62,15 @@ $formattedResId = str_pad((string) ($res['reservation_id'] ?? 0), 3, '0', STR_PA
 
 $proofUrl = '';
 if (!empty($res['payment_proof'])) {
-  $proofUrl = $baseUrl . '/' . ltrim((string) $res['payment_proof'], '/');
+  $proofRaw = trim((string) $res['payment_proof']);
+  $proofUrl = (str_starts_with($proofRaw, 'http://') || str_starts_with($proofRaw, 'https://'))
+    ? $proofRaw
+    : $baseUrl . '/' . ltrim($proofRaw, '/');
 }
 
 $paymentStatusLower = strtolower(trim((string) ($res['payment_status'] ?? 'pending review')));
 $resStatusLower = strtolower(trim((string) ($res['reservation_status'] ?? 'submitted')));
-$cancellationStatusLower = strtolower(trim((string) ($res['cancellation_status'] ?? 'none')));
+$cancellationStatusLower = ($resStatusLower === 'cancellation requested') ? 'requested' : (($resStatusLower === 'cancelled') ? 'approved' : 'none');
 
 $canRequestCancellation = !in_array($resStatusLower, ['cancelled', 'rejected', 'reserved'], true)
   && $paymentStatusLower !== 'rejected'
@@ -148,13 +151,14 @@ $hasConfirmedSchedule = !empty($confirmedSigningDate);
 $confirmedDateTs = $hasConfirmedSchedule ? strtotime($confirmedSigningDate) : null;
 $confirmedDateDisplay = $confirmedDateTs ? date('F j, Y', $confirmedDateTs) : null;
 
-$signingStatus = !empty($res['lease_signing_status']) ? $res['lease_signing_status'] : 'Pending Signing';
+$isSigningCompleted = !empty($res['lease_signed_at']);
+$signingStatus = $isSigningCompleted ? 'Completed' : 'Pending Signing';
 $isSigningCompleted = strtolower((string) $signingStatus) === 'completed';
 $paymentMethod = !empty($res['payment_method']) ? $res['payment_method'] : 'GCash QR';
 $isInHousePayment = strtolower((string) $paymentMethod) === 'in-house';
 $downpaymentAmount = (float) ($res['required_amount'] ?? 0) > 0
   ? (float) $res['required_amount']
-  : ((float) ($res['price_basis'] ?? 0) * (float) ($res['payment_percentage'] ?? 0.10));
+  : ((float)($res['required_amount'] ?? 0));
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -358,9 +362,9 @@ $downpaymentAmount = (float) ($res['required_amount'] ?? 0) > 0
             <div class="flex-1">
               <h3 class="text-xs font-bold text-amber-900 uppercase tracking-wide">Cancellation Request Declined</h3>
               <p class="text-xs text-amber-700 mt-0.5">Your previous cancellation request was declined by administration. The reservation remains active.</p>
-              <?php if (!empty($res['admin_cancel_remarks'])): ?>
+              <?php if (!empty($res['cancellation_reason'])): ?>
                 <p class="text-xs text-amber-800 mt-1.5 bg-white/70 border border-amber-100 rounded-lg p-2 font-medium">
-                  <strong>Admin Remarks:</strong> <?= clean($res['admin_cancel_remarks']) ?>
+                  <strong>Admin Remarks:</strong> <?= clean($res['cancellation_reason']) ?>
                 </p>
               <?php endif; ?>
             </div>
@@ -684,9 +688,9 @@ $downpaymentAmount = (float) ($res['required_amount'] ?? 0) > 0
                           <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1.5"></span>
                           Payment Complete
                         </span>
-                        <?php if (!empty($res['payment_verified_at'])): ?>
+                        <?php if (!empty($res['payment_reviewed_at'])): ?>
                           <span class="text-xs text-slate-500 font-mono">(Verified:
-                            <?= clean(format_datetime_text($res['payment_verified_at'])) ?>)</span>
+                            <?= clean(format_datetime_text($res['payment_reviewed_at'])) ?>)</span>
                         <?php endif; ?>
                       <?php elseif ($paymentStatusLower === 'rejected'): ?>
                         <span
@@ -694,9 +698,9 @@ $downpaymentAmount = (float) ($res['required_amount'] ?? 0) > 0
                           <span class="w-1.5 h-1.5 rounded-full bg-red-500 mr-1.5"></span>
                           Payment Not Received
                         </span>
-                        <?php if (!empty($res['payment_rejected_at'])): ?>
+                        <?php if (!empty($res['payment_reviewed_at'])): ?>
                           <span class="text-xs text-slate-500 font-mono">(Rejected:
-                            <?= clean(format_datetime_text($res['payment_rejected_at'])) ?>)</span>
+                            <?= clean(format_datetime_text($res['payment_reviewed_at'])) ?>)</span>
                         <?php endif; ?>
                       <?php else: ?>
                         <span
@@ -997,15 +1001,13 @@ $downpaymentAmount = (float) ($res['required_amount'] ?? 0) > 0
                         Document</th>
                       <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">
                         Status</th>
-                      <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">
-                        Storage</th>
                       <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Link
                       </th>
                     </tr>
                   </thead>
                   <tbody id="documentsTableBody" class="divide-y divide-slate-100">
                     <tr>
-                      <td colspan="4" class="px-4 py-8 text-center text-xs text-slate-400">Loading documents...</td>
+                      <td colspan="3" class="px-4 py-8 text-center text-xs text-slate-400">Loading documents...</td>
                     </tr>
                   </tbody>
                 </table>
@@ -1261,12 +1263,7 @@ $downpaymentAmount = (float) ($res['required_amount'] ?? 0) > 0
       return escapeHtml(value).replace(/"/g, '&quot;');
     }
 
-    function storageDisplayLabel(doc) {
-      if (doc.storage === 'dropbox') return 'Dropbox';
-      if (doc.storage === 'gdrive') return 'Google Drive';
-      if (doc.storage === 'other') return doc.storage_other_label || 'Other';
-      return '—';
-    }
+
 
     function updateRequirementSectionUI(paymentStatus, reservationStatus) {
       const payment = (paymentStatus || '').toLowerCase();
@@ -1284,23 +1281,22 @@ $downpaymentAmount = (float) ($res['required_amount'] ?? 0) > 0
       display.className = 'hidden mb-5 rounded-xl border px-4 py-3';
       section.classList.remove('hidden');
 
+      // The owner portal purely reflects the requirement documents
+      documentsEditMode = false;
+      editBtn.classList.add('hidden');
+      saveBtn.classList.add('hidden');
+
       if (status === 'requirements completed') {
-        documentsEditMode = false;
-        editBtn.classList.remove('hidden');
-        saveBtn.classList.add('hidden');
         display.classList.remove('hidden');
         display.classList.add('bg-emerald-50', 'border-emerald-200');
         label.className = 'text-xs font-bold uppercase tracking-wide mb-1 text-emerald-700';
         text.className = 'text-sm font-semibold text-emerald-800';
         label.textContent = 'Requirements Completed';
-        text.textContent = 'All reservation documents have been completed. You may edit tracking if needed.';
+        text.textContent = 'All applicant requirement documents have been submitted and verified by management.';
         return;
       }
 
       if (status === 'reserved') {
-        documentsEditMode = false;
-        editBtn.classList.add('hidden');
-        saveBtn.classList.add('hidden');
         display.classList.remove('hidden');
         display.classList.add('bg-emerald-50', 'border-emerald-200');
         label.className = 'text-xs font-bold uppercase tracking-wide mb-1 text-emerald-700';
@@ -1310,9 +1306,6 @@ $downpaymentAmount = (float) ($res['required_amount'] ?? 0) > 0
         return;
       }
 
-      documentsEditMode = true;
-      editBtn.classList.add('hidden');
-      saveBtn.classList.remove('hidden');
       display.classList.add('hidden');
     }
 
@@ -1324,7 +1317,7 @@ $downpaymentAmount = (float) ($res['required_amount'] ?? 0) > 0
         .then(response => response.json())
         .then(data => {
           if (!data.success) {
-            tbody.innerHTML = '<tr><td colspan="4" class="px-4 py-6 text-center text-xs text-red-500">' + escapeHtml(data.message || 'Failed to load documents.') + '</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="3" class="px-4 py-6 text-center text-xs text-red-500">' + escapeHtml(data.message || 'Failed to load documents.') + '</td></tr>';
             return;
           }
 
@@ -1333,7 +1326,7 @@ $downpaymentAmount = (float) ($res['required_amount'] ?? 0) > 0
         })
         .catch(error => {
           console.error(error);
-          tbody.innerHTML = '<tr><td colspan="4" class="px-4 py-6 text-center text-xs text-red-500">Something went wrong while loading documents.</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="3" class="px-4 py-6 text-center text-xs text-red-500">Something went wrong while loading documents.</td></tr>';
         });
     }
 
@@ -1342,7 +1335,7 @@ $downpaymentAmount = (float) ($res['required_amount'] ?? 0) > 0
       if (!tbody) return;
 
       if (!currentDocuments.length) {
-        tbody.innerHTML = '<tr><td colspan="4" class="px-4 py-6 text-center text-xs text-slate-400">No documents found.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="3" class="px-4 py-6 text-center text-xs text-slate-400">No documents found.</td></tr>';
         return;
       }
 
@@ -1354,36 +1347,28 @@ $downpaymentAmount = (float) ($res['required_amount'] ?? 0) > 0
 
         if (!documentsEditMode) {
           const linkCell = hasLink
-            ? `<a href="${escapeHtmlAttr(doc.document_link)}" target="_blank" rel="noopener noreferrer" class="text-xs font-semibold text-blue-600 hover:underline inline-flex items-center gap-1"><span>View Link</span><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg></a>`
-            : "<span class='text-xs text-slate-400'>—</span>";
+            ? `<a href="${escapeHtmlAttr(doc.document_link)}" target="_blank" rel="noopener noreferrer" class="btn-press text-xs font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-200 px-3 py-1.5 rounded-lg inline-flex items-center gap-1.5 transition-all"><span>View Document</span><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg></a>`
+            : "<span class='text-xs text-slate-400'>Pending upload</span>";
 
           return `
           <tr class="hover:bg-slate-50/70 transition-colors">
-            <td class="px-4 py-3.5 font-medium text-slate-800">${escapeHtml(doc.document_name)}</td>
+            <td class="px-4 py-3.5 font-medium text-slate-800 flex items-center gap-2">
+              <div class="w-7 h-7 rounded-lg bg-slate-100 text-slate-500 flex items-center justify-center shrink-0">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+              </div>
+              <span>${escapeHtml(doc.document_name)}</span>
+            </td>
             <td class="px-4 py-3.5 doc-status-cell">${statusBadge}</td>
-            <td class="px-4 py-3.5 text-slate-600">${escapeHtml(storageDisplayLabel(doc))}</td>
             <td class="px-4 py-3.5">${linkCell}</td>
           </tr>
         `;
         }
-
-        const isOther = doc.storage === 'other';
 
         return `
         <tr data-document-id="${doc.document_id}" class="hover:bg-slate-50/70 transition-colors">
           <td class="px-4 py-3.5 font-medium text-slate-800">${escapeHtml(doc.document_name)}</td>
           <td class="px-4 py-3.5 doc-status-cell">
             ${statusBadge}
-          </td>
-          <td class="px-4 py-3.5">
-            <div class="flex flex-col gap-1.5">
-              <select class="doc-storage-input text-xs border border-slate-200 rounded-lg px-2.5 py-1.5 bg-white font-medium text-slate-700 focus:border-slate-900 focus:outline-none">
-                <option value="gdrive" ${(!doc.storage || doc.storage === 'gdrive') ? 'selected' : ''}>Google Drive</option>
-                <option value="dropbox" ${doc.storage === 'dropbox' ? 'selected' : ''}>Dropbox</option>
-                <option value="other" ${isOther ? 'selected' : ''}>Other</option>
-              </select>
-              <input type="text" class="doc-storage-other-input text-xs border border-slate-200 rounded-lg px-2.5 py-1.5 bg-white ${isOther ? '' : 'hidden'}" placeholder="Storage name" value="${escapeHtmlAttr(doc.storage_other_label || '')}">
-            </div>
           </td>
           <td class="px-4 py-3.5">
             <input type="url" class="doc-link-input w-full text-xs border border-slate-200 rounded-lg px-2.5 py-1.5 bg-white font-mono placeholder:font-sans placeholder:text-slate-400 focus:border-slate-900 focus:outline-none" placeholder="https://..." value="${escapeHtmlAttr(doc.document_link || '')}">
@@ -1393,19 +1378,6 @@ $downpaymentAmount = (float) ($res['required_amount'] ?? 0) > 0
       }).join('');
 
       if (documentsEditMode) {
-        tbody.querySelectorAll('.doc-storage-input').forEach(select => {
-          select.addEventListener('change', function () {
-            const otherInput = this.closest('td').querySelector('.doc-storage-other-input');
-            if (!otherInput) return;
-            if (this.value === 'other') {
-              otherInput.classList.remove('hidden');
-            } else {
-              otherInput.classList.add('hidden');
-              otherInput.value = '';
-            }
-          });
-        });
-
         // Reactive update of Status badge based on link typing
         tbody.querySelectorAll('.doc-link-input').forEach(input => {
           const updateRowBadge = () => {
@@ -1441,8 +1413,6 @@ $downpaymentAmount = (float) ($res['required_amount'] ?? 0) > 0
         payload.push({
           document_id: row.dataset.documentId,
           status: (linkVal.length > 0) ? 'complete' : 'pending',
-          storage: row.querySelector('.doc-storage-input')?.value || '',
-          storage_other_label: row.querySelector('.doc-storage-other-input')?.value || '',
           document_link: linkVal
         });
       });

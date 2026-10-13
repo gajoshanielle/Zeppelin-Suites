@@ -65,6 +65,9 @@ $listingVal = !empty($selectedUnitData['listing_type']) ? htmlspecialchars((stri
 $ownerName = !empty($selectedUnitData['owner_name']) ? htmlspecialchars((string)$selectedUnitData['owner_name']) : 'No owner assigned';
 $ownerEmail = !empty($selectedUnitData['owner_email']) ? htmlspecialchars((string)$selectedUnitData['owner_email']) : '';
 $ownerContact = !empty($selectedUnitData['owner_contact']) ? htmlspecialchars((string)$selectedUnitData['owner_contact']) : '—';
+$resolvedOwnerQrUrl = (str_starts_with((string)$owner_qr_path, 'http://') || str_starts_with((string)$owner_qr_path, 'https://'))
+    ? (string)$owner_qr_path
+    : rtrim($baseUrl, '/') . '/' . ltrim((string)$owner_qr_path, '/');
 
 // Format client information
 $clientName = !empty($selectedUnitData['sender_name']) ? (string)$selectedUnitData['sender_name'] : (!empty($client_name) ? (string)$client_name : (string)($data['client_name'] ?? ''));
@@ -265,8 +268,7 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
             <input type="hidden" id="paymentMethodInput" name="payment_method" value="GCash QR">
             <input type="hidden" id="moveOutDate" name="move_out_date">
             <input type="hidden" id="declaredAmountInput" name="declared_amount" value="<?= (float)$price_basis * 0.35 ?>">
-            <input type="hidden" name="payment_reference" value="N/A">
-            <input type="hidden" id="selectedUnitId" name="selected_unit_id" value="<?= $selectedUnitId ?>">
+                        <input type="hidden" id="selectedUnitId" name="selected_unit_id" value="<?= $selectedUnitId ?>">
 
             <!-- 1. UNIT DETAILS BOX -->
             <div class="border border-slate-200 rounded-2xl p-5 sm:p-6 bg-white shadow-xs mb-8">
@@ -472,7 +474,7 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
                       <!-- QR Code Box -->
                       <div class="w-32 h-32 border border-slate-200 rounded-xl p-2 bg-slate-50 flex items-center justify-center shrink-0 transition-all text-center group relative overflow-hidden <?= $owner_has_qr ? 'cursor-pointer hover:border-slate-400' : 'cursor-not-allowed opacity-90' ?>" onclick="openQRModal()" id="qrCodeContainer">
                         <div id="qrImageWrap" class="<?= $owner_has_qr ? '' : 'hidden' ?> w-full h-full relative">
-                          <img id="qrImgDisplay" src="<?= htmlspecialchars($baseUrl) ?>/<?= htmlspecialchars($owner_qr_path) ?>" alt="Owner GCash QR" class="w-full h-full object-contain rounded-lg">
+                          <img id="qrImgDisplay" src="<?= htmlspecialchars($resolvedOwnerQrUrl) ?>" alt="Owner GCash QR" class="w-full h-full object-contain rounded-lg">
                           <div class="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-[10px] font-bold rounded-lg">
                             Click to Enlarge
                           </div>
@@ -834,7 +836,7 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
       </button>
     </div>
     <div class="p-3 bg-slate-50 rounded-2xl flex items-center justify-center min-h-[220px]" id="qrModalContent">
-      <img id="qrModalImg" src="<?= htmlspecialchars($baseUrl) ?>/<?= htmlspecialchars($owner_qr_path) ?>" alt="GCash QR" class="<?= $owner_has_qr ? '' : 'hidden' ?> max-h-[60vh] max-w-full object-contain rounded-xl shadow-sm">
+      <img id="qrModalImg" src="<?= htmlspecialchars($resolvedOwnerQrUrl) ?>" alt="GCash QR" class="<?= $owner_has_qr ? '' : 'hidden' ?> max-h-[60vh] max-w-full object-contain rounded-xl shadow-sm">
       <div id="qrModalPlaceholder" class="<?= $owner_has_qr ? 'hidden' : '' ?> text-center py-6">
         <div class="w-12 h-12 mx-auto rounded-full bg-slate-100 flex items-center justify-center text-slate-400 mb-2">
           <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/></svg>

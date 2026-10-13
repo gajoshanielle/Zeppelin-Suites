@@ -413,46 +413,49 @@ class Inquiry extends Model {
         }
 
         // Rental / Lease Inquiry Flow
-        $today = new \DateTime();
+        $today = new \DateTime('today');
         $movePreference = strtolower(trim((string)($inquiry['preferred_move_in_time'] ?? '')));
+        $isImmediately = in_array($movePreference, ['immediately', 'immediately (within 30 days)', 'immediate'], true)
+            || strpos($movePreference, 'immediate') !== false;
         $earliestMoveIn = clone $today;
         $latestMoveIn = clone $today;
 
-        switch ($movePreference) {
-            case 'immediately':
-            case 'immediately (within 30 days)':
-                $latestMoveIn->modify('+30 days');
-                break;
-            case 'within 1 month':
-                $latestMoveIn->modify('+1 month');
-                break;
-            case 'next month (1-2 months)':
-            case 'next month (1–2 months)':
-                $earliestMoveIn->modify('+1 month');
-                $latestMoveIn->modify('+2 months');
-                break;
-            case 'within 1–3 months':
-            case 'within 1-3 months':
-                $earliestMoveIn->modify('+1 month');
-                $latestMoveIn->modify('+3 months');
-                break;
-            case 'in 2-3 months':
-            case 'in 2–3 months':
-                $earliestMoveIn->modify('+2 months');
-                $latestMoveIn->modify('+3 months');
-                break;
-            case 'within 3–6 months':
-            case 'within 3-6 months':
-            case 'in 3-6 months':
-            case 'in 3–6 months':
-                $earliestMoveIn->modify('+3 months');
-                $latestMoveIn->modify('+6 months');
-                break;
-            case 'flexible / not sure yet':
-            case 'flexible':
-            default:
-                $latestMoveIn->modify('+6 months');
-                break;
+        if ($isImmediately) {
+            // Immediate move-in requires the unit to be vacant/ready for occupancy today
+            // $latestMoveIn remains today
+        } else {
+            switch ($movePreference) {
+                case 'within 1 month':
+                    $latestMoveIn->modify('+1 month');
+                    break;
+                case 'next month (1-2 months)':
+                case 'next month (1–2 months)':
+                    $earliestMoveIn->modify('+1 month');
+                    $latestMoveIn->modify('+2 months');
+                    break;
+                case 'within 1–3 months':
+                case 'within 1-3 months':
+                    $earliestMoveIn->modify('+1 month');
+                    $latestMoveIn->modify('+3 months');
+                    break;
+                case 'in 2-3 months':
+                case 'in 2–3 months':
+                    $earliestMoveIn->modify('+2 months');
+                    $latestMoveIn->modify('+3 months');
+                    break;
+                case 'within 3–6 months':
+                case 'within 3-6 months':
+                case 'in 3-6 months':
+                case 'in 3–6 months':
+                    $earliestMoveIn->modify('+3 months');
+                    $latestMoveIn->modify('+6 months');
+                    break;
+                case 'flexible / not sure yet':
+                case 'flexible':
+                default:
+                    $latestMoveIn->modify('+6 months');
+                    break;
+            }
         }
 
         $leaseDuration = strtolower(trim((string)($inquiry['lease_duration'] ?? '')));
@@ -477,6 +480,7 @@ class Inquiry extends Model {
                 u.sqm,
                 u.lease_rate,
                 u.unit_owner_id,
+                u.unit_current_status,
                 owner.full_name AS owner_name,
                 MAX(r.move_out_date) AS latest_move_out,
                 MAX(b.end_date) AS latest_blocked_out
@@ -507,6 +511,16 @@ class Inquiry extends Model {
         $candidates = [];
 
         foreach ($rows as $row) {
+            $unitStatus = strtolower(trim((string)($row['unit_current_status'] ?? '')));
+            $isOccupiedOrBusy = !empty($row['latest_move_out'])
+                || !empty($row['latest_blocked_out'])
+                || in_array($unitStatus, ['occupied', 'reserved'], true);
+
+            // If unit is marked occupied or reserved with no active lease move-out date, it's indefinitely unavailable
+            if (in_array($unitStatus, ['occupied', 'reserved'], true) && empty($row['latest_move_out'])) {
+                continue;
+            }
+
             $busyEndDates = [];
             if (!empty($row['latest_move_out'])) {
                 $busyEndDates[] = new \DateTime($row['latest_move_out']);
@@ -515,12 +529,19 @@ class Inquiry extends Model {
                 $busyEndDates[] = new \DateTime($row['latest_blocked_out']);
             }
 
-            $availableDate = empty($busyEndDates) ? new \DateTime() : max($busyEndDates);
+            $availableDate = empty($busyEndDates) ? clone $today : max($busyEndDates);
+            $availableDate->setTime(0, 0, 0);
+
             if ($availableDate < $earliestMoveIn) {
                 $availableDate = clone $earliestMoveIn;
             }
             if ($availableDate < $today) {
                 $availableDate = clone $today;
+            }
+
+            // If tenant wants to move in immediately, occupied or busy units must not be suggested
+            if ($isImmediately && ($isOccupiedOrBusy || $availableDate > $today)) {
+                continue;
             }
 
             if ($availableDate > $latestMoveIn) {
