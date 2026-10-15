@@ -279,11 +279,11 @@ tailwind.config = {
                     <table class="w-full text-sm table-fixed min-w-[850px]">
                         <thead>
                             <tr class="border-b border-slate-100 bg-slate-50/50 text-slate-500 text-xs font-bold uppercase tracking-wider">
-                                <th class="text-center px-5 py-3.5 whitespace-nowrap w-[24%] min-w-[170px] align-middle">UNIT</th>
-                                <th class="text-center px-4 py-3.5 whitespace-nowrap w-[16%] min-w-[110px] align-middle">LISTING</th>
-                                <th class="text-center px-4 py-3.5 whitespace-nowrap w-[22%] min-w-[160px] align-middle">STATUS</th>
-                                <th class="text-center px-4 py-3.5 whitespace-nowrap w-[22%] min-w-[160px] align-middle">UNIT OWNER</th>
-                                <th class="text-center px-5 py-3.5 whitespace-nowrap w-[16%] min-w-[120px] align-middle">RATE</th>
+                                <th class="text-left px-5 py-3.5 whitespace-nowrap w-[24%] min-w-[170px] align-middle">UNIT</th>
+                                <th class="text-left px-4 py-3.5 whitespace-nowrap w-[16%] min-w-[110px] align-middle">LISTING</th>
+                                <th class="text-left px-4 py-3.5 whitespace-nowrap w-[22%] min-w-[160px] align-middle">STATUS</th>
+                                <th class="text-left px-4 py-3.5 whitespace-nowrap w-[22%] min-w-[160px] align-middle">UNIT OWNER</th>
+                                <th class="text-left px-5 py-3.5 whitespace-nowrap w-[16%] min-w-[120px] align-middle">RATE</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-50">

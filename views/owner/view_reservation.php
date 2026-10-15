@@ -1218,7 +1218,7 @@ $downpaymentAmount = (float) ($res['required_amount'] ?? 0) > 0
       if (action === 'reject') {
         remarks = document.getElementById('rejectPaymentRemarks')?.value.trim() || '';
         if (remarks === '') {
-          alert('Please enter a reason for rejecting the payment.');
+          showStatusModal(false, 'Missing Reason', 'Please enter a reason for rejecting the payment.');
           return;
         }
         closePaymentConfirmModal('rejectPaymentModal');
@@ -1235,14 +1235,15 @@ $downpaymentAmount = (float) ($res['required_amount'] ?? 0) > 0
       })
         .then(response => response.json())
         .then(data => {
-          alert(data.message);
           if (data.success) {
-            window.location.reload();
+            showStatusModal(true, action === 'verify' ? 'Payment Verified' : 'Payment Rejected', data.message, true);
+          } else {
+            showStatusModal(false, 'Update Failed', data.message);
           }
         })
         .catch(error => {
           console.error(error);
-          alert('Something went wrong while updating payment status.');
+          showStatusModal(false, 'Network Error', 'Something went wrong while updating payment status.');
         });
     }
 
@@ -1422,7 +1423,7 @@ $downpaymentAmount = (float) ($res['required_amount'] ?? 0) > 0
     function saveDocuments() {
       const documents = collectDocumentsPayload();
       if (!documents.length) {
-        alert('No documents to save.');
+        showStatusModal(false, 'No Documents', 'No documents to save.');
         return;
       }
 
@@ -1436,14 +1437,15 @@ $downpaymentAmount = (float) ($res['required_amount'] ?? 0) > 0
       })
         .then(response => response.json())
         .then(data => {
-          alert(data.message);
           if (data.success) {
-            window.location.reload();
+            showStatusModal(true, 'Documents Saved', data.message, true);
+          } else {
+            showStatusModal(false, 'Save Failed', data.message);
           }
         })
         .catch(error => {
           console.error(error);
-          alert('Something went wrong while saving document tracking.');
+          showStatusModal(false, 'Network Error', 'Something went wrong while saving document tracking.');
         });
     }
 
@@ -1466,7 +1468,7 @@ $downpaymentAmount = (float) ($res['required_amount'] ?? 0) > 0
     function submitOwnerCancelRequest() {
       const reason = document.getElementById('ownerCancelReason')?.value.trim();
       if (!reason) {
-        alert('Cancellation reason is required.');
+        showStatusModal(false, 'Reason Required', 'Cancellation reason is required.');
         return;
       }
 
@@ -1474,20 +1476,23 @@ $downpaymentAmount = (float) ($res['required_amount'] ?? 0) > 0
       formData.append('reservation_id', currentReservationId);
       formData.append('reason', reason);
 
+      closeOwnerCancelRequestModal();
+
       fetch(appBaseUrl + '/owner/reservations/request-cancellation', {
         method: 'POST',
         body: formData
       })
         .then(response => response.json())
         .then(data => {
-          alert(data.message);
           if (data.success) {
-            window.location.reload();
+            showStatusModal(true, 'Cancellation Requested', data.message, true);
+          } else {
+            showStatusModal(false, 'Request Failed', data.message);
           }
         })
         .catch(error => {
           console.error(error);
-          alert('Something went wrong while requesting cancellation.');
+          showStatusModal(false, 'Network Error', 'Something went wrong while requesting cancellation.');
         });
     }
 
@@ -1562,7 +1567,7 @@ $downpaymentAmount = (float) ($res['required_amount'] ?? 0) > 0
       }
 
       if (!chosenDate) {
-        alert('Please select a signing date.');
+        showStatusModal(false, 'Date Required', 'Please select a signing date.');
         return;
       }
 
@@ -1583,9 +1588,9 @@ $downpaymentAmount = (float) ($res['required_amount'] ?? 0) > 0
         });
         const data = await res.json();
         if (data.success) {
-          window.location.reload();
+          showStatusModal(true, 'Date Saved', data.message || 'Signing date confirmed successfully.', true);
         } else {
-          alert(data.message || 'Failed to save date.');
+          showStatusModal(false, 'Save Failed', data.message || 'Failed to save date.');
           if (btn) {
             btn.disabled = false;
             btn.textContent = 'Save Date';
@@ -1593,7 +1598,7 @@ $downpaymentAmount = (float) ($res['required_amount'] ?? 0) > 0
         }
       } catch (err) {
         console.error(err);
-        alert('Network error while saving signing date.');
+        showStatusModal(false, 'Network Error', 'Network error while saving signing date.');
         if (btn) {
           btn.disabled = false;
           btn.textContent = 'Save Date';
@@ -1654,18 +1659,57 @@ $downpaymentAmount = (float) ($res['required_amount'] ?? 0) > 0
         });
         const data = await res.json();
         if (data.success) {
-          window.location.reload();
+          closeSigningModal();
+          showStatusModal(true, 'Lease Signing Updated', data.message || 'Lease signing status updated successfully.', true);
         } else {
-          alert(data.message || 'Failed to update lease signing status.');
+          closeSigningModal();
+          showStatusModal(false, 'Update Failed', data.message || 'Failed to update lease signing status.');
           btn.disabled = false;
           btn.textContent = 'Confirm';
         }
       } catch (err) {
         console.error(err);
-        alert('Network error while updating lease signing.');
+        closeSigningModal();
+        showStatusModal(false, 'Network Error', 'Network error while updating lease signing.');
         btn.disabled = false;
         btn.textContent = 'Confirm';
       }
+    }
+
+    // --- Status Modal (shared) ---
+    let _ownerShouldReload = false;
+    function showStatusModal(isSuccess, title, message, reloadOnClose = false) {
+      _ownerShouldReload = reloadOnClose;
+      const modal = document.getElementById('ownerStatusModal');
+      const icon = document.getElementById('ownerStatusIcon');
+      const t = document.getElementById('ownerStatusTitle');
+      const m = document.getElementById('ownerStatusMessage');
+      const btn = document.getElementById('ownerStatusBtn');
+      if (t) t.textContent = title;
+      if (m) m.textContent = message;
+      if (icon) {
+        if (isSuccess) {
+          icon.className = 'w-14 h-14 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto mb-4 border border-emerald-100';
+          icon.innerHTML = '<svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>';
+        } else {
+          icon.className = 'w-14 h-14 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center mx-auto mb-4 border border-rose-100';
+          icon.innerHTML = '<svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>';
+        }
+      }
+      if (btn) btn.textContent = isSuccess ? 'Continue' : 'Dismiss';
+      if (modal) {
+        modal.classList.remove('hidden');
+        requestAnimationFrame(() => modal.classList.add('open'));
+      }
+    }
+    function closeOwnerStatusModal() {
+      const modal = document.getElementById('ownerStatusModal');
+      if (!modal || !modal.classList.contains('open')) return;
+      modal.classList.remove('open');
+      setTimeout(() => {
+        if (!modal.classList.contains('open')) modal.classList.add('hidden');
+        if (_ownerShouldReload) window.location.reload();
+      }, 250);
     }
 
     document.addEventListener('DOMContentLoaded', function () {
@@ -1680,6 +1724,22 @@ $downpaymentAmount = (float) ($res['required_amount'] ?? 0) > 0
       }
     });
   </script>
+
+  <!-- Owner Status Modal -->
+  <div id="ownerStatusModal"
+    class="modal-backdrop fixed inset-0 z-[100] bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 hidden"
+    onclick="if(event.target===this)closeOwnerStatusModal()">
+    <div class="modal-card bg-white rounded-3xl shadow-2xl border border-slate-100 p-6 sm:p-7 max-w-sm w-full text-center" onclick="event.stopPropagation()">
+      <div id="ownerStatusIcon" class="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4 border"></div>
+      <h3 class="text-base sm:text-lg font-bold text-slate-900 mb-1" id="ownerStatusTitle">Notification</h3>
+      <p class="text-xs text-slate-500 mb-6 leading-relaxed" id="ownerStatusMessage"></p>
+      <button type="button" id="ownerStatusBtn" onclick="closeOwnerStatusModal()"
+        class="btn-press w-full py-2.5 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold transition-all shadow-sm active:scale-95">
+        Continue
+      </button>
+    </div>
+  </div>
+
 </body>
 
 </html>

@@ -324,12 +324,12 @@ $unitName = trim(($reservation['unit_type'] ?? '') . ' Unit ' . ($reservation['u
 
     if (!reason.value.trim()) {
       reason.focus();
-      alert('Please enter your reason for cancellation.');
+      showStatusModal(false, 'Reason Required', 'Please enter your reason for cancellation.');
       return;
     }
 
     if (!checkbox.checked) {
-      alert('Please confirm that you understand the cancellation policy.');
+      showStatusModal(false, 'Policy Acknowledgement Required', 'Please confirm that you understand the cancellation policy.');
       return;
     }
 
@@ -351,7 +351,60 @@ $unitName = trim(($reservation['unit_type'] ?? '') . ' Unit ' . ($reservation['u
 
     document.getElementById('cancelRequestForm').submit();
   }
+
+  function showStatusModal(isSuccess, title, message) {
+    const modal = document.getElementById('cancelStatusModal');
+    const icon = document.getElementById('cancelStatusIcon');
+    const t = document.getElementById('cancelStatusTitle');
+    const m = document.getElementById('cancelStatusMessage');
+    if (t) t.textContent = title;
+    if (m) m.textContent = message;
+    if (icon) {
+      if (isSuccess) {
+        icon.className = 'w-14 h-14 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto mb-4 border border-emerald-100';
+        icon.innerHTML = '<svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>';
+      } else {
+        icon.className = 'w-14 h-14 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center mx-auto mb-4 border border-rose-100';
+        icon.innerHTML = '<svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>';
+      }
+    }
+    if (modal) {
+      modal.classList.remove('hidden');
+      requestAnimationFrame(() => modal.classList.add('open'));
+    }
+  }
+  function closeCancelStatusModal() {
+    const modal = document.getElementById('cancelStatusModal');
+    if (!modal || !modal.classList.contains('open')) return;
+    modal.classList.remove('open');
+    setTimeout(() => { if (!modal.classList.contains('open')) modal.classList.add('hidden'); }, 250);
+  }
   </script>
+
+  <!-- Cancel Status Modal -->
+  <div id="cancelStatusModal"
+    class="modal-backdrop fixed inset-0 z-[200] bg-slate-900/60 flex items-center justify-center p-4 hidden"
+    style="backdrop-filter: blur(3px);"
+    onclick="if(event.target===this)closeCancelStatusModal()">
+    <div class="modal-card bg-white rounded-3xl shadow-2xl border border-slate-100 p-6 sm:p-7 max-w-sm w-full text-center" onclick="event.stopPropagation()">
+      <div id="cancelStatusIcon" class="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4 border"></div>
+      <h3 class="text-base sm:text-lg font-bold text-slate-900 mb-1" id="cancelStatusTitle">Notice</h3>
+      <p class="text-xs text-slate-500 mb-6 leading-relaxed" id="cancelStatusMessage"></p>
+      <button type="button" onclick="closeCancelStatusModal()"
+        class="w-full py-2.5 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold transition-all shadow-sm">
+        Dismiss
+      </button>
+    </div>
+  </div>
+
+  <style>
+    .modal-backdrop { transition: opacity 0.2s ease; }
+    .modal-backdrop.open { opacity: 1; }
+    .modal-backdrop:not(.open) { opacity: 0; pointer-events: none; }
+    .modal-card { transition: transform 0.25s cubic-bezier(.34,1.56,.64,1), opacity 0.2s ease; }
+    .modal-backdrop:not(.open) .modal-card { transform: scale(0.92); opacity: 0; }
+    .modal-backdrop.open .modal-card { transform: scale(1); opacity: 1; }
+  </style>
 
 </body>
 </html>

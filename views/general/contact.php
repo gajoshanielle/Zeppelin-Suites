@@ -99,10 +99,35 @@ declare(strict_types=1);
               </p>
             </div>
             <div>
-              <label for="sender_contact" class="block text-sm font-semibold text-zinc-800 mb-2">Phone:</label>
-              <input type="tel" name="sender_contact" id="sender_contact" placeholder="09XX-XXX-XXXX or +63 9XX..."
-                required
-                class="zep-input w-full border border-zinc-300 rounded-xl bg-white px-4 py-3 text-sm text-zinc-800 placeholder-zinc-400 focus:border-zinc-900 transition-colors outline-none">
+              <label for="contact_phone_input" class="block text-sm font-semibold text-zinc-800 mb-2">Phone:</label>
+              <div id="contactPhoneWrapper"
+                class="relative flex items-center rounded-xl border border-zinc-300 bg-white focus-within:border-zinc-900 transition-all shadow-2xs">
+                <!-- Country Code Dropdown Trigger -->
+                <div class="relative">
+                  <button type="button" id="contactCountryBtn"
+                    class="country-code-btn pr-5 h-full flex items-center gap-1 px-3 py-3 bg-zinc-50 border-r border-zinc-200 rounded-l-xl hover:bg-zinc-100 transition-all cursor-pointer">
+                    <span class="flex items-center gap-1.5 shrink-0">
+                      <span class="mr-1.5 text-base leading-none">🇵🇭</span>
+                      <span class="font-bold text-xs sm:text-sm text-zinc-900 font-mono">+63</span>
+                    </span>
+                    <svg class="w-3.5 h-3.5 text-zinc-400 shrink-0 ml-1" fill="none" stroke="currentColor"
+                      viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+                  <div id="contactCountryDropdown"
+                    class="hidden absolute left-0 top-full mt-1.5 w-72 bg-white rounded-xl shadow-xl border border-zinc-200 z-50 overflow-hidden text-xs">
+                  </div>
+                </div>
+
+                <!-- Phone number typing input -->
+                <input type="tel" id="contact_phone_input" placeholder="917 123 4567" required
+                  class="w-full bg-transparent px-3.5 py-3 text-sm text-zinc-800 placeholder-zinc-400 focus:outline-none">
+              </div>
+
+              <!-- Hidden input that holds the full phone number for form submission -->
+              <input type="hidden" name="sender_contact" id="sender_contact" required>
+
               <p id="phoneError"
                 class="hidden text-xs text-rose-600 mt-1.5 flex items-center gap-1.5 font-medium transition-all">
                 <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -339,6 +364,9 @@ declare(strict_types=1);
   <!-- ── PREMIUM FOOTER ────────────────────────────────────── -->
   <?php include __DIR__ . '/../components/public_footer.php'; ?>
 
+  <!-- ── COUNTRY & PHONE UTILITIES ──────────────────────────── -->
+  <?php include __DIR__ . '/../components/country_phone_library.php'; ?>
+
   <script>
     const appBaseUrl = <?= json_encode($baseUrl) ?>;
 
@@ -415,18 +443,26 @@ declare(strict_types=1);
       }
 
       function applyValidationState(input, errorContainer, errorTextElem, result, showUI) {
+        const targetElement = (input && input.id === 'sender_contact')
+          ? document.getElementById('contactPhoneWrapper')
+          : input;
+
         if (!result.valid) {
           if (showUI) {
             errorTextElem.textContent = result.message;
             errorContainer.classList.remove("hidden");
-            input.classList.add("border-rose-500", "focus:border-rose-500", "bg-rose-50/20");
-            input.classList.remove("border-zinc-300", "focus:border-zinc-900");
+            if (targetElement) {
+              targetElement.classList.add("border-rose-500", "focus:border-rose-500", "bg-rose-50/20");
+              targetElement.classList.remove("border-zinc-300", "focus:border-zinc-900");
+            }
           }
           return false;
         } else {
           errorContainer.classList.add("hidden");
-          input.classList.remove("border-rose-500", "focus:border-rose-500", "bg-rose-50/20");
-          input.classList.add("border-zinc-300", "focus:border-zinc-900");
+          if (targetElement) {
+            targetElement.classList.remove("border-rose-500", "focus:border-rose-500", "bg-rose-50/20");
+            targetElement.classList.add("border-zinc-300", "focus:border-zinc-900");
+          }
           return true;
         }
       }
@@ -486,6 +522,19 @@ declare(strict_types=1);
         return applyValidationState(phoneInput, phoneError, phoneErrorText, res, forceShow || phoneTouched);
       }
 
+      // Initialize phone country dial dropdown
+      if (window.initPhoneCountryDropdown) {
+        window.initPhoneCountryDropdown({
+          selectBtnId: 'contactCountryBtn',
+          dropdownId: 'contactCountryDropdown',
+          phoneInputId: 'contact_phone_input',
+          hiddenFieldId: 'sender_contact',
+          initialCode: 'PH'
+        });
+      }
+
+      const visiblePhoneInput = document.getElementById("contact_phone_input");
+
       if (emailInput) {
         emailInput.addEventListener("input", function () {
           if (/\s/.test(emailInput.value)) emailTouched = true;
@@ -499,13 +548,13 @@ declare(strict_types=1);
         });
       }
 
-      if (phoneInput) {
-        phoneInput.addEventListener("input", function () {
+      if (visiblePhoneInput) {
+        visiblePhoneInput.addEventListener("input", function () {
           phoneTouched = true;
           checkPhone(false);
         });
-        phoneInput.addEventListener("blur", function () {
-          if (phoneInput.value.trim() !== "") {
+        visiblePhoneInput.addEventListener("blur", function () {
+          if (visiblePhoneInput.value.trim() !== "") {
             phoneTouched = true;
             checkPhone(true);
           }

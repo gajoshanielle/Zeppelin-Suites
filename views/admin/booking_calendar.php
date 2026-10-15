@@ -6,6 +6,7 @@ declare(strict_types=1);
  * Pure MVC presentation template. Zero direct SQL or DB connections.
  */
 $baseUrl = $baseUrl ?? rtrim((string)env('APP_URL', '/Zeppelin-Suites'), '/');
+$activeTab = $activeTab ?? 'bookingcalendar';
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -1308,27 +1309,32 @@ document.getElementById("quickView").addEventListener("mouseleave", startHideTim
 async function handleUnblockClick() {
   if (!currentQuickView || currentQuickView.type !== 'blocked' || !currentQuickView.data) return;
   const block = currentQuickView.data;
-  if (!confirm(`Unblock Room ${block.roomNumber} (${formatDisplayDate(block.startDate)} to ${formatDisplayDate(block.endDate)})?`)) return;
 
-  const fd = new FormData();
-  fd.append("block_id", block.blockId);
+  showConfirmModal(
+    'Unblock Dates',
+    `Are you sure you want to unblock Room ${block.roomNumber} (${formatDisplayDate(block.startDate)} to ${formatDisplayDate(block.endDate)})?`,
+    async () => {
+      const fd = new FormData();
+      fd.append("block_id", block.blockId);
 
-  try {
-    const res = await fetch("<?= htmlspecialchars($baseUrl) ?>/admin/booking-calendar/unblock", { method: "POST", body: fd });
-    const data = await res.json();
-    if (!data.success) {
-      alert(data.message || "Could not unblock dates.");
-      return;
+      try {
+        const res = await fetch("<?= htmlspecialchars($baseUrl) ?>/admin/booking-calendar/unblock", { method: "POST", body: fd });
+        const data = await res.json();
+        if (!data.success) {
+          showToast(`❌ ${data.message || 'Could not unblock dates.'}`);
+          return;
+        }
+        hideQuickView();
+        showToast("✓ Dates successfully unblocked.");
+        await loadCalendarData();
+        buildFilterSidebar();
+        renderTimeline();
+      } catch (err) {
+        console.error(err);
+        showToast("❌ Could not reach the server.");
+      }
     }
-    hideQuickView();
-    showToast("Dates successfully unblocked.");
-    await loadCalendarData();
-    buildFilterSidebar();
-    renderTimeline();
-  } catch (err) {
-    console.error(err);
-    alert("Could not reach the server.");
-  }
+  );
 }
 
 let _toastTimer = null;
@@ -1344,6 +1350,32 @@ function formatDisplayDate(str) {
   if (!str) return "—";
   const d = new Date(str + "T00:00:00");
   return d.toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" });
+}
+
+// --- Confirm Modal ---
+let _calConfirmCb = null;
+function showConfirmModal(title, message, onConfirm) {
+  _calConfirmCb = onConfirm;
+  const modal = document.getElementById('calConfirmModal');
+  const t = document.getElementById('calConfirmTitle');
+  const m = document.getElementById('calConfirmMessage');
+  if (t) t.textContent = title;
+  if (m) m.textContent = message;
+  if (modal) {
+    modal.classList.remove('hidden');
+    requestAnimationFrame(() => modal.classList.add('open'));
+  }
+}
+function closeCalConfirmModal() {
+  const modal = document.getElementById('calConfirmModal');
+  if (!modal) return;
+  modal.classList.remove('open');
+  setTimeout(() => { if (!modal.classList.contains('open')) modal.classList.add('hidden'); }, 250);
+}
+function executeCalConfirm() {
+  closeCalConfirmModal();
+  if (typeof _calConfirmCb === 'function') _calConfirmCb();
+  _calConfirmCb = null;
 }
 
 (async function init() {
@@ -1370,5 +1402,32 @@ function formatDisplayDate(str) {
   }, 200);
 })();
 </script>
+
+<!-- Calendar Confirm Modal -->
+<div id="calConfirmModal"
+  class="modal-backdrop fixed inset-0 z-[300] bg-slate-900/40 flex items-center justify-center p-4 hidden"
+  style="backdrop-filter: blur(2px);"
+  onclick="if(event.target===this)closeCalConfirmModal()">
+  <div class="modal-card bg-white rounded-3xl shadow-2xl border border-slate-100 p-6 sm:p-7 max-w-sm w-full text-center" onclick="event.stopPropagation()">
+    <div class="w-14 h-14 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mx-auto mb-4 border border-amber-100">
+      <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+    </div>
+    <h3 class="text-base sm:text-lg font-bold text-slate-900 mb-1" id="calConfirmTitle">Confirm Action</h3>
+    <p class="text-xs text-slate-500 mb-6 leading-relaxed" id="calConfirmMessage"></p>
+    <div class="flex gap-2.5">
+      <button type="button" onclick="closeCalConfirmModal()" class="flex-1 py-2.5 px-4 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-semibold transition-all">Cancel</button>
+      <button type="button" onclick="executeCalConfirm()" class="flex-1 py-2.5 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold transition-all shadow-sm">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<style>
+  .modal-backdrop { transition: opacity 0.2s ease; }
+  .modal-backdrop.open { opacity: 1; }
+  .modal-backdrop:not(.open) { opacity: 0; }
+  .modal-card { transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease; }
+  .modal-backdrop.open .modal-card { transform: scale(1); opacity: 1; }
+  .modal-backdrop:not(.open) .modal-card { transform: scale(0.95); opacity: 0; }
+</style>
 </body>
 </html>

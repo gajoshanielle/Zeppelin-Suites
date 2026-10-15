@@ -57,6 +57,18 @@ class GeneralController extends Controller {
     }
 
     /**
+     * Facilities & Amenities page.
+     */
+    public function amenities(): void {
+        $baseUrl = rtrim((string)env('APP_URL', '/Zeppelin-Suites'), '/');
+        $this->render('general/amenities', [
+            'pageTitle'  => 'Zeppelin Suites — Facilities & Amenities',
+            'baseUrl'    => $baseUrl,
+            'activePage' => 'amenities',
+        ]);
+    }
+
+    /**
      * Virtual 360 Tour page.
      */
     public function tour(): void {

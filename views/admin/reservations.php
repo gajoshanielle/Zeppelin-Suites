@@ -155,14 +155,14 @@ if (!function_exists('badge')) {
           <table class="w-full text-sm" id="resTable">
             <thead>
               <tr class="border-b border-slate-100 bg-slate-50/60">
-                <th class="text-center px-5 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wide whitespace-nowrap align-middle">Res. #</th>
-                <th class="text-center px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wide whitespace-nowrap align-middle">Client</th>
-                <th class="text-center px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wide whitespace-nowrap align-middle">Unit</th>
-                <th class="text-center px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wide whitespace-nowrap align-middle">Transaction</th>
-                <th class="text-center px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wide whitespace-nowrap align-middle">Amount</th>
-                <th class="text-center px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wide whitespace-nowrap align-middle">Payment</th>
-                <th class="text-center px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wide whitespace-nowrap align-middle">Reservation</th>
-                <th class="text-center px-5 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wide whitespace-nowrap align-middle">Submitted</th>
+                <th class="text-left px-5 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wide whitespace-nowrap align-middle">Res. #</th>
+                <th class="text-left px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wide whitespace-nowrap align-middle">Client</th>
+                <th class="text-left px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wide whitespace-nowrap align-middle">Unit</th>
+                <th class="text-left px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wide whitespace-nowrap align-middle">Transaction</th>
+                <th class="text-left px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wide whitespace-nowrap align-middle">Amount</th>
+                <th class="text-left px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wide whitespace-nowrap align-middle">Payment</th>
+                <th class="text-left px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wide whitespace-nowrap align-middle">Reservation</th>
+                <th class="text-left px-5 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wide whitespace-nowrap align-middle">Submitted</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-slate-50" id="resBody">
@@ -447,17 +447,18 @@ function submitHandover(e) {
 
     if (data.success) {
       closeHandoverModal();
-      alert('Success: ' + data.message + '\n\nTenant Login Credentials:\nEmail: ' + data.tenant.email + '\nPassword: ' + data.tenant.password);
-      window.location.reload();
+      showStatusModal(true, 'Handover Successful!',
+        data.message + ' Tenant credentials (Email: ' + data.tenant.email + ') dispatched via email.',
+        true);
     } else {
-      alert('Error: ' + (data.message || 'Unable to process handover.'));
+      showStatusModal(false, 'Handover Failed', data.message || 'Unable to process handover.');
     }
   })
   .catch(err => {
     btn.disabled = false;
     btn.innerHTML = originalText;
     console.error(err);
-    alert('Network error while processing handover. Please try again.');
+    showStatusModal(false, 'Network Error', 'Network error while processing handover. Please try again.');
   });
 }
 
@@ -732,8 +733,61 @@ document.addEventListener('keydown', function(e) {
   if (e.key === 'Escape') {
     closeActivityTimelineModal();
     closeHandoverModal();
+    closeStatusModal();
   }
 });
+
+// --- Stylized Status Modal ---
+let _resShouldReload = false;
+function showStatusModal(isSuccess, title, message, reloadOnClose = false) {
+  _resShouldReload = reloadOnClose;
+  const modal = document.getElementById('resStatusModal');
+  const icon = document.getElementById('resStatusIcon');
+  const t = document.getElementById('resStatusTitle');
+  const m = document.getElementById('resStatusMessage');
+  const btn = document.getElementById('resStatusBtn');
+  if (t) t.textContent = title;
+  if (m) m.textContent = message;
+  if (icon) {
+    if (isSuccess) {
+      icon.className = 'w-14 h-14 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto mb-4 border border-emerald-100';
+      icon.innerHTML = '<svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>';
+    } else {
+      icon.className = 'w-14 h-14 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center mx-auto mb-4 border border-rose-100';
+      icon.innerHTML = '<svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>';
+    }
+  }
+  if (btn) btn.textContent = isSuccess ? 'Continue' : 'Dismiss';
+  if (modal) {
+    modal.classList.remove('hidden');
+    requestAnimationFrame(() => modal.classList.add('open'));
+  }
+}
+function closeStatusModal() {
+  const modal = document.getElementById('resStatusModal');
+  if (!modal || !modal.classList.contains('open')) return;
+  modal.classList.remove('open');
+  setTimeout(() => {
+    if (!modal.classList.contains('open')) modal.classList.add('hidden');
+    if (_resShouldReload) window.location.reload();
+  }, 250);
+}
 </script>
+
+<!-- Reservations Status Modal -->
+<div id="resStatusModal"
+  class="modal-backdrop fixed inset-0 z-[100] bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 hidden"
+  onclick="if(event.target===this)closeStatusModal()">
+  <div class="modal-card bg-white rounded-3xl shadow-2xl border border-slate-100 p-6 sm:p-7 max-w-sm w-full text-center" onclick="event.stopPropagation()">
+    <div id="resStatusIcon" class="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4 border"></div>
+    <h3 class="text-base sm:text-lg font-bold text-slate-900 mb-1" id="resStatusTitle">Notification</h3>
+    <p class="text-xs text-slate-500 mb-6 leading-relaxed" id="resStatusMessage"></p>
+    <button type="button" id="resStatusBtn" onclick="closeStatusModal()"
+      class="btn-press w-full py-2.5 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold transition-all shadow-sm active:scale-95">
+      Continue
+    </button>
+  </div>
+</div>
+
 </body>
 </html>

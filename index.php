@@ -57,6 +57,7 @@ $router->get('/home', [GeneralController::class, 'index']);
 $router->get('/about', [GeneralController::class, 'about']);
 $router->get('/about-us', [GeneralController::class, 'about']);
 $router->get('/faq', [GeneralController::class, 'faq']);
+$router->get('/amenities', [GeneralController::class, 'amenities']);
 $router->get('/tour', [GeneralController::class, 'tour']);
 $router->get('/virtual-tour', [GeneralController::class, 'tour']);
 
@@ -284,6 +285,8 @@ $legacyRouteMap = [
     '/generalViewPages/index.html' => '/',
     '/generalViewPages/aboutUs.html' => '/about',
     '/generalViewPages/faq.html' => '/faq',
+    '/generalViewPages/amenities.php' => '/amenities',
+    '/generalViewPages/amenities.html' => '/amenities',
     '/generalViewPages/tour.html' => '/tour',
     '/generalViewPages/studioTypeA.html' => '/units/studio-type-a',
     '/generalViewPages/studioTypeB.html' => '/units/studio-type-b',
@@ -306,6 +309,7 @@ $legacyRouteMap = [
     '/public/login' => '/login',
     '/public/about' => '/about',
     '/public/faq' => '/faq',
+    '/public/amenities' => '/amenities',
     '/public/tour' => '/tour',
     '/public/contact' => '/contact',
     '/public/reservation' => '/reservation',
@@ -313,6 +317,7 @@ $legacyRouteMap = [
     '/public/generalViewPages/index.html' => '/',
     '/public/generalViewPages/aboutUs.html' => '/about',
     '/public/generalViewPages/faq.html' => '/faq',
+    '/public/generalViewPages/amenities.php' => '/amenities',
     '/public/generalViewPages/tour.html' => '/tour',
     '/public/generalViewPages/login.php' => '/login',
     '/public/generalViewPages/contact.php' => '/contact',

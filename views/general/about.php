@@ -11,6 +11,7 @@ declare(strict_types=1);
 ?>
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -18,11 +19,21 @@ declare(strict_types=1);
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Geist:wght@100..900&display=swap');
-    * { font-family: "Geist", sans-serif; }
-    .btn-primary { transition: all 0.15s ease; }
-    .btn-primary:active { transform: scale(0.95); }
+
+    * {
+      font-family: "Geist", sans-serif;
+    }
+
+    .btn-primary {
+      transition: all 0.15s ease;
+    }
+
+    .btn-primary:active {
+      transform: scale(0.95);
+    }
   </style>
 </head>
+
 <body class="bg-white text-zinc-900">
 
   <!-- ── NAV ──────────────────────────────────────────────── -->
@@ -30,7 +41,7 @@ declare(strict_types=1);
 
   <!-- ── GET TO KNOW US HERO ───────────────────────────────── -->
   <section class="px-6 md:px-16 lg:px-24 xl:px-32 pt-20 pb-16 text-center border-b border-zinc-100">
-    <h1 class="text-5xl md:text-6xl font-black uppercase text-zinc-900 tracking-tight">Get to Know Us!</h1>
+    <h1 class="text-4xl md:text-5xl font-black uppercase tracking-wide text-zinc-900">Get to Know Us!</h1>
   </section>
 
   <!-- ── MISSION — split layout ────────────────────────────── -->
@@ -38,7 +49,8 @@ declare(strict_types=1);
     <div class="grid grid-cols-1 md:grid-cols-2 gap-14 items-center max-w-6xl mx-auto">
       <div>
         <p class="text-xs tracking-widest uppercase text-zinc-400 mb-3">Our Mission</p>
-        <h2 class="text-3xl md:text-4xl font-bold text-zinc-900 mb-6 leading-snug">Redefining the Art of Urban Living</h2>
+        <h2 class="text-3xl md:text-4xl font-bold text-zinc-900 mb-6 leading-snug">Redefining the Art of Urban Living
+        </h2>
         <p class="text-zinc-500 leading-relaxed mb-4">At Zeppelin Suites, our mission is to create a living experience
           that transcends the ordinary. We believe a home should be more than four walls — it should be a sanctuary that
           inspires, rejuvenates, and connects.</p>
@@ -50,7 +62,8 @@ declare(strict_types=1);
           everyday life extraordinary.</p>
       </div>
       <div class="bg-zinc-100 rounded-2xl overflow-hidden aspect-4/3 flex items-center justify-center">
-        <img src="<?= htmlspecialchars($baseUrl) ?>/images/condo_photos/zeppelin-suites-front.jpg" alt="Building" class="w-full h-full object-cover"
+        <img src="<?= htmlspecialchars($baseUrl) ?>/images/condo_photos/zeppelin-suites-front.jpg" alt="Building"
+          class="w-full h-full object-cover"
           onerror="this.outerHTML='<span class=\'text-zinc-400 font-bold text-lg\'>IMG</span>'">
       </div>
     </div>
@@ -103,7 +116,8 @@ declare(strict_types=1);
   <section class="px-6 md:px-16 lg:px-24 xl:px-32 py-20">
     <div class="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-14 items-center">
       <div class="bg-zinc-100 rounded-2xl overflow-hidden aspect-4/3 flex items-center justify-center">
-        <img src="<?= htmlspecialchars($baseUrl) ?>/images/condo_photos/environment.jpg" alt="Amenities" class="w-full h-full object-cover"
+        <img src="<?= htmlspecialchars($baseUrl) ?>/images/condo_photos/environment.jpg" alt="Amenities"
+          class="w-full h-full object-cover"
           onerror="this.outerHTML='<span class=\'text-zinc-400 font-bold text-lg\'>IMG</span>'">
       </div>
       <div>
@@ -112,12 +126,19 @@ declare(strict_types=1);
         <p class="text-zinc-500 leading-relaxed mb-6">Zeppelin Suites is equipped with world-class amenities that
           complement every aspect of your lifestyle — from wellness and recreation to work and socializing.</p>
         <ul class="space-y-3">
-          <li class="flex items-start gap-3"><span class="text-zinc-900 mt-0.5 font-bold shrink-0">✓</span><span class="text-zinc-600 text-sm">Coffee shop and sports bar</span></li>
-          <li class="flex items-start gap-3"><span class="text-zinc-900 mt-0.5 font-bold shrink-0">✓</span><span class="text-zinc-600 text-sm">Helicopter deck and panoramic city views</span></li>
-          <li class="flex items-start gap-3"><span class="text-zinc-900 mt-0.5 font-bold shrink-0">✓</span><span class="text-zinc-600 text-sm">Co-working spaces and private meeting rooms with high-speed fiber internet</span></li>
-          <li class="flex items-start gap-3"><span class="text-zinc-900 mt-0.5 font-bold shrink-0">✓</span><span class="text-zinc-600 text-sm">Landscaped garden lounge and swimming pool social gatherings</span></li>
-          <li class="flex items-start gap-3"><span class="text-zinc-900 mt-0.5 font-bold shrink-0">✓</span><span class="text-zinc-600 text-sm">24/7 concierge, security, and CCTV-monitored premises</span></li>
-          <li class="flex items-start gap-3"><span class="text-zinc-900 mt-0.5 font-bold shrink-0">✓</span><span class="text-zinc-600 text-sm">Car rental and chauffeur services</span></li>
+          <li class="flex items-start gap-3"><span class="text-zinc-900 mt-0.5 font-bold shrink-0">✓</span><span
+              class="text-zinc-600 text-sm">Coffee shop and sports bar</span></li>
+          <li class="flex items-start gap-3"><span class="text-zinc-900 mt-0.5 font-bold shrink-0">✓</span><span
+              class="text-zinc-600 text-sm">Helicopter deck and panoramic city views</span></li>
+          <li class="flex items-start gap-3"><span class="text-zinc-900 mt-0.5 font-bold shrink-0">✓</span><span
+              class="text-zinc-600 text-sm">Co-working spaces and private meeting rooms with high-speed fiber
+              internet</span></li>
+          <li class="flex items-start gap-3"><span class="text-zinc-900 mt-0.5 font-bold shrink-0">✓</span><span
+              class="text-zinc-600 text-sm">Landscaped garden lounge and swimming pool social gatherings</span></li>
+          <li class="flex items-start gap-3"><span class="text-zinc-900 mt-0.5 font-bold shrink-0">✓</span><span
+              class="text-zinc-600 text-sm">24/7 concierge, security, and CCTV-monitored premises</span></li>
+          <li class="flex items-start gap-3"><span class="text-zinc-900 mt-0.5 font-bold shrink-0">✓</span><span
+              class="text-zinc-600 text-sm">Car rental and chauffeur services</span></li>
         </ul>
       </div>
     </div>
@@ -148,14 +169,16 @@ declare(strict_types=1);
           <span class="text-zinc-900 font-bold shrink-0">✓</span>
           <div>
             <p class="font-semibold text-zinc-900 text-sm">Within the heart of Angeles City</p>
-            <p class="text-zinc-500 text-xs mt-0.5">Zeppelin Suites is within easy reach of Angeles City's major road networks</p>
+            <p class="text-zinc-500 text-xs mt-0.5">Zeppelin Suites is within easy reach of Angeles City's major road
+              networks</p>
           </div>
         </div>
         <div class="flex items-start gap-3 bg-white rounded-xl p-4 border border-zinc-100">
           <span class="text-zinc-900 font-bold shrink-0">✓</span>
           <div>
             <p class="font-semibold text-zinc-900 text-sm">Dining & Entertainment Hubs</p>
-            <p class="text-zinc-500 text-xs mt-0.5">Rich Kapampangan food dining experience, cafés, and cultural venues</p>
+            <p class="text-zinc-500 text-xs mt-0.5">Rich Kapampangan food dining experience, cafés, and cultural venues
+            </p>
           </div>
         </div>
       </div>
@@ -165,4 +188,5 @@ declare(strict_types=1);
   <!-- PREMIUM FOOTER -->
   <?php include __DIR__ . '/../components/public_footer.php'; ?>
 </body>
+
 </html>
