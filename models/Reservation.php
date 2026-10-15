@@ -511,7 +511,7 @@ class Reservation extends Model
                 u.listing_type,
                 u.stay_category,
                 u.lease_rate,
-                COALESCE(u.resellling_price, u.reselling_price, NULL) AS reselling_price,
+                u.reselling_price AS reselling_price,
                 u.unit_current_status,
                 owner.full_name AS owner_name,
                 owner.email AS owner_email,
@@ -543,7 +543,7 @@ class Reservation extends Model
                     u.listing_type,
                     u.stay_category,
                     u.lease_rate,
-                    COALESCE(u.resellling_price, u.reselling_price, NULL) AS reselling_price,
+                    u.reselling_price AS reselling_price,
                     u.unit_current_status,
                     owner.full_name AS owner_name,
                     owner.email AS owner_email,
@@ -674,9 +674,9 @@ class Reservation extends Model
         // Blocked ranges for calendar
         $blockedRanges = [];
         if ($isLease) {
-            $blockedTypeFilter = "(inquiry_type IN ('Lease Inquiry', 'Unit Reservation') OR inquiry_type LIKE '%Lease%' OR inquiry_type LIKE '%Rental%')";
+            $blockedTypeFilter = "(transaction_type IN ('Lease Inquiry', 'Unit Reservation', 'lease', 'Lease') OR transaction_type LIKE '%Lease%' OR transaction_type LIKE '%Rental%')";
         } else {
-            $blockedTypeFilter = "(inquiry_type = 'Resale Inquiry' OR inquiry_type LIKE '%Resale%' OR inquiry_type LIKE '%Buy%' OR inquiry_type LIKE '%Purchase%')";
+            $blockedTypeFilter = "(transaction_type = 'Resale Inquiry' OR transaction_type LIKE '%Resale%' OR transaction_type LIKE '%Buy%' OR transaction_type LIKE '%Purchase%')";
         }
 
         $blockedRows = $this->fetchAll("
@@ -911,7 +911,7 @@ class Reservation extends Model
                     FROM reservation_table
                     WHERE unit_id = ?
                       AND reservation_status NOT IN ('cancelled', 'rejected')
-                      AND (inquiry_type IN ('Lease Inquiry', 'Unit Reservation') OR inquiry_type LIKE '%Lease%' OR inquiry_type LIKE '%Rental%')
+                      AND (transaction_type IN ('Lease Inquiry', 'Unit Reservation', 'lease', 'Lease') OR transaction_type LIKE '%Lease%' OR transaction_type LIKE '%Rental%')
                       AND move_in_date IS NOT NULL
                       AND move_in_date <= ?
                       AND COALESCE(move_out_date, move_in_date) >= ?

@@ -56,18 +56,18 @@ if (empty($approvedUnitsList)) {
   ];
 }
 
-$unitNum = !empty($selectedUnitData['unit_number']) ? htmlspecialchars((string)$selectedUnitData['unit_number']) : '—';
-$unitTypeUpper = !empty($selectedUnitData['unit_type']) ? strtoupper(htmlspecialchars((string)$selectedUnitData['unit_type'])) : 'STUDIO TYPE';
-$floorNum = !empty($selectedUnitData['floor_number']) ? htmlspecialchars((string)$selectedUnitData['floor_number']) : '1';
-$sqmVal = !empty($selectedUnitData['sqm']) ? htmlspecialchars((string)$selectedUnitData['sqm']) : '37';
-$furnishingVal = !empty($selectedUnitData['furnishing']) ? htmlspecialchars((string)$selectedUnitData['furnishing']) : 'Fully Furnished.';
-$listingVal = !empty($selectedUnitData['listing_type']) ? htmlspecialchars((string)$selectedUnitData['listing_type']) : 'For Lease';
-$ownerName = !empty($selectedUnitData['owner_name']) ? htmlspecialchars((string)$selectedUnitData['owner_name']) : 'No owner assigned';
-$ownerEmail = !empty($selectedUnitData['owner_email']) ? htmlspecialchars((string)$selectedUnitData['owner_email']) : '';
-$ownerContact = !empty($selectedUnitData['owner_contact']) ? htmlspecialchars((string)$selectedUnitData['owner_contact']) : '—';
-$resolvedOwnerQrUrl = (str_starts_with((string)$owner_qr_path, 'http://') || str_starts_with((string)$owner_qr_path, 'https://'))
-    ? (string)$owner_qr_path
-    : rtrim($baseUrl, '/') . '/' . ltrim((string)$owner_qr_path, '/');
+$unitNum = !empty($selectedUnitData['unit_number']) ? htmlspecialchars((string) $selectedUnitData['unit_number']) : '—';
+$unitTypeUpper = !empty($selectedUnitData['unit_type']) ? strtoupper(htmlspecialchars((string) $selectedUnitData['unit_type'])) : 'STUDIO TYPE';
+$floorNum = !empty($selectedUnitData['floor_number']) ? htmlspecialchars((string) $selectedUnitData['floor_number']) : '1';
+$sqmVal = !empty($selectedUnitData['sqm']) ? htmlspecialchars((string) $selectedUnitData['sqm']) : '37';
+$furnishingVal = !empty($selectedUnitData['furnishing']) ? htmlspecialchars((string) $selectedUnitData['furnishing']) : 'Fully Furnished.';
+$listingVal = !empty($selectedUnitData['listing_type']) ? htmlspecialchars((string) $selectedUnitData['listing_type']) : 'For Lease';
+$ownerName = !empty($selectedUnitData['owner_name']) ? htmlspecialchars((string) $selectedUnitData['owner_name']) : 'No owner assigned';
+$ownerEmail = !empty($selectedUnitData['owner_email']) ? htmlspecialchars((string) $selectedUnitData['owner_email']) : '';
+$ownerContact = !empty($selectedUnitData['owner_contact']) ? htmlspecialchars((string) $selectedUnitData['owner_contact']) : '—';
+$resolvedOwnerQrUrl = (str_starts_with((string) $owner_qr_path, 'http://') || str_starts_with((string) $owner_qr_path, 'https://'))
+  ? (string) $owner_qr_path
+  : rtrim($baseUrl, '/') . '/' . ltrim((string) $owner_qr_path, '/');
 
 // Format client information
 $clientName = !empty($selectedUnitData['sender_name']) ? (string) $selectedUnitData['sender_name'] : (!empty($client_name) ? (string) $client_name : (string) ($data['client_name'] ?? ''));
@@ -293,14 +293,16 @@ $signing_min = !$is_lease ? date('Y-m-d', strtotime('+3 days')) : date('Y-m-d');
             <p class="text-slate-300 text-xs sm:text-sm mt-1">Zeppelin Suites — Please fill in all required fields</p>
           </div>
 
-        <!-- Form Body with exact requested layout -->
-        <div class="p-6 sm:p-7 space-y-7" id="formBody">
-          <form id="reservationForm" action="<?= htmlspecialchars($baseUrl) ?>/reservation/submit" method="POST" enctype="multipart/form-data" onsubmit="return handleFormSubmit(event)">
-            <input type="hidden" name="reservation_token" value="<?= htmlspecialchars($token) ?>">
-            <input type="hidden" id="paymentMethodInput" name="payment_method" value="GCash QR">
-            <input type="hidden" id="moveOutDate" name="move_out_date">
-            <input type="hidden" id="declaredAmountInput" name="declared_amount" value="<?= (float)$price_basis * 0.35 ?>">
-                        <input type="hidden" id="selectedUnitId" name="selected_unit_id" value="<?= $selectedUnitId ?>">
+          <!-- Form Body with exact requested layout -->
+          <div class="p-6 sm:p-7 space-y-7" id="formBody">
+            <form id="reservationForm" action="<?= htmlspecialchars($baseUrl) ?>/reservation/submit" method="POST"
+              enctype="multipart/form-data" onsubmit="return handleFormSubmit(event)">
+              <input type="hidden" name="reservation_token" value="<?= htmlspecialchars($token) ?>">
+              <input type="hidden" id="paymentMethodInput" name="payment_method" value="GCash QR">
+              <input type="hidden" id="moveOutDate" name="move_out_date">
+              <input type="hidden" id="declaredAmountInput" name="declared_amount"
+                value="<?= (float) $price_basis * 0.35 ?>">
+              <input type="hidden" id="selectedUnitId" name="selected_unit_id" value="<?= $selectedUnitId ?>">
 
               <!-- 1. UNIT DETAILS BOX -->
               <div class="border border-slate-200 rounded-2xl p-5 sm:p-6 bg-white shadow-xs mb-8">
@@ -541,13 +543,16 @@ $signing_min = !$is_lease ? date('Y-m-d', strtotime('+3 days')) : date('Y-m-d');
 
                   <!-- Left Column: Header, Tabs, Panels -->
                   <div>
-                    <div class="flex items-center gap-2 mb-3">
-                      <svg class="w-4 h-4 text-slate-900 shrink-0" fill="none" stroke="currentColor"
-                        viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                          d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-                      </svg>
-                      <h3 class="font-bold text-slate-900 text-sm uppercase tracking-wide">DOWN PAYMENT</h3>
+                    <div class="mb-3">
+                      <div class="flex items-center gap-2">
+                        <svg class="w-4 h-4 text-slate-900 shrink-0" fill="none" stroke="currentColor"
+                          viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                        </svg>
+                        <h3 class="font-bold text-slate-900 text-sm uppercase tracking-wide">RESERVATION FEE</h3>
+                      </div>
+                      <p class="text-xs text-slate-500 mt-1">Please note that the reservation fee will be added to your downpayment.</p>
                     </div>
 
                     <!-- Payment Options Tabs -->
@@ -562,26 +567,39 @@ $signing_min = !$is_lease ? date('Y-m-d', strtotime('+3 days')) : date('Y-m-d');
                       </button>
                     </div>
 
-                  <!-- Panels -->
-                  <div>
-                    <!-- Panel 1: GCash QR -->
-                    <div id="panelGcash" class="flex flex-col sm:flex-row items-start gap-4">
-                      <!-- QR Code Box -->
-                      <div class="w-32 h-32 border border-slate-200 rounded-xl p-2 bg-slate-50 flex items-center justify-center shrink-0 transition-all text-center group relative overflow-hidden <?= $owner_has_qr ? 'cursor-pointer hover:border-slate-400' : 'cursor-not-allowed opacity-90' ?>" onclick="openQRModal()" id="qrCodeContainer">
-                        <div id="qrImageWrap" class="<?= $owner_has_qr ? '' : 'hidden' ?> w-full h-full relative">
-                          <img id="qrImgDisplay" src="<?= htmlspecialchars($resolvedOwnerQrUrl) ?>" alt="Owner GCash QR" class="w-full h-full object-contain rounded-lg">
-                          <div class="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-[10px] font-bold rounded-lg">
-                            Click to Enlarge
+                    <!-- Panels -->
+                    <div>
+                      <!-- Panel 1: GCash QR -->
+                      <div id="panelGcash" class="flex flex-col sm:flex-row items-start gap-4">
+                        <!-- QR Code Box -->
+                        <div
+                          class="w-32 h-32 border border-slate-200 rounded-xl p-2 bg-slate-50 flex items-center justify-center shrink-0 transition-all text-center group relative overflow-hidden <?= $owner_has_qr ? 'cursor-pointer hover:border-slate-400' : 'cursor-not-allowed opacity-90' ?>"
+                          onclick="openQRModal()" id="qrCodeContainer">
+                          <div id="qrImageWrap" class="<?= $owner_has_qr ? '' : 'hidden' ?> w-full h-full relative">
+                            <img id="qrImgDisplay" src="<?= htmlspecialchars($resolvedOwnerQrUrl) ?>"
+                              alt="Owner GCash QR" class="w-full h-full object-contain rounded-lg">
+                            <div
+                              class="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-[10px] font-bold rounded-lg">
+                              Click to Enlarge
+                            </div>
+                          </div>
+                          <div id="qrPlaceholderWrap"
+                            class="<?= $owner_has_qr ? 'hidden' : '' ?> space-y-1.5 p-1 text-center">
+                            <div
+                              class="w-8 h-8 mx-auto rounded-full bg-slate-200/90 flex items-center justify-center text-slate-500">
+                              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                  d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                              </svg>
+                            </div>
+                            <span
+                              class="text-[10px] font-bold text-slate-700 tracking-wide block leading-tight uppercase">QR
+                              CODE NOT<br>AVAILABLE</span>
+                            <span
+                              class="inline-block text-[9px] font-semibold text-slate-500 bg-slate-200/60 px-1.5 py-0.5 rounded">Not
+                              Uploaded</span>
                           </div>
                         </div>
-                        <div id="qrPlaceholderWrap" class="<?= $owner_has_qr ? 'hidden' : '' ?> space-y-1.5 p-1 text-center">
-                          <div class="w-8 h-8 mx-auto rounded-full bg-slate-200/90 flex items-center justify-center text-slate-500">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/></svg>
-                          </div>
-                          <span class="text-[10px] font-bold text-slate-700 tracking-wide block leading-tight uppercase">QR CODE NOT<br>AVAILABLE</span>
-                          <span class="inline-block text-[9px] font-semibold text-slate-500 bg-slate-200/60 px-1.5 py-0.5 rounded">Not Uploaded</span>
-                        </div>
-                      </div>
 
                         <!-- Right text & file upload -->
                         <div class="flex-1 space-y-2.5 text-xs text-slate-600">
@@ -653,21 +671,18 @@ $signing_min = !$is_lease ? date('Y-m-d', strtotime('+3 days')) : date('Y-m-d');
                       </p>
                       <p class="text-base font-bold text-slate-900 font-mono" id="breakdownPriceVal">
                         ₱<?= number_format($price_basis, 2) ?></p>
+
                     </div>
                     <div>
-                      <p class="text-[10px] font-semibold text-slate-600 mb-1">Down Payment Option</p>
-                      <select id="dpOption" name="payment_percentage"
-                        class="w-full px-2 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-800 focus:outline-none focus:border-slate-900"
-                        onchange="calculateBreakdown()">
-                        <option value="0.35" selected>35% Down Payment</option>
-                        <option value="0.50">50% Down Payment</option>
-                        <option value="0.75">75% Down Payment</option>
-                      </select>
+                      <p class="text-[10px] text-slate-500 mb-0.5">Reservation Fee Percentage</p>
+                      <p class="text-base font-bold text-slate-900 font-mono">35%</p>
+                      <p class="text-[10px] text-slate-400 mt-0.5">Will be added to your downpayment</p>
+                      <input type="hidden" name="payment_percentage" id="paymentPercentageInput" value="0.35">
                     </div>
-                    <div class="flex items-center justify-between text-xs pt-2 border-t border-slate-200/80">
-                      <span class="text-slate-500 font-medium">Required Amount</span>
-                      <span class="font-bold text-slate-900 font-mono"
-                        id="dpAmount">₱<?= number_format($price_basis * 0.35, 2) ?></span>
+                    <div>
+                      <p class="text-[10px] text-slate-500 mb-0.5">Required Amount</p>
+                      <p class="text-base font-bold text-slate-900 font-mono"
+                        id="dpAmount">₱<?= number_format($price_basis * 0.35, 2) ?></p>
                     </div>
                   </div>
 
@@ -1012,31 +1027,42 @@ $signing_min = !$is_lease ? date('Y-m-d', strtotime('+3 days')) : date('Y-m-d');
     </div>
   </div>
 
-<!-- QR Enlarged Lightbox Modal -->
-<div id="qrModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/60 backdrop-blur-sm px-4" onclick="closeQRModal()">
-  <div class="bg-white rounded-3xl p-5 max-w-sm w-full shadow-2xl border border-slate-100 text-center" onclick="event.stopPropagation()">
-    <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-3">
-      <h3 class="text-sm font-bold text-slate-900" id="qrModalTitle"><?= $ownerName ?>'s GCash QR</h3>
-      <button type="button" onclick="closeQRModal()" class="p-1 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-700">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-      </button>
-    </div>
-    <div class="p-3 bg-slate-50 rounded-2xl flex items-center justify-center min-h-[220px]" id="qrModalContent">
-      <img id="qrModalImg" src="<?= htmlspecialchars($resolvedOwnerQrUrl) ?>" alt="GCash QR" class="<?= $owner_has_qr ? '' : 'hidden' ?> max-h-[60vh] max-w-full object-contain rounded-xl shadow-sm">
-      <div id="qrModalPlaceholder" class="<?= $owner_has_qr ? 'hidden' : '' ?> text-center py-6">
-        <div class="w-12 h-12 mx-auto rounded-full bg-slate-100 flex items-center justify-center text-slate-400 mb-2">
-          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/></svg>
+  <!-- QR Enlarged Lightbox Modal -->
+  <div id="qrModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/60 backdrop-blur-sm px-4"
+    onclick="closeQRModal()">
+    <div class="bg-white rounded-3xl p-5 max-w-sm w-full shadow-2xl border border-slate-100 text-center"
+      onclick="event.stopPropagation()">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-3">
+        <h3 class="text-sm font-bold text-slate-900" id="qrModalTitle"><?= $ownerName ?>'s GCash QR</h3>
+        <button type="button" onclick="closeQRModal()"
+          class="p-1 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-700">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+      <div class="p-3 bg-slate-50 rounded-2xl flex items-center justify-center min-h-[220px]" id="qrModalContent">
+        <img id="qrModalImg" src="<?= htmlspecialchars($resolvedOwnerQrUrl) ?>" alt="GCash QR"
+          class="<?= $owner_has_qr ? '' : 'hidden' ?> max-h-[60vh] max-w-full object-contain rounded-xl shadow-sm">
+        <div id="qrModalPlaceholder" class="<?= $owner_has_qr ? 'hidden' : '' ?> text-center py-6">
+          <div class="w-12 h-12 mx-auto rounded-full bg-slate-100 flex items-center justify-center text-slate-400 mb-2">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+            </svg>
+          </div>
+          <p class="text-xs font-bold text-slate-700">QR Code Not Available</p>
+          <p class="text-[11px] text-slate-500 mt-1">This unit owner has not yet uploaded a GCash QR code.<br>Please
+            select 'Pay In-House' to complete your reservation.</p>
         </div>
-        <p class="text-xs font-bold text-slate-700">QR Code Not Available</p>
-        <p class="text-[11px] text-slate-500 mt-1">This unit owner has not yet uploaded a GCash QR code.<br>Please select 'Pay In-House' to complete your reservation.</p>
+      </div>
+      <p class="text-xs text-slate-500 mt-3">Scan with GCash or any supported e-wallet</p>
+      <div class="pt-3 flex justify-end">
+        <button type="button" onclick="closeQRModal()"
+          class="px-4 py-1.5 text-xs font-bold rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-200">Close</button>
       </div>
     </div>
-    <p class="text-xs text-slate-500 mt-3">Scan with GCash or any supported e-wallet</p>
-    <div class="pt-3 flex justify-end">
-      <button type="button" onclick="closeQRModal()" class="px-4 py-1.5 text-xs font-bold rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-200">Close</button>
-    </div>
   </div>
-</div>
 
   <!-- 5. JAVASCRIPT -->
   <script>
@@ -1534,7 +1560,7 @@ $signing_min = !$is_lease ? date('Y-m-d', strtotime('+3 days')) : date('Y-m-d');
     // ======= Payment breakdown calculation =======
     function calculateBreakdown() {
       const dpSelect = document.getElementById('dpOption');
-      const pct = parseFloat(dpSelect.value);
+      const pct = dpSelect ? parseFloat(dpSelect.value) : 0.35;
       const reqAmount = currentPriceBasis * pct;
 
       const formatted = '₱' + reqAmount.toLocaleString('en-US', {
