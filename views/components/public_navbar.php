@@ -71,8 +71,8 @@ $dropdownClass = function (bool $isActive): string {
   </button>
 </nav>
 
-<!-- Mobile Navigation Drawer -->
-<div id="mobileMenuDrawer" class="hidden min-[900px]:hidden border-b border-zinc-200 bg-white/95 backdrop-blur-md px-6 py-5 shadow-lg">
+<!-- Mobile Navigation Drawer (fixed so it stays accessible when scrolled) -->
+<div id="mobileMenuDrawer" class="hidden fixed left-0 right-0 z-40 border-b border-zinc-200 bg-white/95 backdrop-blur-md px-6 py-5 shadow-lg min-[900px]:hidden" style="top: 0px;">
   <div class="flex flex-col gap-2">
     <a href="<?= htmlspecialchars($baseUrl) ?>/" class="px-4 py-2 rounded-lg text-sm <?= $activePage === 'home' ? 'bg-zinc-100 font-bold text-zinc-900' : 'text-zinc-700 hover:bg-zinc-50' ?>">Home</a>
     <a href="<?= htmlspecialchars($baseUrl) ?>/tour" class="px-4 py-2 rounded-lg text-sm <?= $activePage === 'tour' ? 'bg-zinc-100 font-bold text-zinc-900' : 'text-zinc-700 hover:bg-zinc-50' ?>">Take a Tour</a>
@@ -100,21 +100,55 @@ $dropdownClass = function (bool $isActive): string {
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+  const nav = document.querySelector('nav');
   const menuBtn = document.getElementById('mobileMenuBtn');
   const drawer = document.getElementById('mobileMenuDrawer');
   const unitsToggle = document.getElementById('mobileUnitsToggle');
   const unitsSub = document.getElementById('mobileUnitsSubmenu');
+  const unitsChevron = unitsToggle ? unitsToggle.querySelector('svg') : null;
+
+  // Position the drawer just below the navbar
+  function positionDrawer() {
+    if (nav && drawer) {
+      drawer.style.top = nav.getBoundingClientRect().bottom + 'px';
+    }
+  }
 
   if (menuBtn && drawer) {
     menuBtn.addEventListener('click', function() {
+      positionDrawer();
       drawer.classList.toggle('hidden');
     });
   }
 
+  // Keep drawer positioned correctly on scroll and resize
+  window.addEventListener('scroll', function() {
+    if (drawer && !drawer.classList.contains('hidden')) {
+      positionDrawer();
+    }
+  }, { passive: true });
+
+  window.addEventListener('resize', function() {
+    if (drawer && !drawer.classList.contains('hidden')) {
+      positionDrawer();
+    }
+  });
+
   if (unitsToggle && unitsSub) {
     unitsToggle.addEventListener('click', function() {
       unitsSub.classList.toggle('hidden');
+      if (unitsChevron) {
+        unitsChevron.style.transform = unitsSub.classList.contains('hidden') ? '' : 'rotate(180deg)';
+      }
     });
   }
+
+  // Close drawer when clicking outside
+  document.addEventListener('click', function(e) {
+    if (drawer && !drawer.classList.contains('hidden') &&
+        !drawer.contains(e.target) && !menuBtn.contains(e.target)) {
+      drawer.classList.add('hidden');
+    }
+  });
 });
 </script>
