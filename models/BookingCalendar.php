@@ -80,7 +80,7 @@ class BookingCalendar extends Model {
                 b.block_id, b.unit_id, b.start_date, b.end_date, b.block_type, b.remarks,
                 b.created_by_role, b.created_at,
                 u.unit_type, u.unit_number
-            FROM unit_blocked_dates b
+            FROM unit_blocked_dates_table b
             JOIN units_table u ON b.unit_id = u.unit_id
             ORDER BY b.start_date
         ");
@@ -178,9 +178,9 @@ class BookingCalendar extends Model {
             return ['success' => false, 'message' => $msg];
         }
 
-        // 3. Insert into unit_blocked_dates
+        // 3. Insert into unit_blocked_dates_table
         $insertStmt = $this->db->prepare("
-            INSERT INTO unit_blocked_dates 
+            INSERT INTO unit_blocked_dates_table 
                 (unit_id, start_date, end_date, block_type, remarks, created_by_user_id, created_by_role)
             VALUES (?, ?, ?, ?, ?, ?, ?)
         ");
@@ -207,7 +207,7 @@ class BookingCalendar extends Model {
             return ['success' => false, 'message' => 'Invalid block ID.'];
         }
 
-        $stmt = $this->db->prepare("DELETE FROM unit_blocked_dates WHERE block_id = ? LIMIT 1");
+        $stmt = $this->db->prepare("DELETE FROM unit_blocked_dates_table WHERE block_id = ? LIMIT 1");
         $stmt->execute([$blockId]);
 
         if ($stmt->rowCount() > 0) {

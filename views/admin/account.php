@@ -98,6 +98,19 @@ tailwind.config = {
         </div>
       </div>
 
+      <!-- Toast message -->
+      <?php if (!empty($toast)): ?>
+        <div class="p-4 rounded-2xl border <?= $toast['type'] === 'success' ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-red-50 text-red-800 border-red-200' ?> text-sm font-medium flex items-center justify-between shadow-sm">
+          <div class="flex items-center gap-3">
+            <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="<?= $toast['type'] === 'success' ? 'M5 13l4 4L19 7' : 'M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z' ?>"/>
+            </svg>
+            <span><?= e($toast['msg']) ?></span>
+          </div>
+          <button type="button" onclick="this.parentElement.remove()" class="text-xs font-bold hover:opacity-70">&times;</button>
+        </div>
+      <?php endif; ?>
+
       <!-- Main Profile Grid -->
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
@@ -225,15 +238,6 @@ tailwind.config = {
                 <dd class="mt-1 font-semibold text-slate-800 font-mono text-base"><?= e($admin['contact'] ?: '—') ?></dd>
               </div>
 
-              <div class="py-1">
-                <dt class="text-xs font-semibold text-slate-400 uppercase tracking-wide">Date of Birth</dt>
-                <dd class="mt-1 font-semibold text-slate-800 font-mono text-base"><?= e($dobFormatted) ?></dd>
-              </div>
-
-              <div class="py-1">
-                <dt class="text-xs font-semibold text-slate-400 uppercase tracking-wide">Additional Phone</dt>
-                <dd class="mt-1 font-semibold text-slate-800 font-mono text-base"><?= e($additionalPhone) ?></dd>
-              </div>
 
               <div class="py-1">
                 <dt class="text-xs font-semibold text-slate-400 uppercase tracking-wide">Additional Email</dt>
@@ -276,8 +280,43 @@ tailwind.config = {
                 <span class="px-3 py-1.5 rounded-xl bg-slate-100 text-slate-700 font-medium">✓ Maintenance Tracking &amp; Updates</span>
                 <span class="px-3 py-1.5 rounded-xl bg-slate-100 text-slate-700 font-medium">✓ Analytics &amp; Reports</span>
                 <span class="px-3 py-1.5 rounded-xl bg-slate-100 text-slate-700 font-medium">✓ Database Backup &amp; Restore</span>
-              </div>
             </div>
+          </div>
+
+          <!-- Change Password Card -->
+          <div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 md:p-8">
+            <div class="border-b border-slate-100 pb-4 mb-6">
+              <h3 class="text-base font-bold text-slate-900">Change Password</h3>
+              <p class="text-xs text-slate-400 mt-0.5">Enter your current password and choose a new password with at least 8 characters.</p>
+            </div>
+
+            <form method="POST" action="<?= htmlspecialchars($baseUrl) ?>/admin/account" class="space-y-4">
+              <input type="hidden" name="action" value="change_password">
+              <input type="hidden" name="csrf_token" value="<?= e($passwordCsrfToken ?? '') ?>">
+
+              <div>
+                <label for="adminCurrentPassword" class="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">Current Password <span class="text-rose-500">*</span></label>
+                <input id="adminCurrentPassword" type="password" name="current_password" required autocomplete="current-password" placeholder="Enter current password" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:border-slate-900 focus:bg-white transition-all">
+              </div>
+
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label for="adminNewPassword" class="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">New Password <span class="text-rose-500">*</span></label>
+                  <input id="adminNewPassword" type="password" name="new_password" required minlength="8" autocomplete="new-password" placeholder="Minimum 8 characters" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:border-slate-900 focus:bg-white transition-all">
+                </div>
+
+                <div>
+                  <label for="adminConfirmPassword" class="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">Confirm New Password <span class="text-rose-500">*</span></label>
+                  <input id="adminConfirmPassword" type="password" name="confirm_password" required minlength="8" autocomplete="new-password" placeholder="Re-enter new password" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:border-slate-900 focus:bg-white transition-all">
+                </div>
+              </div>
+
+              <div class="pt-2">
+                <button type="submit" class="btn-press px-6 py-2.5 text-xs font-bold bg-slate-900 hover:bg-slate-800 text-white rounded-xl shadow-xs transition-all">
+                  Update Password
+                </button>
+              </div>
+            </form>
           </div>
 
         </div>

@@ -34,7 +34,11 @@ class Database {
             try {
                 self::$instance = new PDO($dsn, $user, $pass, $options);
             } catch (PDOException $e) {
-                error_log("Database connection error: " . $e->getMessage());
+                if (class_exists('Logger')) {
+                    Logger::critical("Database connection error: " . $e->getMessage(), ['exception' => $e]);
+                } else {
+                    error_log("Database connection error: " . $e->getMessage());
+                }
 
                 // In debug mode, show descriptive error; in production, show generic error
                 if (env('APP_DEBUG', false)) {

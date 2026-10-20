@@ -118,7 +118,7 @@ class Analytics extends Model {
             $dateExpr = "COALESCE(m.updated_at, m.submitted_at)";
             $sql = "
                 SELECT DAY($dateExpr) AS day_num, COUNT(*) AS total
-                FROM maintenance_requests m
+                FROM maintenance_table m
                 INNER JOIN units_table u ON m.unit_id = u.unit_id
                 WHERE m.status = 'resolved'
                   AND $dateExpr >= ? AND $dateExpr < ?
@@ -127,7 +127,7 @@ class Analytics extends Model {
             $dateExpr = "m.submitted_at";
             $sql = "
                 SELECT DAY($dateExpr) AS day_num, COUNT(*) AS total
-                FROM maintenance_requests m
+                FROM maintenance_table m
                 INNER JOIN units_table u ON m.unit_id = u.unit_id
                 WHERE $dateExpr >= ? AND $dateExpr < ?
             ";
@@ -173,7 +173,7 @@ class Analytics extends Model {
                 SUBSTRING_INDEX(GROUP_CONCAT(m.subject ORDER BY m.submitted_at DESC SEPARATOR '||'), '||', 1) AS latest_issue,
                 SUBSTRING_INDEX(GROUP_CONCAT(m.category ORDER BY m.submitted_at DESC SEPARATOR '||'), '||', 1) AS latest_category,
                 SUBSTRING_INDEX(GROUP_CONCAT(m.status ORDER BY m.submitted_at DESC SEPARATOR '||'), '||', 1) AS latest_status
-            FROM maintenance_requests m
+            FROM maintenance_table m
             INNER JOIN units_table u ON m.unit_id = u.unit_id
             LEFT JOIN users_table owner ON owner.user_id = u.unit_owner_id
             WHERE m.submitted_at >= ? AND m.submitted_at < ?
@@ -284,7 +284,7 @@ class Analytics extends Model {
         ";
         $resRow = $this->fetchOne($resSql);
 
-        $maintSql = "SELECT COUNT(*) AS total FROM maintenance_requests WHERE status IN ('pending', 'in progress')";
+        $maintSql = "SELECT COUNT(*) AS total FROM maintenance_table WHERE status IN ('pending', 'in progress')";
         $maintRow = $this->fetchOne($maintSql);
 
         $pendingInquiries = (int)($inqRow['total'] ?? 0);

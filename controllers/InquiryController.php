@@ -30,6 +30,10 @@ class InquiryController extends Controller {
         $stats = $this->inquiryModel->getInquiryStats();
         $pendingCounts = $this->analyticsModel->getPendingCounts();
 
+        $successMessage = $this->getFlash('success_message') ?? ($_SESSION['success_message'] ?? null);
+        $errorMessage = $this->getFlash('error_message') ?? ($_SESSION['error_message'] ?? null);
+        unset($_SESSION['success_message'], $_SESSION['error_message']);
+
         $this->render('admin/inquiries', [
             'pageTitle'           => 'Zeppelin Suites - Inquiries',
             'activeTab'           => 'inquiry',
@@ -40,8 +44,19 @@ class InquiryController extends Controller {
             'stats'               => $stats,
             'pendingInquiries'    => $pendingCounts['pending_inquiries'],
             'pendingReservations' => $pendingCounts['pending_reservations'],
+            'successMessage'      => $successMessage,
+            'errorMessage'        => $errorMessage,
         ]);
     }
+
+    public const ALLOWED_STATUSES = [
+        'pending',
+        'responded',
+        'onhold',
+        'declined',
+        'reservation submitted',
+        'officially booked',
+    ];
 
     /**
      * Update inquiry status via AJAX POST.
@@ -50,15 +65,41 @@ class InquiryController extends Controller {
         Middleware::requireRole(['admin']);
 
         $inqId = (int)$this->getPost('inq_id', 0);
-        $newStatus = (string)$this->getPost('new_status', 'pending');
-
         if ($inqId <= 0) {
             $this->json(['success' => false, 'error' => 'Invalid inquiry ID.'], 400);
             return;
         }
 
-        $ok = $this->inquiryModel->updateStatus($inqId, $newStatus);
-        $this->json(['success' => $ok]);
+        $rawStatus = $this->getPost('new_status');
+        if ($rawStatus === null || trim((string)$rawStatus) === '') {
+            $this->json(['success' => false, 'error' => 'Inquiry status is required.'], 400);
+            return;
+        }
+
+        $normalized = strtolower(trim((string)$rawStatus));
+        if ($normalized === 'on hold') {
+            $normalized = 'onhold';
+        }
+
+        if (!in_array($normalized, self::ALLOWED_STATUSES, true)) {
+            $this->json([
+                'success' => false,
+                'error'   => 'Invalid inquiry status provided. Allowed statuses: ' . implode(', ', self::ALLOWED_STATUSES) . '.',
+            ], 422);
+            return;
+        }
+
+        $ok = $this->inquiryModel->updateStatus($inqId, $normalized);
+        if (!$ok) {
+            $this->json(['success' => false, 'error' => 'Failed to update inquiry status.'], 500);
+            return;
+        }
+
+        $this->json([
+            'success' => true,
+            'message' => 'Inquiry status updated successfully.',
+            'status'  => $normalized,
+        ]);
     }
 
     /**

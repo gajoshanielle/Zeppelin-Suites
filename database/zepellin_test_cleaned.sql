@@ -42,14 +42,11 @@ CREATE TABLE `inquiry_table` (
   `message` text NOT NULL,
   `status` enum('pending','responded','onhold','declined','reservation submitted','officially booked') NOT NULL DEFAULT 'pending',
   `approval_status` enum('not_requested','requested','approved','declined') NOT NULL DEFAULT 'not_requested',
-  `approval_requested_at` datetime DEFAULT NULL,
   `approved_unit_id` int(11) DEFAULT NULL,
-  `owner_remarks` text DEFAULT NULL,
   `approval_approved_at` datetime DEFAULT NULL,
   `timestamp` timestamp NOT NULL DEFAULT current_timestamp(),
   `reservation_token` varchar(64) DEFAULT NULL,
   `reservation_token_expires_at` datetime DEFAULT NULL,
-  `reservation_link_sent_at` datetime DEFAULT NULL,
   PRIMARY KEY (`inq_id`),
   KEY `fk_inquiry_approved_unit` (`approved_unit_id`),
   CONSTRAINT `fk_inquiry_approved_unit` FOREIGN KEY (`approved_unit_id`) REFERENCES `units_table` (`unit_id`) ON DELETE SET NULL ON UPDATE CASCADE
@@ -67,13 +64,13 @@ INSERT INTO `inquiry_table` VALUES (66,'aug 10-','maddysilvano@gmail.com','09707
 UNLOCK TABLES;
 
 --
--- Table structure for table `maintenance_requests`
+-- Table structure for table `maintenance_table`
 --
 
-DROP TABLE IF EXISTS `maintenance_requests`;
+DROP TABLE IF EXISTS `maintenance_table`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `maintenance_requests` (
+CREATE TABLE `maintenance_table` (
   `maintenance_id` int(11) NOT NULL AUTO_INCREMENT,
   `submitted_by_user_id` int(11) DEFAULT NULL,
   `submitted_by_role` enum('tenant','unit owner','admin') NOT NULL DEFAULT 'unit owner',
@@ -101,23 +98,23 @@ CREATE TABLE `maintenance_requests` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
--- Dumping data for table `maintenance_requests`
+-- Dumping data for table `maintenance_table`
 --
 
-LOCK TABLES `maintenance_requests` WRITE;
-/*!40000 ALTER TABLE `maintenance_requests` DISABLE KEYS */;
-INSERT INTO `maintenance_requests` VALUES (1,NULL,'unit owner',2,1,'Leaking faucet','Plumbing','The faucet in the bathroom sink is continuously leaking even when fully closed. Water is dripping under the sink area and causing the cabinet surface to become wet. Please inspect the faucet, valve, and pipe connection as soon as possible.','normal','pending','[\"uploads\\/maintenance\\/maintenance_1780907097_7a53ee9d9ceed821.jpg\"]','2026-06-08 16:24:57','2026-10-12 12:38:56',NULL,'okay'),(2,NULL,'unit owner',2,1,'Leaking faucet','Plumbing','sjdsdklsakdmasd','normal','resolved','[\"uploads\\/maintenance\\/maintenance_1782307562_c41091ceb8343aee.jpg\"]','2026-06-24 21:26:02','2026-07-13 19:37:37','2026-07-13 19:37:37','Hello! We have spoken to the plumber; they will arrive tomorrow. :)'),(3,7,'unit owner',7,10,'cleaning','Cleaning','hello need cleaning by 4 pm','low','resolved',NULL,'2026-10-12 12:38:38','2026-10-12 12:40:08','2026-10-12 12:40:08','okay'),(4,4,'unit owner',4,2,'ZSIRAAAAA','Plumbing','sira gripo','normal','pending','images/maintenance/maintenance_own_1791790754_592a5a78f80a937f.jpg','2026-10-12 15:39:14','2026-10-12 15:39:57',NULL,'');
-/*!40000 ALTER TABLE `maintenance_requests` ENABLE KEYS */;
+LOCK TABLES `maintenance_table` WRITE;
+/*!40000 ALTER TABLE `maintenance_table` DISABLE KEYS */;
+INSERT INTO `maintenance_table` VALUES (1,2,'unit owner',2,1,'Leaking faucet','Plumbing','The faucet in the bathroom sink is continuously leaking even when fully closed. Water is dripping under the sink area and causing the cabinet surface to become wet. Please inspect the faucet, valve, and pipe connection as soon as possible.','normal','pending','[\"uploads\\/maintenance\\/maintenance_1780907097_7a53ee9d9ceed821.jpg\"]','2026-06-08 16:24:57','2026-10-12 12:38:56',NULL,'okay'),(2,2,'unit owner',2,1,'Leaking faucet','Plumbing','sjdsdklsakdmasd','normal','resolved','[\"uploads\\/maintenance\\/maintenance_1782307562_c41091ceb8343aee.jpg\"]','2026-06-24 21:26:02','2026-07-13 19:37:37','2026-07-13 19:37:37','Hello! We have spoken to the plumber; they will arrive tomorrow. :)'),(3,7,'unit owner',7,10,'cleaning','Cleaning','hello need cleaning by 4 pm','low','resolved',NULL,'2026-10-12 12:38:38','2026-10-12 12:40:08','2026-10-12 12:40:08','okay'),(4,4,'unit owner',4,2,'ZSIRAAAAA','Plumbing','sira gripo','normal','pending','images/maintenance/maintenance_own_1791790754_592a5a78f80a937f.jpg','2026-10-12 15:39:14','2026-10-12 15:39:57',NULL,'');
+/*!40000 ALTER TABLE `maintenance_table` ENABLE KEYS */;
 UNLOCK TABLES;
 
 --
--- Table structure for table `owner_approval_requests`
+-- Table structure for table `owner_approval_table`
 --
 
-DROP TABLE IF EXISTS `owner_approval_requests`;
+DROP TABLE IF EXISTS `owner_approval_table`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `owner_approval_requests` (
+CREATE TABLE `owner_approval_table` (
   `request_id` int(11) NOT NULL AUTO_INCREMENT,
   `inq_id` int(11) NOT NULL,
   `unit_id` int(11) NOT NULL,
@@ -135,23 +132,23 @@ CREATE TABLE `owner_approval_requests` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
--- Dumping data for table `owner_approval_requests`
+-- Dumping data for table `owner_approval_table`
 --
 
-LOCK TABLES `owner_approval_requests` WRITE;
-/*!40000 ALTER TABLE `owner_approval_requests` DISABLE KEYS */;
-INSERT INTO `owner_approval_requests` VALUES (102,66,3,5,'declined',NULL,'2026-08-10 16:17:11','2026-08-11 00:17:30'),(103,66,1,2,'approved',NULL,'2026-08-10 16:20:19','2026-08-11 00:21:29'),(104,68,1,2,'approved',NULL,'2026-08-10 17:42:32','2026-08-11 01:42:48'),(105,69,2,4,'approved','okay','2026-08-23 13:04:41','2026-10-08 20:15:57'),(106,70,1,2,'approved',NULL,'2026-08-23 13:12:05','2026-08-25 22:58:31'),(107,71,5,8,'expired',NULL,'2026-08-25 16:59:33','2026-08-26 01:00:45'),(108,71,3,5,'approved',NULL,'2026-08-25 17:00:19','2026-08-26 01:00:45'),(110,72,20,7,'approved',NULL,'2026-09-01 03:19:16','2026-09-01 11:45:54'),(111,73,4,6,'approved','N/A','2026-09-03 11:54:11','2026-09-06 16:46:04'),(112,74,4,6,'approved','testing testing','2026-09-04 09:58:41','2026-09-04 18:04:30'),(113,75,11,2,'approved','okay','2026-09-06 09:04:14','2026-09-06 17:09:37'),(114,76,20,7,'pending',NULL,'2026-09-06 16:06:27',NULL),(115,87,1,2,'approved','','2026-10-05 21:31:05','2026-10-06 05:34:35'),(116,87,3,5,'declined','I declined','2026-10-05 21:31:05','2026-10-06 05:33:43'),(117,88,6,2,'declined','','2026-10-08 08:58:35','2026-10-08 17:23:23'),(118,88,8,6,'approved','','2026-10-08 08:59:59','2026-10-08 17:23:48'),(119,88,9,6,'declined','','2026-10-08 08:59:59','2026-10-08 17:23:41'),(125,93,12,4,'approved','','2026-10-08 12:19:20','2026-10-08 20:20:00'),(126,93,15,7,'approved','','2026-10-08 12:19:20','2026-10-08 20:20:32'),(127,93,21,4,'approved','','2026-10-08 12:19:20','2026-10-08 20:20:03'),(129,95,20,7,'approved','no','2026-10-09 07:31:19','2026-10-09 15:32:56'),(130,94,16,2,'declined','','2026-10-09 07:35:41','2026-10-09 15:36:05'),(131,96,1,2,'declined','','2026-10-09 07:50:24','2026-10-09 15:50:48'),(132,97,17,4,'declined','','2026-10-09 07:59:49','2026-10-09 16:00:11'),(133,97,17,4,'approved','','2026-10-09 08:09:05','2026-10-09 16:11:13'),(134,97,20,7,'pending',NULL,'2026-10-09 08:09:05',NULL),(135,98,1,2,'approved','','2026-10-09 09:06:17','2026-10-09 17:08:01'),(136,98,3,5,'approved','','2026-10-09 09:06:17','2026-10-09 17:08:54'),(137,98,5,8,'pending',NULL,'2026-10-09 09:06:17',NULL),(138,99,7,4,'declined','','2026-10-12 03:07:10','2026-10-12 11:09:22'),(139,99,10,7,'approved','nothing','2026-10-12 03:07:10','2026-10-12 11:08:43'),(140,100,7,4,'approved','','2026-10-12 03:17:50','2026-10-12 11:23:40'),(141,100,10,7,'approved','','2026-10-12 03:17:50','2026-10-12 11:23:50'),(142,101,2,4,'approved','','2026-10-12 05:58:08','2026-10-12 13:58:28'),(144,103,1,2,'approved','','2026-10-12 08:19:43','2026-10-12 16:21:05'),(145,103,3,5,'approved','','2026-10-12 08:19:43','2026-10-12 16:21:42'),(146,103,5,8,'pending',NULL,'2026-10-12 08:19:43',NULL);
-/*!40000 ALTER TABLE `owner_approval_requests` ENABLE KEYS */;
+LOCK TABLES `owner_approval_table` WRITE;
+/*!40000 ALTER TABLE `owner_approval_table` DISABLE KEYS */;
+INSERT INTO `owner_approval_table` VALUES (102,66,3,5,'declined',NULL,'2026-08-10 16:17:11','2026-08-11 00:17:30'),(103,66,1,2,'approved',NULL,'2026-08-10 16:20:19','2026-08-11 00:21:29'),(104,68,1,2,'approved',NULL,'2026-08-10 17:42:32','2026-08-11 01:42:48'),(105,69,2,4,'approved','okay','2026-08-23 13:04:41','2026-10-08 20:15:57'),(106,70,1,2,'approved',NULL,'2026-08-23 13:12:05','2026-08-25 22:58:31'),(107,71,5,8,'expired',NULL,'2026-08-25 16:59:33','2026-08-26 01:00:45'),(108,71,3,5,'approved',NULL,'2026-08-25 17:00:19','2026-08-26 01:00:45'),(110,72,20,7,'approved',NULL,'2026-09-01 03:19:16','2026-09-01 11:45:54'),(111,73,4,6,'approved','N/A','2026-09-03 11:54:11','2026-09-06 16:46:04'),(112,74,4,6,'approved','testing testing','2026-09-04 09:58:41','2026-09-04 18:04:30'),(113,75,11,2,'approved','okay','2026-09-06 09:04:14','2026-09-06 17:09:37'),(114,76,20,7,'pending',NULL,'2026-09-06 16:06:27',NULL),(115,87,1,2,'approved','','2026-10-05 21:31:05','2026-10-06 05:34:35'),(116,87,3,5,'declined','I declined','2026-10-05 21:31:05','2026-10-06 05:33:43'),(117,88,6,2,'declined','','2026-10-08 08:58:35','2026-10-08 17:23:23'),(118,88,8,6,'approved','','2026-10-08 08:59:59','2026-10-08 17:23:48'),(119,88,9,6,'declined','','2026-10-08 08:59:59','2026-10-08 17:23:41'),(125,93,12,4,'approved','','2026-10-08 12:19:20','2026-10-08 20:20:00'),(126,93,15,7,'approved','','2026-10-08 12:19:20','2026-10-08 20:20:32'),(127,93,21,4,'approved','','2026-10-08 12:19:20','2026-10-08 20:20:03'),(129,95,20,7,'approved','no','2026-10-09 07:31:19','2026-10-09 15:32:56'),(130,94,16,2,'declined','','2026-10-09 07:35:41','2026-10-09 15:36:05'),(131,96,1,2,'declined','','2026-10-09 07:50:24','2026-10-09 15:50:48'),(132,97,17,4,'declined','','2026-10-09 07:59:49','2026-10-09 16:00:11'),(133,97,17,4,'approved','','2026-10-09 08:09:05','2026-10-09 16:11:13'),(134,97,20,7,'pending',NULL,'2026-10-09 08:09:05',NULL),(135,98,1,2,'approved','','2026-10-09 09:06:17','2026-10-09 17:08:01'),(136,98,3,5,'approved','','2026-10-09 09:06:17','2026-10-09 17:08:54'),(137,98,5,8,'pending',NULL,'2026-10-09 09:06:17',NULL),(138,99,7,4,'declined','','2026-10-12 03:07:10','2026-10-12 11:09:22'),(139,99,10,7,'approved','nothing','2026-10-12 03:07:10','2026-10-12 11:08:43'),(140,100,7,4,'approved','','2026-10-12 03:17:50','2026-10-12 11:23:40'),(141,100,10,7,'approved','','2026-10-12 03:17:50','2026-10-12 11:23:50'),(142,101,2,4,'approved','','2026-10-12 05:58:08','2026-10-12 13:58:28'),(144,103,1,2,'approved','','2026-10-12 08:19:43','2026-10-12 16:21:05'),(145,103,3,5,'approved','','2026-10-12 08:19:43','2026-10-12 16:21:42'),(146,103,5,8,'pending',NULL,'2026-10-12 08:19:43',NULL);
+/*!40000 ALTER TABLE `owner_approval_table` ENABLE KEYS */;
 UNLOCK TABLES;
 
 --
--- Table structure for table `reservation_documents`
+-- Table structure for table `reservation_documents_table`
 --
 
-DROP TABLE IF EXISTS `reservation_documents`;
+DROP TABLE IF EXISTS `reservation_documents_table`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `reservation_documents` (
+CREATE TABLE `reservation_documents_table` (
   `document_id` int(11) NOT NULL AUTO_INCREMENT,
   `reservation_id` int(11) NOT NULL,
   `document_key` varchar(50) NOT NULL COMMENT 'stable identifier, e.g. valid_id_1, tin_number',
@@ -170,13 +167,13 @@ CREATE TABLE `reservation_documents` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
--- Dumping data for table `reservation_documents`
+-- Dumping data for table `reservation_documents_table`
 --
 
-LOCK TABLES `reservation_documents` WRITE;
-/*!40000 ALTER TABLE `reservation_documents` DISABLE KEYS */;
-INSERT INTO `reservation_documents` VALUES (73,27,'valid_id_1','Valid ID #1','complete','https://dropbox.com/test/valid_id_1',2,'2026-10-08 19:18:47'),(74,27,'valid_id_2','Valid ID #2','complete','https://dropbox.com/test/valid_id_2',2,'2026-10-08 19:18:47'),(75,27,'tin_number','TIN Number','complete','https://dropbox.com/test/tin_number',2,'2026-10-08 19:18:47'),(76,27,'reservation_agreement','Reservation Agreement','complete','https://dropbox.com/test/reservation_agreement',2,'2026-10-08 19:18:47'),(77,28,'valid_id_1','Valid ID #1','complete',NULL,1,'2026-08-26 01:03:19'),(78,28,'valid_id_2','Valid ID #2','complete',NULL,1,'2026-08-26 01:03:19'),(79,28,'tin_number','TIN Number','complete',NULL,1,'2026-08-26 01:03:19'),(80,28,'reservation_agreement','Reservation Agreement','complete',NULL,1,'2026-08-26 01:03:19'),(81,32,'valid_id_1','Valid ID #1','complete','sdsda',2,'2026-09-07 00:55:31'),(82,32,'valid_id_2','Valid ID #2','complete','sds',2,'2026-09-07 00:55:31'),(83,32,'tin_number','TIN Number','complete','sds',2,'2026-09-07 00:55:31'),(84,32,'reservation_agreement','Reservation Agreement','complete','sds',2,'2026-09-07 00:55:31'),(129,33,'valid_id_1','Valid ID #1','complete','http://localhost/Zeppelin-Suites/owner/reservations/view?reservation_id=33#documents',6,'2026-10-09 11:23:51'),(130,33,'valid_id_2','Valid ID #2','complete','http://localhost/Zeppelin-Suites/owner/reservations/view?reservation_id=33#documents',6,'2026-10-09 11:23:51'),(131,33,'tin_number','TIN Number','complete','http://localhost/Zeppelin-Suites/owner/reservations/view?reservation_id=33#documents',6,'2026-10-09 11:23:51'),(132,33,'reservation_agreement','Reservation Agreement','complete','http://localhost/Zeppelin-Suites/owner/reservations/view?reservation_id=33#documents',6,'2026-10-09 11:23:51'),(149,35,'valid_id_1','Valid ID #1','complete','https://drive.google.com/file/d/1Opg6zpOvf4gKj2HDZkSabaeKXW9MBm40/view?usp=drive_link',4,'2026-10-08 20:16:13'),(150,35,'valid_id_2','Valid ID #2','complete','https://drive.google.com/file/d/1J-MfioI-k065Ef67mjQVA8CfpYv38lsG/view?usp=drive_link',4,'2026-10-08 20:16:13'),(151,35,'tin_number','TIN Number','complete','https://drive.google.com/file/d/1mc4EGOBc1b3Vyz1PL-O2UDuueRBNq8E1/view?usp=drive_link',4,'2026-10-08 20:16:13'),(152,35,'reservation_agreement','Reservation Agreement','complete','https://drive.google.com/file/d/1k7JrvWXN7L-bApHoHvOIcx2h6VMQ8xHz/view?usp=drive_link',4,'2026-10-08 20:16:13'),(153,36,'valid_id_1','Valid ID #1','pending',NULL,NULL,NULL),(154,36,'valid_id_2','Valid ID #2','pending',NULL,NULL,NULL),(155,36,'tin_number','TIN Number','pending',NULL,NULL,NULL),(156,36,'reservation_agreement','Reservation Agreement','pending',NULL,NULL,NULL),(157,37,'valid_id_1','Valid ID #1','pending',NULL,NULL,NULL),(158,37,'valid_id_2','Valid ID #2','pending',NULL,NULL,NULL),(159,37,'tin_number','TIN Number','pending',NULL,NULL,NULL),(160,37,'reservation_agreement','Reservation Agreement','pending',NULL,NULL,NULL),(161,38,'valid_id_1','Valid ID #1','complete','https://nviojvrjgvyyveyyxgmr.supabase.co/storage/v1/object/public/zepellin-buckets/reservations/documents/valid_ids/doc_res_38_1791790578_c1761814.pdf',1,'2026-10-12 09:36:18'),(162,38,'valid_id_2','Valid ID #2','complete','https://nviojvrjgvyyveyyxgmr.supabase.co/storage/v1/object/public/zepellin-buckets/reservations/documents/valid_ids/doc_res_38_1791790587_8aa235c6.jpg',1,'2026-10-12 09:36:28'),(163,38,'tin_number','TIN Number','complete','https://nviojvrjgvyyveyyxgmr.supabase.co/storage/v1/object/public/zepellin-buckets/reservations/documents/tin_number/doc_res_38_1791790602_5bcc2f3c.jpg',1,'2026-10-12 09:36:42'),(164,38,'reservation_agreement','Reservation Agreement','complete','https://nviojvrjgvyyveyyxgmr.supabase.co/storage/v1/object/public/zepellin-buckets/reservations/documents/agreement_forms/doc_res_38_1791790606_53626727.pdf',1,'2026-10-12 09:36:47');
-/*!40000 ALTER TABLE `reservation_documents` ENABLE KEYS */;
+LOCK TABLES `reservation_documents_table` WRITE;
+/*!40000 ALTER TABLE `reservation_documents_table` DISABLE KEYS */;
+INSERT INTO `reservation_documents_table` VALUES (73,27,'valid_id_1','Valid ID #1','complete','https://dropbox.com/test/valid_id_1',2,'2026-10-08 19:18:47'),(74,27,'valid_id_2','Valid ID #2','complete','https://dropbox.com/test/valid_id_2',2,'2026-10-08 19:18:47'),(75,27,'tin_number','TIN Number','complete','https://dropbox.com/test/tin_number',2,'2026-10-08 19:18:47'),(76,27,'reservation_agreement','Reservation Agreement','complete','https://dropbox.com/test/reservation_agreement',2,'2026-10-08 19:18:47'),(77,28,'valid_id_1','Valid ID #1','complete',NULL,1,'2026-08-26 01:03:19'),(78,28,'valid_id_2','Valid ID #2','complete',NULL,1,'2026-08-26 01:03:19'),(79,28,'tin_number','TIN Number','complete',NULL,1,'2026-08-26 01:03:19'),(80,28,'reservation_agreement','Reservation Agreement','complete',NULL,1,'2026-08-26 01:03:19'),(81,32,'valid_id_1','Valid ID #1','complete','sdsda',2,'2026-09-07 00:55:31'),(82,32,'valid_id_2','Valid ID #2','complete','sds',2,'2026-09-07 00:55:31'),(83,32,'tin_number','TIN Number','complete','sds',2,'2026-09-07 00:55:31'),(84,32,'reservation_agreement','Reservation Agreement','complete','sds',2,'2026-09-07 00:55:31'),(129,33,'valid_id_1','Valid ID #1','complete','http://localhost/Zeppelin-Suites/owner/reservations/view?reservation_id=33#documents',6,'2026-10-09 11:23:51'),(130,33,'valid_id_2','Valid ID #2','complete','http://localhost/Zeppelin-Suites/owner/reservations/view?reservation_id=33#documents',6,'2026-10-09 11:23:51'),(131,33,'tin_number','TIN Number','complete','http://localhost/Zeppelin-Suites/owner/reservations/view?reservation_id=33#documents',6,'2026-10-09 11:23:51'),(132,33,'reservation_agreement','Reservation Agreement','complete','http://localhost/Zeppelin-Suites/owner/reservations/view?reservation_id=33#documents',6,'2026-10-09 11:23:51'),(149,35,'valid_id_1','Valid ID #1','complete','https://drive.google.com/file/d/1Opg6zpOvf4gKj2HDZkSabaeKXW9MBm40/view?usp=drive_link',4,'2026-10-08 20:16:13'),(150,35,'valid_id_2','Valid ID #2','complete','https://drive.google.com/file/d/1J-MfioI-k065Ef67mjQVA8CfpYv38lsG/view?usp=drive_link',4,'2026-10-08 20:16:13'),(151,35,'tin_number','TIN Number','complete','https://drive.google.com/file/d/1mc4EGOBc1b3Vyz1PL-O2UDuueRBNq8E1/view?usp=drive_link',4,'2026-10-08 20:16:13'),(152,35,'reservation_agreement','Reservation Agreement','complete','https://drive.google.com/file/d/1k7JrvWXN7L-bApHoHvOIcx2h6VMQ8xHz/view?usp=drive_link',4,'2026-10-08 20:16:13'),(153,36,'valid_id_1','Valid ID #1','pending',NULL,NULL,NULL),(154,36,'valid_id_2','Valid ID #2','pending',NULL,NULL,NULL),(155,36,'tin_number','TIN Number','pending',NULL,NULL,NULL),(156,36,'reservation_agreement','Reservation Agreement','pending',NULL,NULL,NULL),(157,37,'valid_id_1','Valid ID #1','pending',NULL,NULL,NULL),(158,37,'valid_id_2','Valid ID #2','pending',NULL,NULL,NULL),(159,37,'tin_number','TIN Number','pending',NULL,NULL,NULL),(160,37,'reservation_agreement','Reservation Agreement','pending',NULL,NULL,NULL),(161,38,'valid_id_1','Valid ID #1','complete','https://nviojvrjgvyyveyyxgmr.supabase.co/storage/v1/object/public/zepellin-buckets/reservations/documents/valid_ids/doc_res_38_1791790578_c1761814.pdf',1,'2026-10-12 09:36:18'),(162,38,'valid_id_2','Valid ID #2','complete','https://nviojvrjgvyyveyyxgmr.supabase.co/storage/v1/object/public/zepellin-buckets/reservations/documents/valid_ids/doc_res_38_1791790587_8aa235c6.jpg',1,'2026-10-12 09:36:28'),(163,38,'tin_number','TIN Number','complete','https://nviojvrjgvyyveyyxgmr.supabase.co/storage/v1/object/public/zepellin-buckets/reservations/documents/tin_number/doc_res_38_1791790602_5bcc2f3c.jpg',1,'2026-10-12 09:36:42'),(164,38,'reservation_agreement','Reservation Agreement','complete','https://nviojvrjgvyyveyyxgmr.supabase.co/storage/v1/object/public/zepellin-buckets/reservations/documents/agreement_forms/doc_res_38_1791790606_53626727.pdf',1,'2026-10-12 09:36:47');
+/*!40000 ALTER TABLE `reservation_documents_table` ENABLE KEYS */;
 UNLOCK TABLES;
 
 --
@@ -236,13 +233,13 @@ INSERT INTO `reservation_table` VALUES (27,70,1,'testing unit reservation','gajo
 UNLOCK TABLES;
 
 --
--- Table structure for table `unit_blocked_dates`
+-- Table structure for table `unit_blocked_dates_table`
 --
 
-DROP TABLE IF EXISTS `unit_blocked_dates`;
+DROP TABLE IF EXISTS `unit_blocked_dates_table`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `unit_blocked_dates` (
+CREATE TABLE `unit_blocked_dates_table` (
   `block_id` int(11) NOT NULL AUTO_INCREMENT,
   `unit_id` int(11) NOT NULL,
   `start_date` date NOT NULL,
@@ -259,23 +256,23 @@ CREATE TABLE `unit_blocked_dates` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
--- Dumping data for table `unit_blocked_dates`
+-- Dumping data for table `unit_blocked_dates_table`
 --
 
-LOCK TABLES `unit_blocked_dates` WRITE;
-/*!40000 ALTER TABLE `unit_blocked_dates` DISABLE KEYS */;
-INSERT INTO `unit_blocked_dates` VALUES (1,6,'2026-09-01','2026-09-07','Not Available','testing',1,'admin','2026-09-06 15:48:08'),(3,2,'2026-10-09','2026-10-11','Maintenance',NULL,4,'','2026-10-08 18:26:06'),(4,6,'2026-10-10','2026-10-13','Not Available',NULL,1,'admin','2026-10-09 08:59:39');
-/*!40000 ALTER TABLE `unit_blocked_dates` ENABLE KEYS */;
+LOCK TABLES `unit_blocked_dates_table` WRITE;
+/*!40000 ALTER TABLE `unit_blocked_dates_table` DISABLE KEYS */;
+INSERT INTO `unit_blocked_dates_table` VALUES (1,6,'2026-09-01','2026-09-07','Not Available','testing',1,'admin','2026-09-06 15:48:08'),(3,2,'2026-10-09','2026-10-11','Maintenance',NULL,4,'','2026-10-08 18:26:06'),(4,6,'2026-10-10','2026-10-13','Not Available',NULL,1,'admin','2026-10-09 08:59:39');
+/*!40000 ALTER TABLE `unit_blocked_dates_table` ENABLE KEYS */;
 UNLOCK TABLES;
 
 --
--- Table structure for table `unit_ownership_history`
+-- Table structure for table `unit_ownership_history_table`
 --
 
-DROP TABLE IF EXISTS `unit_ownership_history`;
+DROP TABLE IF EXISTS `unit_ownership_history_table`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `unit_ownership_history` (
+CREATE TABLE `unit_ownership_history_table` (
   `history_id` int(11) NOT NULL AUTO_INCREMENT,
   `unit_id` int(11) NOT NULL,
   `owner_id` int(11) NOT NULL,
@@ -292,13 +289,13 @@ CREATE TABLE `unit_ownership_history` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
--- Dumping data for table `unit_ownership_history`
+-- Dumping data for table `unit_ownership_history_table`
 --
 
-LOCK TABLES `unit_ownership_history` WRITE;
-/*!40000 ALTER TABLE `unit_ownership_history` DISABLE KEYS */;
-INSERT INTO `unit_ownership_history` VALUES (1,1,2,'2026-06-03',NULL,'active','Current Owner','Backfilled active unit owner','2026-09-05 15:53:15'),(2,2,4,'2026-06-03',NULL,'active','Current Owner','Backfilled active unit owner','2026-09-05 15:53:15'),(3,3,5,'2026-06-03',NULL,'active','Current Owner','Backfilled active unit owner','2026-09-05 15:53:15'),(4,4,6,'2026-06-03',NULL,'active','Current Owner','Backfilled active unit owner','2026-09-05 15:53:15'),(5,5,8,'2026-06-03',NULL,'active','Current Owner','Backfilled active unit owner','2026-09-05 15:53:15'),(6,6,2,'2026-06-03',NULL,'active','Current Owner','Backfilled active unit owner','2026-09-05 15:53:15'),(7,7,4,'2026-06-03',NULL,'active','Current Owner','Backfilled active unit owner','2026-09-05 15:53:15'),(8,8,6,'2026-06-03',NULL,'active','Current Owner','Backfilled active unit owner','2026-09-05 15:53:15'),(9,9,6,'2026-06-03',NULL,'active','Current Owner','Backfilled active unit owner','2026-09-05 15:53:15'),(10,10,7,'2026-06-03',NULL,'active','Current Owner','Backfilled active unit owner','2026-09-05 15:53:15'),(11,11,2,'2026-06-03',NULL,'active','Current Owner','Backfilled active unit owner','2026-09-05 15:53:15'),(12,12,4,'2026-06-03','2026-10-08','transferred','Current Owner','Backfilled active unit owner [Transferred on 2026-10-08]','2026-09-05 15:53:15'),(13,13,5,'2026-06-03',NULL,'active','Current Owner','Backfilled active unit owner','2026-09-05 15:53:15'),(14,14,6,'2026-06-03',NULL,'active','Current Owner','Backfilled active unit owner','2026-09-05 15:53:15'),(15,15,7,'2026-06-03',NULL,'active','Current Owner','Backfilled active unit owner','2026-09-05 15:53:15'),(16,16,2,'2026-06-03',NULL,'active','Current Owner','Backfilled active unit owner','2026-09-05 15:53:15'),(17,17,4,'2026-06-03',NULL,'active','Current Owner','Backfilled active unit owner','2026-09-05 15:53:15'),(18,18,5,'2026-06-03',NULL,'active','Current Owner','Backfilled active unit owner','2026-09-05 15:53:15'),(19,19,6,'2026-06-03',NULL,'active','Current Owner','Backfilled active unit owner','2026-09-05 15:53:15'),(20,20,7,'2026-06-03',NULL,'active','Current Owner','Backfilled active unit owner','2026-09-05 15:53:15'),(21,21,4,'2026-06-03',NULL,'active','Current Owner','Backfilled active unit owner','2026-09-05 15:53:15'),(22,12,10,'2026-10-08',NULL,'active','Resale','Ownership transferred upon completed resale','2026-10-09 05:54:22');
-/*!40000 ALTER TABLE `unit_ownership_history` ENABLE KEYS */;
+LOCK TABLES `unit_ownership_history_table` WRITE;
+/*!40000 ALTER TABLE `unit_ownership_history_table` DISABLE KEYS */;
+INSERT INTO `unit_ownership_history_table` VALUES (1,1,2,'2026-06-03',NULL,'active','Current Owner','Backfilled active unit owner','2026-09-05 15:53:15'),(2,2,4,'2026-06-03',NULL,'active','Current Owner','Backfilled active unit owner','2026-09-05 15:53:15'),(3,3,5,'2026-06-03',NULL,'active','Current Owner','Backfilled active unit owner','2026-09-05 15:53:15'),(4,4,6,'2026-06-03',NULL,'active','Current Owner','Backfilled active unit owner','2026-09-05 15:53:15'),(5,5,8,'2026-06-03',NULL,'active','Current Owner','Backfilled active unit owner','2026-09-05 15:53:15'),(6,6,2,'2026-06-03',NULL,'active','Current Owner','Backfilled active unit owner','2026-09-05 15:53:15'),(7,7,4,'2026-06-03',NULL,'active','Current Owner','Backfilled active unit owner','2026-09-05 15:53:15'),(8,8,6,'2026-06-03',NULL,'active','Current Owner','Backfilled active unit owner','2026-09-05 15:53:15'),(9,9,6,'2026-06-03',NULL,'active','Current Owner','Backfilled active unit owner','2026-09-05 15:53:15'),(10,10,7,'2026-06-03',NULL,'active','Current Owner','Backfilled active unit owner','2026-09-05 15:53:15'),(11,11,2,'2026-06-03',NULL,'active','Current Owner','Backfilled active unit owner','2026-09-05 15:53:15'),(12,12,4,'2026-06-03','2026-10-08','transferred','Current Owner','Backfilled active unit owner [Transferred on 2026-10-08]','2026-09-05 15:53:15'),(13,13,5,'2026-06-03',NULL,'active','Current Owner','Backfilled active unit owner','2026-09-05 15:53:15'),(14,14,6,'2026-06-03',NULL,'active','Current Owner','Backfilled active unit owner','2026-09-05 15:53:15'),(15,15,7,'2026-06-03',NULL,'active','Current Owner','Backfilled active unit owner','2026-09-05 15:53:15'),(16,16,2,'2026-06-03',NULL,'active','Current Owner','Backfilled active unit owner','2026-09-05 15:53:15'),(17,17,4,'2026-06-03',NULL,'active','Current Owner','Backfilled active unit owner','2026-09-05 15:53:15'),(18,18,5,'2026-06-03',NULL,'active','Current Owner','Backfilled active unit owner','2026-09-05 15:53:15'),(19,19,6,'2026-06-03',NULL,'active','Current Owner','Backfilled active unit owner','2026-09-05 15:53:15'),(20,20,7,'2026-06-03',NULL,'active','Current Owner','Backfilled active unit owner','2026-09-05 15:53:15'),(21,21,4,'2026-06-03',NULL,'active','Current Owner','Backfilled active unit owner','2026-09-05 15:53:15'),(22,12,10,'2026-10-08',NULL,'active','Resale','Ownership transferred upon completed resale','2026-10-09 05:54:22');
+/*!40000 ALTER TABLE `unit_ownership_history_table` ENABLE KEYS */;
 UNLOCK TABLES;
 
 --
@@ -316,7 +313,7 @@ CREATE TABLE `units_table` (
   `floor_number` tinyint(2) unsigned NOT NULL DEFAULT 1,
   `lease_rate` decimal(10,2) DEFAULT NULL,
   `reselling_price` decimal(15,2) DEFAULT NULL,
-  `listing_type` enum('For Lease','Resale') NOT NULL DEFAULT 'For Lease',
+  `listing_type` enum('For Lease','Resale','Not Available') NOT NULL DEFAULT 'For Lease',
   `stay_category` enum('Short term','Long term') NOT NULL DEFAULT 'Long term',
   `unit_owner_id` int(11) DEFAULT NULL,
   `unit_current_status` enum('Ready for Occupancy','For Resale','Resale','On Hold','Reserved','Occupied','Under maintenance') NOT NULL DEFAULT 'Ready for Occupancy',
@@ -351,13 +348,15 @@ CREATE TABLE `users_table` (
   `email` varchar(150) NOT NULL,
   `password` varchar(255) DEFAULT NULL,
   `contact` varchar(30) DEFAULT NULL,
-  `date_of_birth` date DEFAULT NULL,
-  `additional_contact` varchar(50) DEFAULT NULL,
   `additional_email` varchar(100) DEFAULT NULL,
   `user_role` enum('admin','unit owner','tenant') NOT NULL DEFAULT 'tenant',
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   `resident_status` enum('Active','Inactive') NOT NULL DEFAULT 'Active',
   `gcash_QR` text DEFAULT NULL,
+  `reset_code_hash` varchar(255) DEFAULT NULL,
+  `reset_expires_at` datetime DEFAULT NULL,
+  `reset_attempts` int(11) NOT NULL DEFAULT 0,
+  `reset_requested_at` datetime DEFAULT NULL,
   PRIMARY KEY (`user_id`),
   UNIQUE KEY `email` (`email`)
 ) ENGINE=InnoDB AUTO_INCREMENT=13 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;

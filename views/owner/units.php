@@ -199,6 +199,7 @@ tailwind.config = {
               <option value="">All Statuses</option>
               <option value="Ready for Occupancy">Ready for Occupancy</option>
               <option value="For Resale">For Resale</option>
+              <option value="Not Available">Not Available</option>
               <option value="On Hold">On Hold</option>
               <option value="Reserved">Reserved</option>
               <option value="Occupied">Occupied</option>
@@ -303,8 +304,14 @@ tailwind.config = {
 
                         $listing_type = strtolower(trim($row['listing_type'] ?? 'for lease'));
                         $isResale = ($listing_type === 'resale' || $status_lower === 'resale' || $status_lower === 'for resale');
-                        $display_status = ($status_lower === 'resale' || $status_lower === 'for resale') ? 'For Resale' : $unit_current_status;
-                        if ($isResale) {
+                        $isNotAvailable = ($listing_type === 'not available');
+                        $display_status = $isNotAvailable ? 'Not Available' : (($status_lower === 'resale' || $status_lower === 'for resale') ? 'For Resale' : $unit_current_status);
+                        if ($isNotAvailable) {
+                            $price_value = '—';
+                            $status_class = 'bg-rose-50 text-rose-700 border-rose-200';
+                            $dot_class = 'bg-rose-500';
+                            $listing_badge_html = '<span class="inline-block text-xs font-semibold px-2.5 py-1 rounded-md bg-rose-50 text-rose-700 border border-rose-200">Not Available</span>';
+                        } elseif ($isResale) {
                             $resaleVal = !empty($row['reselling_price']) && (float)$row['reselling_price'] > 0 
                                 ? (float)$row['reselling_price'] 
                                 : (float)($row['lease_rate'] ?? 0);

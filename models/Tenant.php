@@ -50,7 +50,7 @@ class Tenant extends Model {
             INNER JOIN units_table u ON r.unit_id = u.unit_id
             LEFT JOIN users_table owner ON u.unit_owner_id = owner.user_id
             LEFT JOIN inquiry_table i ON r.inq_id = i.inq_id
-            WHERE (r.client_email = ? OR r.client_name = ?)
+            WHERE r.client_email = ?
               AND LOWER(r.reservation_status) NOT IN ('cancelled', 'rejected')
             ORDER BY 
                 CASE 
@@ -63,15 +63,14 @@ class Tenant extends Model {
             LIMIT 1
         ";
         $lookupEmail = $email !== '' ? $email : (string)($user['email'] ?? '');
-        $lookupName  = $name !== '' ? $name : (string)($user['full_name'] ?? '');
-        $leaseInfo = $this->fetchOne($leaseSql, [$lookupEmail, $lookupName]);
+        $leaseInfo = $this->fetchOne($leaseSql, [$lookupEmail]);
 
         // 3. Count active maintenance requests
         $mCountSql = "
             SELECT COUNT(*) AS total 
-            FROM maintenance_requests 
+            FROM maintenance_table 
             WHERE submitted_by_user_id = ? 
-              AND LOWER(status) IN ('submitted', 'under review', 'in progress')
+              AND LOWER(status) IN ('pending', 'in progress')
         ";
         $mCountRow = $this->fetchOne($mCountSql, [$tenantId]);
         $activeMaintenanceCount = (int)($mCountRow['total'] ?? 0);
@@ -86,7 +85,7 @@ class Tenant extends Model {
                 m.status,
                 m.submitted_at,
                 u.unit_number
-            FROM maintenance_requests m
+            FROM maintenance_table m
             INNER JOIN units_table u ON m.unit_id = u.unit_id
             WHERE m.submitted_by_user_id = ?
             ORDER BY m.submitted_at DESC
@@ -144,10 +143,10 @@ class Tenant extends Model {
             FROM reservation_table r
             INNER JOIN units_table u ON r.unit_id = u.unit_id
             LEFT JOIN users_table owner ON u.unit_owner_id = owner.user_id
-            WHERE r.client_email = ? OR r.client_name = ?
+            WHERE r.client_email = ?
             ORDER BY r.created_at DESC
         ";
-        $leases = $this->fetchAll($leaseSql, [$email, $name]);
+        $leases = $this->fetchAll($leaseSql, [$email]);
 
         // Fetch Documents for Tenant's Reservation(s)
         $docSql = "
@@ -162,13 +161,13 @@ class Tenant extends Model {
                 r.reservation_status,
                 u.unit_number,
                 u.unit_type
-            FROM reservation_documents d
+            FROM reservation_documents_table d
             INNER JOIN reservation_table r ON d.reservation_id = r.reservation_id
             INNER JOIN units_table u ON r.unit_id = u.unit_id
-            WHERE (r.client_email = ? OR r.client_name = ?)
+            WHERE r.client_email = ?
             ORDER BY r.reservation_id DESC, d.document_id ASC
         ";
-        $documents = $this->fetchAll($docSql, [$email, $name]);
+        $documents = $this->fetchAll($docSql, [$email]);
 
         // Fetch Maintenance Requests
         $mSql = "
@@ -185,7 +184,7 @@ class Tenant extends Model {
                 m.submitted_at,
                 u.unit_number, 
                 u.unit_type 
-            FROM maintenance_requests m 
+            FROM maintenance_table m 
             LEFT JOIN units_table u ON m.unit_id = u.unit_id 
             WHERE m.submitted_by_user_id = ?
             ORDER BY m.submitted_at DESC 
@@ -207,8 +206,6 @@ class Tenant extends Model {
     public function updateProfile(int $tenantId, array $data): array {
         $fullName = trim((string)($data['full_name'] ?? ''));
         $contact = trim((string)($data['contact'] ?? ''));
-        $dob = !empty($data['date_of_birth']) ? (string)$data['date_of_birth'] : null;
-        $addContact = !empty($data['additional_contact']) ? trim((string)$data['additional_contact']) : null;
         $addEmail = !empty($data['additional_email']) ? trim((string)$data['additional_email']) : null;
 
         if ($fullName === '') {
@@ -223,14 +220,6 @@ class Tenant extends Model {
             $columnsStmt = $this->db->query("SHOW COLUMNS FROM users_table");
             $columns = $columnsStmt->fetchAll(PDO::FETCH_COLUMN);
 
-            if (in_array('date_of_birth', $columns, true)) {
-                $updates[] = "date_of_birth = ?";
-                $params[] = $dob;
-            }
-            if (in_array('additional_contact', $columns, true)) {
-                $updates[] = "additional_contact = ?";
-                $params[] = $addContact;
-            }
             if (in_array('additional_email', $columns, true)) {
                 $updates[] = "additional_email = ?";
                 $params[] = $addEmail;
@@ -290,7 +279,7 @@ class Tenant extends Model {
                 owner.full_name AS owner_name,
                 owner.email AS owner_email,
                 ? AS tenant_name
-            FROM maintenance_requests m
+            FROM maintenance_table m
             INNER JOIN units_table u ON m.unit_id = u.unit_id
             LEFT JOIN users_table owner ON m.unit_owner_id = owner.user_id
             WHERE EXISTS (
@@ -330,17 +319,36 @@ class Tenant extends Model {
             return ['success' => false, 'message' => 'Invalid priority level.'];
         }
 
-        // Tenants have one assigned unit; derive it from the authenticated user's reservation.
+        // Retrieve all active leased units assigned to this tenant
         $tenantUnits = $this->getTenantUnits($tenantId);
-        if (count($tenantUnits) !== 1) {
+        if (empty($tenantUnits)) {
             return [
                 'success' => false,
-                'message' => 'Unable to verify your assigned unit. Please contact management.'
+                'message' => 'Unable to verify an active lease. Please contact management.'
             ];
         }
-        $unit = $tenantUnits[0];
-        $unitId = (int)$unit['unit_id'];
 
+        $targetUnitId = (int)($data['unit_id'] ?? 0);
+        if ($targetUnitId <= 0 && count($tenantUnits) === 1) {
+            $targetUnitId = (int)$tenantUnits[0]['unit_id'];
+        }
+
+        $unit = null;
+        foreach ($tenantUnits as $tu) {
+            if ((int)$tu['unit_id'] === $targetUnitId) {
+                $unit = $tu;
+                break;
+            }
+        }
+
+        if ($unit === null) {
+            return [
+                'success' => false,
+                'message' => 'Please select a valid unit from your active leases.'
+            ];
+        }
+
+        $unitId = (int)$unit['unit_id'];
         $unitOwnerId = (int)($unit['unit_owner_id'] ?? 0);
 
         // Process file uploads
@@ -398,7 +406,7 @@ class Tenant extends Model {
         $photoPathsValue = !empty($photoPaths) ? implode(',', $photoPaths) : null;
 
         $insertSql = "
-            INSERT INTO maintenance_requests (
+            INSERT INTO maintenance_table (
                 submitted_by_user_id,
                 submitted_by_role,
                 unit_owner_id,
@@ -410,7 +418,7 @@ class Tenant extends Model {
                 status,
                 photo_paths,
                 submitted_at
-            ) VALUES (?, 'tenant', ?, ?, ?, ?, ?, ?, 'submitted', ?, NOW())
+            ) VALUES (?, 'tenant', ?, ?, ?, ?, ?, ?, 'pending', ?, NOW())
         ";
 
         try {

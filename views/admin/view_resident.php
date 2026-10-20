@@ -53,22 +53,7 @@ if (count($nameParts) > 1) {
     $lastName = '—';
 }
 
-$dobFormatted = '—';
-$dobRaw = (string)($resident['date_of_birth'] ?? '');
-if (!empty($dobRaw) && $dobRaw !== '0000-00-00') {
-    $dobTime = strtotime($dobRaw);
-    if ($dobTime) {
-        try {
-            $dobDateObj = new DateTime($dobRaw);
-            $age = $dobDateObj->diff(new DateTime())->y;
-            $dobFormatted = date('M d, Y', $dobTime) . " | {$age} y.o";
-        } catch (Exception $e) {
-            $dobFormatted = date('M d, Y', $dobTime);
-        }
-    }
-}
 
-$additionalPhone = !empty($resident['additional_contact']) ? $resident['additional_contact'] : '—';
 $additionalEmail = !empty($resident['additional_email']) ? $resident['additional_email'] : '—';
 
 $units = $resident['units'] ?? [];
@@ -212,12 +197,7 @@ $pendingRequests = count(array_filter($maintenance, fn($item) => strtolower($ite
                 <svg class="w-4 h-4 text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
                 <span class="truncate font-medium"><?= e($resident['email']) ?></span>
               </div>
-              <?php if ($additionalPhone !== '—'): ?>
-                <div class="flex items-center gap-3 text-slate-600">
-                  <svg class="w-4 h-4 text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/></svg>
-                  <span class="font-medium" style="font-family:'DM Mono',monospace"><?= e($additionalPhone) ?></span>
-                </div>
-              <?php endif; ?>
+
               <?php if ($additionalEmail !== '—'): ?>
                 <div class="flex items-center gap-3 text-slate-600">
                   <svg class="w-4 h-4 text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207"/></svg>
@@ -269,14 +249,7 @@ $pendingRequests = count(array_filter($maintenance, fn($item) => strtolower($ite
                   <dt class="text-slate-400 font-medium w-44 shrink-0">Full Name:</dt>
                   <dd class="font-semibold text-slate-800 flex-1"><?= e($resident['full_name']) ?></dd>
                 </div>
-                <div class="flex items-center justify-between gap-6 py-1">
-                  <dt class="text-slate-400 font-medium w-44 shrink-0">Date of birth:</dt>
-                  <dd class="font-semibold text-slate-800 flex-1" style="font-family:'DM Mono',monospace"><?= e($dobFormatted) ?></dd>
-                </div>
-                <div class="flex items-center justify-between gap-6 py-1">
-                  <dt class="text-slate-400 font-medium w-44 shrink-0">Additional phone 1:</dt>
-                  <dd class="font-semibold text-slate-800 flex-1" style="font-family:'DM Mono',monospace"><?= e($additionalPhone) ?></dd>
-                </div>
+
                 <div class="flex items-center justify-between gap-6 py-1">
                   <dt class="text-slate-400 font-medium w-44 shrink-0">Additional Email 1:</dt>
                   <dd class="font-semibold text-slate-800 flex-1"><?= e($additionalEmail) ?></dd>
@@ -425,14 +398,7 @@ $pendingRequests = count(array_filter($maintenance, fn($item) => strtolower($ite
           <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5">Primary Email</label>
           <input type="email" name="email" value="<?= e($resident['email']) ?>" required class="zep-input w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm">
         </div>
-        <div>
-          <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5">Date of Birth</label>
-          <input type="date" name="date_of_birth" value="<?= e($dobRaw !== '0000-00-00' ? $dobRaw : '') ?>" class="zep-input w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm">
-        </div>
-        <div>
-          <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5">Additional Phone 1</label>
-          <input type="text" name="additional_contact" value="<?= e($additionalPhone !== '—' ? $additionalPhone : '') ?>" placeholder="e.g. 0917-1234567" class="zep-input w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm">
-        </div>
+
         <div>
           <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5">Additional Email 1</label>
           <input type="email" name="additional_email" value="<?= e($additionalEmail !== '—' ? $additionalEmail : '') ?>" placeholder="e.g. alt@example.com" class="zep-input w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm">

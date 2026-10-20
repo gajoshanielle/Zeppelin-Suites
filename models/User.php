@@ -121,7 +121,7 @@ class User extends Model {
      * Update user profile data.
      */
     public function updateProfile(int $userId, array $data): bool {
-        $allowedFields = ['full_name', 'contact', 'additional_contact', 'additional_email', 'date_of_birth', 'address'];
+        $allowedFields = ['full_name', 'contact', 'additional_email'];
         $setClauses = [];
         $params = [];
 
@@ -168,5 +168,144 @@ class User extends Model {
     public function activateResidentStatus(int $userId): bool {
         $sql = "UPDATE users_table SET resident_status = 'Active' WHERE user_id = ?";
         return $this->execute($sql, [$userId]);
+    }
+
+    /**
+     * Create a password reset verification code entry directly on users_table.
+     * Enforces rate limiting: Max 1 code request per 60 seconds per email.
+     */
+    public function createPasswordReset(string $email): array {
+        $email = strtolower(trim($email));
+
+        $user = $this->fetchOne(
+            "SELECT user_id, reset_requested_at FROM users_table WHERE email = ? LIMIT 1",
+            [$email]
+        );
+        if (!$user) {
+            return ['success' => false, 'error' => 'No account found with this email.'];
+        }
+
+        // Rate limiting: 60-second cooldown
+        if (!empty($user['reset_requested_at'])) {
+            $lastRequested = strtotime((string)$user['reset_requested_at']);
+            if ((time() - $lastRequested) < 60) {
+                return [
+                    'success' => false,
+                    'rate_limited' => true,
+                    'error' => 'A verification code was requested recently. Please wait 60 seconds before requesting another code.'
+                ];
+            }
+        }
+
+        // Generate 6-digit numeric verification code
+        $code = (string)random_int(100000, 999999);
+        $codeHash = password_hash($code, PASSWORD_BCRYPT);
+
+        $updated = $this->execute(
+            "UPDATE users_table 
+             SET reset_code_hash = ?, 
+                 reset_expires_at = DATE_ADD(NOW(), INTERVAL 10 MINUTE), 
+                 reset_attempts = 0, 
+                 reset_requested_at = NOW() 
+             WHERE user_id = ?",
+            [$codeHash, (int)$user['user_id']]
+        );
+
+        if (!$updated) {
+            return ['success' => false, 'error' => 'Failed to initialize password reset request.'];
+        }
+
+        return [
+            'success' => true,
+            'code' => $code
+        ];
+    }
+
+    /**
+     * Verify an entered 6-digit code for an email directly from users_table.
+     */
+    public function verifyPasswordResetCode(string $email, string $code): array {
+        $email = strtolower(trim($email));
+        $code = trim($code);
+
+        $user = $this->fetchOne(
+            "SELECT user_id, reset_code_hash, reset_expires_at, reset_attempts 
+             FROM users_table 
+             WHERE email = ? AND reset_code_hash IS NOT NULL AND reset_expires_at > NOW() 
+             LIMIT 1",
+            [$email]
+        );
+
+        if (!$user) {
+            return ['success' => false, 'error' => 'Verification code has expired or was not requested. Please request a new one.'];
+        }
+
+        $userId = (int)$user['user_id'];
+        $attempts = (int)$user['reset_attempts'];
+
+        if ($attempts >= 5) {
+            $this->execute(
+                "UPDATE users_table SET reset_code_hash = NULL, reset_expires_at = NULL, reset_attempts = 0 WHERE user_id = ?",
+                [$userId]
+            );
+            return ['success' => false, 'error' => 'Too many failed verification attempts. Please request a new code.'];
+        }
+
+        if (!password_verify($code, (string)$user['reset_code_hash'])) {
+            $this->execute(
+                "UPDATE users_table SET reset_attempts = reset_attempts + 1 WHERE user_id = ?",
+                [$userId]
+            );
+            $remaining = 4 - $attempts;
+            $msg = $remaining > 0 
+                ? "Invalid verification code. {$remaining} attempt(s) remaining."
+                : "Invalid verification code. Maximum attempts reached. Please request a new code.";
+            return ['success' => false, 'error' => $msg];
+        }
+
+        return ['success' => true, 'user_id' => $userId];
+    }
+
+    /**
+     * Reset password for an email using a verified code directly on users_table.
+     */
+    public function resetPasswordWithCode(string $email, string $code, string $newPassword, string $confirmPassword): array {
+        $email = strtolower(trim($email));
+
+        if ($newPassword === '' || $confirmPassword === '') {
+            return ['success' => false, 'error' => 'Please enter and confirm your new password.'];
+        }
+
+        if ($newPassword !== $confirmPassword) {
+            return ['success' => false, 'error' => 'New password and confirmation do not match.'];
+        }
+
+        if (strlen($newPassword) < 6) {
+            return ['success' => false, 'error' => 'Password must be at least 6 characters long.'];
+        }
+
+        // Re-verify code and expiration
+        $verification = $this->verifyPasswordResetCode($email, $code);
+        if (!$verification['success']) {
+            return $verification;
+        }
+
+        $newHash = password_hash($newPassword, PASSWORD_BCRYPT);
+        $updated = $this->execute(
+            "UPDATE users_table 
+             SET password = ?, 
+                 reset_code_hash = NULL, 
+                 reset_expires_at = NULL, 
+                 reset_attempts = 0, 
+                 reset_requested_at = NULL 
+             WHERE email = ?",
+            [$newHash, $email]
+        );
+
+        if (!$updated) {
+            return ['success' => false, 'error' => 'Database error while updating password.'];
+        }
+
+        return ['success' => true, 'message' => 'Password reset successfully. You can now sign in with your new password.'];
     }
 }

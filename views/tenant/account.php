@@ -24,20 +24,8 @@ if (!function_exists('format_date_short')) {
 
 $initials = $tenantInitials ?? strtoupper(substr(trim((string)($tenant['full_name'] ?? 'T')), 0, 1));
 
-// Calculate Age and Format DOB
-$dobFormatted = '—';
-if (!empty($tenant['date_of_birth']) && $tenant['date_of_birth'] !== '0000-00-00') {
-    try {
-        $dobDate = new DateTime((string)$tenant['date_of_birth']);
-        $today = new DateTime();
-        $age = $today->diff($dobDate)->y;
-        $dobFormatted = $dobDate->format('M d, Y') . " ($age yrs old)";
-    } catch (Exception $e) {
-        $dobFormatted = (string)$tenant['date_of_birth'];
-    }
-}
 
-$additionalPhone = !empty($tenant['additional_contact']) ? (string)$tenant['additional_contact'] : '—';
+
 $additionalEmail = !empty($tenant['additional_email']) ? (string)$tenant['additional_email'] : '—';
 
 $documents = $documents ?? [];
@@ -153,12 +141,7 @@ foreach ($maintenance ?? [] as $m) {
                 <svg class="w-4 h-4 text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/></svg>
                 <span class="font-medium text-xs" style="font-family:'DM Mono',monospace"><?= clean($tenant['contact'] ?? 'No contact number') ?></span>
               </div>
-              <?php if ($additionalPhone !== '—'): ?>
-                <div class="flex items-center gap-3 text-slate-600">
-                  <svg class="w-4 h-4 text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/></svg>
-                  <span class="font-medium text-xs" style="font-family:'DM Mono',monospace"><?= clean($additionalPhone) ?></span>
-                </div>
-              <?php endif; ?>
+
               <?php if ($additionalEmail !== '—'): ?>
                 <div class="flex items-center gap-3 text-slate-600">
                   <svg class="w-4 h-4 text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207"/></svg>
@@ -200,14 +183,7 @@ foreach ($maintenance ?? [] as $m) {
                   <dt class="text-slate-400 font-medium w-44 shrink-0">Contact Number:</dt>
                   <dd class="font-semibold text-slate-800 flex-1" style="font-family:'DM Mono',monospace"><?= clean($tenant['contact'] ?? '—') ?></dd>
                 </div>
-                <div class="flex items-center justify-between gap-6 py-1">
-                  <dt class="text-slate-400 font-medium w-44 shrink-0">Date of Birth:</dt>
-                  <dd class="font-semibold text-slate-800 flex-1" style="font-family:'DM Mono',monospace"><?= clean($dobFormatted) ?></dd>
-                </div>
-                <div class="flex items-center justify-between gap-6 py-1">
-                  <dt class="text-slate-400 font-medium w-44 shrink-0">Additional Phone:</dt>
-                  <dd class="font-semibold text-slate-800 flex-1" style="font-family:'DM Mono',monospace"><?= clean($additionalPhone) ?></dd>
-                </div>
+
                 <div class="flex items-center justify-between gap-6 py-1">
                   <dt class="text-slate-400 font-medium w-44 shrink-0">Additional Email:</dt>
                   <dd class="font-semibold text-slate-800 flex-1"><?= clean($additionalEmail) ?></dd>
@@ -403,16 +379,7 @@ foreach ($maintenance ?? [] as $m) {
         <input type="text" name="contact" value="<?= clean($tenant['contact'] ?? '') ?>" class="zep-input w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium font-mono">
       </div>
 
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div>
-          <label class="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">Date of Birth</label>
-          <input type="date" name="date_of_birth" value="<?= clean($tenant['date_of_birth'] ?? '') ?>" class="zep-input w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium">
-        </div>
-        <div>
-          <label class="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">Additional Phone</label>
-          <input type="text" name="additional_contact" value="<?= clean($tenant['additional_contact'] ?? '') ?>" class="zep-input w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium font-mono" placeholder="Optional">
-        </div>
-      </div>
+
 
       <div>
         <label class="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">Additional Email</label>

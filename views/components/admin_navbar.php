@@ -116,3 +116,4 @@ function hideLogoutModal() {
   if (m) m.classList.add('hidden');
 }
 </script>
+<?= Csrf::script() ?>

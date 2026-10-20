@@ -175,9 +175,6 @@ $totalCount = count($reservations);
           <h1 class="text-xl font-bold text-slate-900">Lease Management</h1>
           <p class="text-xs text-slate-500 mt-0.5">Reservations and active leases across your owned units</p>
         </div>
-        <span class="text-xs font-bold px-3 py-1 rounded-full bg-slate-100 text-slate-700 border border-slate-200 font-mono">
-          Total <?= $totalCount ?> <?= $totalCount === 1 ? 'Lease' : 'Leases' ?>
-        </span>
       </div>
 
       <!-- Table Card -->

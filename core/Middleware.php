@@ -14,6 +14,13 @@ class Middleware {
     }
 
     /**
+     * Guard that ensures the request contains a valid CSRF token.
+     */
+    public static function csrf(): void {
+        Csrf::check();
+    }
+
+    /**
      * Guard that ensures the user is logged in and possesses one of the allowed roles.
      *
      * @param array $allowedRoles Array of allowed role names (e.g., ['admin'], ['unit owner'], ['tenant'])

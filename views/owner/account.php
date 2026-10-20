@@ -19,20 +19,7 @@ if (!function_exists('format_date_short')) {
 
 $initials = strtoupper(substr($owner['full_name'] ?? 'U', 0, 1));
 
-// Calculate Age and Format DOB
-$dobFormatted = '—';
-if (!empty($owner['date_of_birth'])) {
-    try {
-        $dobDate = new DateTime($owner['date_of_birth']);
-        $today = new DateTime();
-        $age = $today->diff($dobDate)->y;
-        $dobFormatted = $dobDate->format('M d, Y') . " ($age yrs old)";
-    } catch (Exception $ex) {
-        $dobFormatted = $owner['date_of_birth'];
-    }
-}
 
-$additionalPhone = !empty($owner['additional_contact']) ? $owner['additional_contact'] : '—';
 $additionalEmail = !empty($owner['additional_email']) ? $owner['additional_email'] : '—';
 $profileTab = in_array($activeSubTab ?? 'profile', ['profile', 'payment'], true) ? ($activeSubTab ?? 'profile') : 'profile';
 ?>
@@ -166,12 +153,7 @@ tailwind.config = {
                 <svg class="w-4 h-4 text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/></svg>
                 <span class="font-medium" style="font-family:'DM Mono',monospace"><?= e($owner['contact'] ?: 'No phone provided') ?></span>
               </div>
-              <?php if ($additionalPhone !== '—'): ?>
-                <div class="flex items-center gap-3 text-slate-600">
-                  <svg class="w-4 h-4 text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/></svg>
-                  <span class="font-medium" style="font-family:'DM Mono',monospace"><?= e($additionalPhone) ?></span>
-                </div>
-              <?php endif; ?>
+
               <?php if ($additionalEmail !== '—'): ?>
                 <div class="flex items-center gap-3 text-slate-600">
                   <svg class="w-4 h-4 text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207"/></svg>
@@ -207,14 +189,7 @@ tailwind.config = {
                   <dt class="text-slate-400 font-medium w-44 shrink-0">Full Name:</dt>
                   <dd class="font-semibold text-slate-800 flex-1"><?= e($owner['full_name']) ?></dd>
                 </div>
-                <div class="flex items-center justify-between gap-6 py-1">
-                  <dt class="text-slate-400 font-medium w-44 shrink-0">Date of birth:</dt>
-                  <dd class="font-semibold text-slate-800 flex-1" style="font-family:'DM Mono',monospace"><?= e($dobFormatted) ?></dd>
-                </div>
-                <div class="flex items-center justify-between gap-6 py-1">
-                  <dt class="text-slate-400 font-medium w-44 shrink-0">Additional phone 1:</dt>
-                  <dd class="font-semibold text-slate-800 flex-1" style="font-family:'DM Mono',monospace"><?= e($additionalPhone) ?></dd>
-                </div>
+
                 <div class="flex items-center justify-between gap-6 py-1">
                   <dt class="text-slate-400 font-medium w-44 shrink-0">Additional Email 1:</dt>
                   <dd class="font-semibold text-slate-800 flex-1"><?= e($additionalEmail) ?></dd>
@@ -396,16 +371,7 @@ tailwind.config = {
         <input type="text" name="contact" value="<?= e($owner['contact']) ?>" class="zep-input w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium font-mono">
       </div>
 
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div>
-          <label class="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">Date of Birth</label>
-          <input type="date" name="date_of_birth" value="<?= e($owner['date_of_birth'] ?? '') ?>" class="zep-input w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium">
-        </div>
-        <div>
-          <label class="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">Additional Phone</label>
-          <input type="text" name="additional_contact" value="<?= e($owner['additional_contact'] ?? '') ?>" class="zep-input w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium font-mono" placeholder="Optional">
-        </div>
-      </div>
+
 
       <div>
         <label class="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">Additional Email</label>

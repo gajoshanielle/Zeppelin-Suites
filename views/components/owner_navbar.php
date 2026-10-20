@@ -146,3 +146,4 @@ function doLogout() {
   window.location.href = '<?= htmlspecialchars($baseUrl) ?>/logout';
 }
 </script>
+<?= Csrf::script() ?>

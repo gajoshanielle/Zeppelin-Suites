@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../core/Controller.php';
 require_once __DIR__ . '/../core/Middleware.php';
+require_once __DIR__ . '/../core/Logger.php';
 require_once __DIR__ . '/../models/Analytics.php';
 require_once __DIR__ . '/../models/Backup.php';
 require_once __DIR__ . '/../models/Reservation.php';
@@ -332,7 +333,27 @@ class AdminController extends Controller {
     public function account(): void {
         $userSession = Middleware::requireRole(['admin']);
         $userModel = new User();
-        $admin = $userModel->findById((int)$userSession['user_id']);
+        $adminId = (int)$userSession['user_id'];
+        $toast = null;
+
+        if ($this->isPost()) {
+            $this->validateCsrf();
+            $action = (string)$this->getPost('action', '');
+            if ($action === 'change_password') {
+                $result = $userModel->changePassword(
+                    $adminId,
+                    (string)$this->getPost('current_password', ''),
+                    (string)$this->getPost('new_password', ''),
+                    (string)$this->getPost('confirm_password', '')
+                );
+                $toast = [
+                    'type' => $result['success'] ? 'success' : 'error',
+                    'msg'  => $result['message'],
+                ];
+            }
+        }
+
+        $admin = $userModel->findById($adminId);
 
         if (!$admin) {
             $baseUrl = rtrim((string)env('APP_URL', '/Zeppelin-Suites'), '/');
@@ -340,19 +361,6 @@ class AdminController extends Controller {
             return;
         }
 
-        $dobFormatted = '—';
-        if (!empty($admin['date_of_birth'])) {
-            try {
-                $dobDate = new DateTime($admin['date_of_birth']);
-                $today = new DateTime();
-                $age = $today->diff($dobDate)->y;
-                $dobFormatted = $dobDate->format('M d, Y') . " ($age yrs old)";
-            } catch (Exception $ex) {
-                $dobFormatted = (string)$admin['date_of_birth'];
-            }
-        }
-
-        $additionalPhone = !empty($admin['additional_contact']) ? $admin['additional_contact'] : '—';
         $additionalEmail = !empty($admin['additional_email']) ? $admin['additional_email'] : '—';
         $pendingCounts = $this->analyticsModel->getPendingCounts();
         $backupModel = new Backup();
@@ -366,12 +374,12 @@ class AdminController extends Controller {
             'adminName'           => $admin['full_name'] ?? $userSession['full_name'],
             'adminInitial'        => strtoupper(substr((string)($admin['full_name'] ?? 'A'), 0, 1)),
             'baseUrl'             => $baseUrl,
-            'dobFormatted'        => $dobFormatted,
-            'additionalPhone'     => $additionalPhone,
             'additionalEmail'     => $additionalEmail,
             'pendingInquiries'    => $pendingCounts['pending_inquiries'],
             'pendingReservations' => $pendingCounts['pending_reservations'],
             'dbStats'             => $dbStats,
+            'passwordCsrfToken'   => Csrf::token(),
+            'toast'               => $toast,
         ]);
     }
 
@@ -435,5 +443,119 @@ class AdminController extends Controller {
      */
     public function dashboard(): void {
         $this->home();
+    }
+
+    /**
+     * System & Error Logs Audit Trail.
+     */
+    public function logs(): void {
+        $userSession = Middleware::requireRole(['admin']);
+
+        $selectedDate = filter_input(INPUT_GET, 'date', FILTER_DEFAULT) ?? date('Y-m-d');
+        if (!is_string($selectedDate) || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $selectedDate)) {
+            $selectedDate = date('Y-m-d');
+        }
+
+        $selectedLevel = (string)($this->getQuery('level', 'ALL'));
+        $searchQuery = (string)($this->getQuery('q', ''));
+
+        $availableDates = Logger::getAvailableLogDates();
+        $allLogs = Logger::getLogs($selectedDate, $selectedLevel, $searchQuery);
+
+        $counts = [
+            'total'    => count($allLogs),
+            'errors'   => 0,
+            'warnings' => 0,
+            'info'     => 0,
+        ];
+
+        foreach ($allLogs as $l) {
+            $lvl = strtoupper((string)($l['level'] ?? ''));
+            if (in_array($lvl, ['ERROR', 'CRITICAL', 'EMERGENCY', 'ALERT'], true)) {
+                $counts['errors']++;
+            } elseif (in_array($lvl, ['WARNING', 'NOTICE'], true)) {
+                $counts['warnings']++;
+            } else {
+                $counts['info']++;
+            }
+        }
+
+        // Pagination settings (default: 15 per page)
+        $perPage = (int)($this->getQuery('per_page', 15));
+        if (!in_array($perPage, [15, 25, 50, 100], true)) {
+            $perPage = 15;
+        }
+
+        $totalLogs = count($allLogs);
+        $totalPages = (int)max(1, (int)ceil($totalLogs / $perPage));
+
+        $currentPage = (int)($this->getQuery('page', 1));
+        if ($currentPage < 1) {
+            $currentPage = 1;
+        } elseif ($currentPage > $totalPages) {
+            $currentPage = $totalPages;
+        }
+
+        $offset = ($currentPage - 1) * $perPage;
+        $logs = array_slice($allLogs, $offset, $perPage);
+
+        $startIndex = $totalLogs > 0 ? $offset + 1 : 0;
+        $endIndex = min($offset + $perPage, $totalLogs);
+
+        $toast = null;
+        if (isset($_SESSION['log_toast'])) {
+            $toast = $_SESSION['log_toast'];
+            unset($_SESSION['log_toast']);
+        }
+
+        $this->render('admin/logs', [
+            'pageTitle'      => 'Zeppelin Suites - System Logs & Error Audit',
+            'userSession'    => $userSession,
+            'selectedDate'   => $selectedDate,
+            'selectedLevel'  => $selectedLevel,
+            'searchQuery'    => $searchQuery,
+            'availableDates' => $availableDates,
+            'logs'           => $logs,
+            'counts'         => $counts,
+            'toast'          => $toast,
+            'activeTab'      => 'logs',
+            'currentPage'    => $currentPage,
+            'totalPages'     => $totalPages,
+            'totalLogs'      => $totalLogs,
+            'perPage'        => $perPage,
+            'startIndex'     => $startIndex,
+            'endIndex'       => $endIndex,
+        ]);
+    }
+
+    /**
+     * Clear / truncate logs for a specific date.
+     */
+    public function clearLogs(): void {
+        Middleware::requireRole(['admin']);
+        $this->validateCsrf();
+
+        $date = filter_input(INPUT_POST, 'date', FILTER_DEFAULT) ?? date('Y-m-d');
+        if (!is_string($date) || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
+            $date = date('Y-m-d');
+        }
+
+        $cleared = Logger::clearLog($date);
+
+        if ($this->isAjax()) {
+            $this->json([
+                'success' => $cleared,
+                'message' => $cleared ? "Log file for {$date} cleared successfully." : "Failed to clear log file."
+            ]);
+            return;
+        }
+
+        $_SESSION['log_toast'] = [
+            'type' => $cleared ? 'success' : 'error',
+            'msg'  => $cleared ? "Log file for {$date} cleared successfully." : "Failed to clear log file.",
+        ];
+
+        $appUrl = rtrim((string)env('APP_URL', '/Zeppelin-Suites'), '/');
+        $this->redirect("{$appUrl}/admin/logs?date={$date}");
     }
 }

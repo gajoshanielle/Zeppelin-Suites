@@ -5,10 +5,11 @@ declare(strict_types=1);
  * Zeppelin Suites - MVC Front Controller & Single Web Entrypoint
  */
 
-// 1. Initialize environment configuration
+// 1. Initialize environment configuration & logging
 require_once __DIR__ . '/config/env.php';
+require_once __DIR__ . '/core/Logger.php';
 
-// 2. Configure error reporting based on environment
+// 2. Configure error reporting and register global error & exception listeners
 if (env('APP_DEBUG', false)) {
     ini_set('display_errors', '1');
     ini_set('display_startup_errors', '1');
@@ -17,6 +18,74 @@ if (env('APP_DEBUG', false)) {
     ini_set('display_errors', '0');
     error_reporting(0);
 }
+
+// Global Exception Handler: Log all uncaught exceptions with full traces
+set_exception_handler(function (Throwable $e): void {
+    Logger::error("Uncaught " . get_class($e) . ": " . $e->getMessage(), [
+        'exception' => $e
+    ]);
+
+    http_response_code(500);
+
+    $isAjax = (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest')
+        || (strpos($_SERVER['HTTP_ACCEPT'] ?? '', 'application/json') !== false);
+
+    if ($isAjax) {
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode([
+            'success' => false,
+            'status'  => 'error',
+            'message' => env('APP_DEBUG', false) ? $e->getMessage() : 'An unexpected internal error occurred. Please try again later.'
+        ]);
+        exit;
+    }
+
+    if (env('APP_DEBUG', false)) {
+        echo "<div style='font-family:sans-serif;padding:24px;background:#fef2f2;color:#991b1b;border:1px solid #fecaca;margin:20px;border-radius:12px;'>";
+        echo "<h2 style='margin-top:0;'>Fatal Error / Uncaught Exception</h2>";
+        echo "<p><strong>Message:</strong> " . htmlspecialchars($e->getMessage()) . "</p>";
+        echo "<p><strong>Location:</strong> " . htmlspecialchars($e->getFile()) . ":" . $e->getLine() . "</p>";
+        echo "<pre style='background:#fff;padding:12px;border-radius:6px;overflow:auto;font-size:12px;'>" . htmlspecialchars($e->getTraceAsString()) . "</pre>";
+        echo "</div>";
+    } else {
+        echo "<!DOCTYPE html><html lang='en'><head><meta charset='UTF-8'><title>Internal Server Error</title><script src='https://cdn.tailwindcss.com'></script></head><body class='bg-slate-50 flex items-center justify-center min-h-screen p-4 font-sans text-center'><div class='max-w-md w-full bg-white p-8 rounded-2xl shadow-sm border border-slate-200'><h1 class='text-2xl font-bold text-slate-800 mb-2'>500 - Server Error</h1><p class='text-sm text-slate-500 mb-6'>We ran into an unexpected error. Our system administrators have been notified.</p><a href='/Zeppelin-Suites/' class='inline-block px-5 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-medium hover:bg-slate-800 transition-colors'>Return to Homepage</a></div></body></html>";
+    }
+    exit;
+});
+
+// Global Error Handler: Log PHP warnings and notices
+set_error_handler(function (int $errno, string $errstr, string $errfile, int $errline): bool {
+    // Only capture errors matching current error_reporting level
+    if (!(error_reporting() & $errno)) {
+        return false;
+    }
+
+    $level = match ($errno) {
+        E_USER_ERROR, E_RECOVERABLE_ERROR => Logger::ERROR,
+        E_WARNING, E_USER_WARNING         => Logger::WARNING,
+        E_NOTICE, E_USER_NOTICE           => Logger::NOTICE,
+        default                           => Logger::INFO,
+    };
+
+    Logger::log($level, "PHP Error ({$errno}): {$errstr}", [
+        'file' => $errfile,
+        'line' => $errline
+    ]);
+
+    return false; // Allow standard PHP handling to proceed if needed
+});
+
+// Fatal Error Handler: Detect fatal script terminations
+register_shutdown_function(function (): void {
+    $lastError = error_get_last();
+    if ($lastError && in_array($lastError['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR], true)) {
+        Logger::critical("Fatal PHP Script Termination: {$lastError['message']}", [
+            'file' => $lastError['file'],
+            'line' => $lastError['line'],
+            'type' => $lastError['type'],
+        ]);
+    }
+});
 
 // 3. Initialize secure session
 if (session_status() === PHP_SESSION_NONE) {
@@ -97,6 +166,9 @@ $router->get('/login', [AuthController::class, 'showLogin']);
 $router->post('/login', [AuthController::class, 'login']);
 $router->get('/logout', [AuthController::class, 'logout']);
 $router->post('/logout', [AuthController::class, 'logout']);
+$router->post('/api/auth/forgot-password/send-code', [AuthController::class, 'sendPasswordResetCode']);
+$router->post('/api/auth/forgot-password/verify-code', [AuthController::class, 'verifyPasswordResetCode']);
+$router->post('/api/auth/forgot-password/reset', [AuthController::class, 'resetPassword']);
 
 // Admin Portal Routes (Guarded by 'admin' role middleware)
 $router->get('/admin', [AdminController::class, 'dashboard'], ['admin']);
@@ -104,9 +176,12 @@ $router->get('/admin/dashboard', [AdminController::class, 'dashboard'], ['admin'
 $router->get('/admin/home', [AdminController::class, 'home'], ['admin']);
 $router->get('/admin/pending-actions', [AdminController::class, 'pendingActions'], ['admin']);
 $router->get('/admin/account', [AdminController::class, 'account'], ['admin']);
+$router->post('/admin/account', [AdminController::class, 'account'], ['admin']);
 $router->get('/admin/analytics', [AdminController::class, 'analytics'], ['admin']);
 $router->get('/admin/backup/download', [AdminController::class, 'backupDownload'], ['admin']);
 $router->post('/admin/backup/restore', [AdminController::class, 'restoreDatabase'], ['admin']);
+$router->get('/admin/logs', [AdminController::class, 'logs'], ['admin']);
+$router->post('/admin/logs/clear', [AdminController::class, 'clearLogs'], ['admin']);
 
 $router->get('/admin/inquiries', [InquiryController::class, 'index'], ['admin']);
 $router->post('/admin/inquiries/status', [InquiryController::class, 'updateStatus'], ['admin']);
@@ -222,12 +297,6 @@ $router->post('/owner/reservations/verify-payment', [UnitOwnerController::class,
 $router->post('/unitOwnerPages/ActionsUOP/verifyOwnerPayment.php', [UnitOwnerController::class, 'updatePaymentStatus'], ['unit owner']);
 $router->post('/ActionsUOP/verifyOwnerPayment.php', [UnitOwnerController::class, 'updatePaymentStatus'], ['unit owner']);
 
-$router->post('/unitOwnerPages/ActionsUOP/verifyOwnerPayment.php', [ReservationController::class, 'updatePayment'], ['unit owner']);
-$router->post('/ActionsUOP/verifyOwnerPayment.php', [ReservationController::class, 'updatePayment'], ['unit owner']);
-$router->get('/unitOwnerPages/ActionsUOP/getOwnerReservationDocuments.php', [ReservationController::class, 'getDocuments'], ['unit owner']);
-$router->get('/ActionsUOP/getOwnerReservationDocuments.php', [ReservationController::class, 'getDocuments'], ['unit owner']);
-$router->post('/unitOwnerPages/ActionsUOP/updateOwnerReservationDocuments.php', [ReservationController::class, 'updateDocuments'], ['unit owner']);
-$router->post('/ActionsUOP/updateOwnerReservationDocuments.php', [ReservationController::class, 'updateDocuments'], ['unit owner']);
 $router->get('/owner/booking-calendar', [UnitOwnerController::class, 'calendar'], ['unit owner']);
 $router->get('/owner/booking-calendar/data', [UnitOwnerController::class, 'calendarData'], ['unit owner']);
 $router->post('/owner/booking-calendar/block', [UnitOwnerController::class, 'saveBlockedDate'], ['unit owner']);

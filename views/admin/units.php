@@ -223,6 +223,7 @@ tailwind.config = {
               <option value="">All Statuses</option>
               <option value="Ready for Occupancy">Ready for Occupancy</option>
               <option value="For Resale">For Resale</option>
+              <option value="Not Available">Not Available</option>
               <option value="On Hold">On Hold</option>
               <option value="Reserved">Reserved</option>
               <option value="Occupied">Occupied</option>
@@ -333,19 +334,23 @@ tailwind.config = {
 
                                 $listing_type = strtolower(trim((string)($row['listing_type'] ?? 'for lease')));
                                 $is_resale = ($listing_type === 'resale' || $status_lower === 'resale' || $status_lower === 'for resale');
-                                $display_status = ($status_lower === 'resale' || $status_lower === 'for resale') ? 'For Resale' : $unit_current_status;
+                                $is_not_available = ($listing_type === 'not available');
+                                $display_status = $is_not_available ? 'Not Available' : (($status_lower === 'resale' || $status_lower === 'for resale') ? 'For Resale' : $unit_current_status);
                                 $resale_val = (float)($row['reselling_price'] ?? 0);
 
-                                if ($is_resale && $resale_val > 0) {
+                                if ($is_not_available) {
+                                    $price_value = '—';
+                                    $status_class = 'bg-rose-50 text-rose-700 border-rose-200';
+                                    $status_dot = 'bg-rose-500';
+                                    $listing_badge_html = '<span class="inline-block text-xs font-semibold px-2.5 py-1 rounded-md bg-rose-50 text-rose-700 border border-rose-200">Not Available</span>';
+                                } elseif ($is_resale && $resale_val > 0) {
                                     $price_value = peso($resale_val);
-                                } else {
-                                    $price_value = peso($row['lease_rate'], true);
-                                }
-
-                                if ($is_resale) {
                                     $listing_badge_html = '<span class="inline-block text-xs font-semibold px-2.5 py-1 rounded-md bg-blue-50 text-blue-700 border border-blue-200">Resale</span>';
                                 } else {
-                                    $listing_badge_html = '<span class="inline-block text-xs font-semibold px-2.5 py-1 rounded-md bg-slate-100 text-slate-700 border border-slate-200">For Lease</span>';
+                                    $price_value = peso($row['lease_rate'], true);
+                                    $listing_badge_html = $is_resale 
+                                        ? '<span class="inline-block text-xs font-semibold px-2.5 py-1 rounded-md bg-blue-50 text-blue-700 border border-blue-200">Resale</span>'
+                                        : '<span class="inline-block text-xs font-semibold px-2.5 py-1 rounded-md bg-slate-100 text-slate-700 border border-slate-200">For Lease</span>';
                                 }
                             ?>
                             <tr class="unit-row hover:bg-slate-50/80 transition-colors cursor-pointer"

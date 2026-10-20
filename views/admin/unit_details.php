@@ -80,9 +80,13 @@ $leaseRate = (float)($unit['lease_rate'] ?? 0);
 $resellingPrice = (float)($unit['reselling_price'] ?? 0);
 $currentOwnerId = $unit['unit_owner_id'] !== null ? (int)$unit['unit_owner_id'] : null;
 $isResale = (strcasecmp($listingType, 'Resale') === 0 || strcasecmp($currentStatus, 'Resale') === 0 || strcasecmp($currentStatus, 'For Resale') === 0 || stripos($listingType, 'resell') !== false);
+$isNotAvailable = (strcasecmp($listingType, 'Not Available') === 0);
 
 $statusLower = strtolower($currentStatus);
-if ($statusLower === 'ready for occupancy') {
+if ($isNotAvailable) {
+    $statusClass = 'bg-rose-50 text-rose-700 border-rose-200';
+    $statusDot = 'bg-rose-500';
+} elseif ($statusLower === 'ready for occupancy') {
     $statusClass = 'bg-emerald-50 text-emerald-700 border-emerald-200';
     $statusDot = 'bg-emerald-500';
 } elseif ($statusLower === 'reserved') {
@@ -101,13 +105,13 @@ if ($statusLower === 'ready for occupancy') {
     $statusClass = 'bg-slate-50 text-slate-700 border-slate-200';
     $statusDot = 'bg-slate-400';
 }
-$displayStatus = ($statusLower === 'resale' || $statusLower === 'for resale') ? 'For Resale' : $currentStatus;
+$displayStatus = $isNotAvailable ? 'Not Available' : (($statusLower === 'resale' || $statusLower === 'for resale') ? 'For Resale' : $currentStatus);
 
 $activeTenant = $activeTenant ?? null;
 $nextAvailability = $nextAvailability ?? ['text' => 'Immediately Available', 'sub' => 'Ready for new move-in', 'is_occupied' => false];
 $isCurrentlyOccupied = (bool)($nextAvailability['is_occupied'] ?? false);
-$nextAvailabilityText = (string)($nextAvailability['text'] ?? 'Immediately Available');
-$nextAvailabilitySub = (string)($nextAvailability['sub'] ?? 'Ready for new move-in');
+$nextAvailabilityText = $isNotAvailable ? 'Not Available' : (string)($nextAvailability['text'] ?? 'Immediately Available');
+$nextAvailabilitySub = $isNotAvailable ? 'Unit is not currently listed' : (string)($nextAvailability['sub'] ?? 'Ready for new move-in');
 
 $pastOwners = $pastOwners ?? [];
 $allTenantsList = $allTenantsList ?? [];
@@ -252,7 +256,7 @@ tailwind.config = {
             </div>
           </div>
           <p class="text-xs text-slate-500 mt-3" id="displayListingSub">
-            <?= $listingType === 'Resale' ? 'Listed for purchase / sale' : 'Offered for lease' ?>
+            <?= $listingType === 'Not Available' ? 'Unit is off-market / unlisted' : ($listingType === 'Resale' ? 'Listed for purchase / sale' : 'Offered for lease') ?>
           </p>
         </div>
 
@@ -260,20 +264,20 @@ tailwind.config = {
         <div class="bg-white rounded-2xl border border-slate-200/90 p-5 md:p-6 shadow-xs transition-all hover:shadow-sm flex flex-col justify-between min-h-[145px]">
           <div>
             <div class="flex items-center justify-between gap-2">
-              <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wider" id="cardRateTitle"><?= $listingType === 'Resale' ? 'Reselling Price' : 'Lease Rate' ?></p>
-              <span class="w-7 h-7 rounded-lg <?= $listingType === 'Resale' ? 'bg-blue-50 text-blue-600' : 'bg-emerald-50 text-emerald-600' ?> flex items-center justify-center font-bold text-xs shrink-0" id="cardRateIcon">
+              <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wider" id="cardRateTitle"><?= $listingType === 'Not Available' ? 'Listing Rate' : ($listingType === 'Resale' ? 'Reselling Price' : 'Lease Rate') ?></p>
+              <span class="w-7 h-7 rounded-lg <?= $listingType === 'Not Available' ? 'bg-slate-100 text-slate-500' : ($listingType === 'Resale' ? 'bg-blue-50 text-blue-600' : 'bg-emerald-50 text-emerald-600') ?> flex items-center justify-center font-bold text-xs shrink-0" id="cardRateIcon">
                 ₱
               </span>
             </div>
             <div class="mt-3">
               <p class="text-lg md:text-xl font-bold text-slate-900 font-mono leading-tight" id="displayLeaseRate">
-                <?= $listingType === 'Resale' ? peso($resellingPrice > 0 ? $resellingPrice : $leaseRate, true) : peso($leaseRate, true) ?>
+                <?= $listingType === 'Not Available' ? '—' : ($listingType === 'Resale' ? peso($resellingPrice > 0 ? $resellingPrice : $leaseRate, true) : peso($leaseRate, true)) ?>
               </p>
             </div>
           </div>
           <div class="flex items-center justify-between text-xs text-slate-500 mt-3 flex-wrap gap-1">
-            <span id="displayRateSub"><?= $listingType === 'Resale' ? 'Outright unit selling price' : 'Per month standard rate' ?></span>
-            <?php if ($listingType !== 'Resale' && $resellingPrice > 0): ?>
+            <span id="displayRateSub"><?= $listingType === 'Not Available' ? 'Unit is unlisted' : ($listingType === 'Resale' ? 'Outright unit selling price' : 'Per month standard rate') ?></span>
+            <?php if ($listingType === 'For Lease' && $resellingPrice > 0): ?>
               <span class="text-[11px] text-slate-400 font-mono">Resale: <?= peso($resellingPrice) ?></span>
             <?php elseif ($listingType === 'Resale' && $leaseRate > 0): ?>
               <span class="text-[11px] text-slate-400 font-mono">Lease: <?= peso($leaseRate) ?>/mo</span>
@@ -293,11 +297,11 @@ tailwind.config = {
               </div>
             </div>
             <div class="mt-3">
-              <p class="text-lg md:text-xl font-bold text-slate-900 leading-tight" id="displayStayCategory"><?= $isResale ? '-' : clean($stayCategory) ?></p>
+              <p class="text-lg md:text-xl font-bold text-slate-900 leading-tight" id="displayStayCategory"><?= ($isResale || $isNotAvailable) ? 'N/A' : clean($stayCategory) ?></p>
             </div>
           </div>
           <p class="text-xs text-slate-500 mt-3" id="displayStaySub">
-            <?= $isResale ? '-' : (strtolower($stayCategory) === 'short term' ? 'Flexible short stay' : 'Standard 6-12+ mos lease') ?>
+            <?= $isNotAvailable ? 'Not applicable for unlisted unit' : ($isResale ? 'Not applicable for resale listing' : (strtolower($stayCategory) === 'short term' ? 'Flexible short stay' : 'Standard 6-12+ mos lease')) ?>
           </p>
         </div>
 
@@ -603,7 +607,7 @@ tailwind.config = {
                   $mOut = fmtDate($l['move_out_date']);
                   $durationText = getDurationText($l['move_in_date'], $l['move_out_date']);
                   $resStatus = strtolower(trim((string)($l['reservation_status'] ?? '')));
-                  $transType = clean($l['transaction_type'] ?: ($l['inquiry_type'] ?: 'Unit Leasing'));
+                  $transType = clean(($l['transaction_type'] ?? '') ?: (($l['inquiry_type'] ?? '') ?: 'Unit Leasing'));
                   $ownerDuringStay = clean($l['owner_during_stay']);
 
                   $today = date('Y-m-d');

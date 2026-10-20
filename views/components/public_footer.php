@@ -124,3 +124,4 @@ $baseUrl = rtrim((string) ($baseUrl ?? env('APP_URL', '/Zeppelin-Suites')), '/')
     </div>
   </div>
 </footer>
+<?= Csrf::script() ?>

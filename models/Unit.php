@@ -40,15 +40,17 @@ class Unit extends Model {
             $stmt = $this->db->prepare("
                 UPDATE units_table u
                 SET u.unit_current_status = 'Ready for Occupancy'
-                WHERE LOWER(u.unit_current_status) IN ('occupied', 'reserved')
+                WHERE LOWER(COALESCE(u.listing_type, 'for lease')) NOT IN ('resale', 'not available')
+                  AND LOWER(u.unit_current_status) IN ('occupied', 'reserved')
                   AND NOT EXISTS (
                       SELECT 1
                       FROM reservation_table r
                       WHERE r.unit_id = u.unit_id
                         AND LOWER(r.reservation_status) NOT IN ('cancelled', 'rejected')
                         AND (
-                            r.move_out_date >= CURDATE()
-                            OR (r.reservation_status = 'reserved' AND r.move_in_date >= CURDATE())
+                            (LOWER(r.transaction_type) = 'unit resale' AND LOWER(r.reservation_status) IN ('reserved', 'handover'))
+                            OR (r.move_out_date IS NOT NULL AND r.move_out_date >= CURDATE())
+                            OR (LOWER(r.reservation_status) = 'reserved' AND (r.move_in_date IS NULL OR r.move_in_date >= CURDATE()))
                         )
                   )
             ");
@@ -325,6 +327,22 @@ class Unit extends Model {
             ];
         }
 
+        if ($statusLower === 'occupied') {
+            return [
+                'text'        => 'Occupied',
+                'sub'         => 'Currently occupied by resident / owner',
+                'is_occupied' => true,
+            ];
+        }
+
+        if ($statusLower === 'reserved') {
+            return [
+                'text'        => 'Reserved',
+                'sub'         => 'Reserved - pending move-in / handover',
+                'is_occupied' => true,
+            ];
+        }
+
         return [
             'text'        => 'Immediately Available',
             'sub'         => 'Ready for new move-in',
@@ -342,7 +360,7 @@ class Unit extends Model {
 
         $stmt = $this->db->prepare("
             SELECT start_date 
-            FROM unit_ownership_history 
+            FROM unit_ownership_history_table 
             WHERE unit_id = ? AND owner_id = ? AND ownership_status = 'active'
             ORDER BY history_id DESC 
             LIMIT 1
@@ -376,7 +394,7 @@ class Unit extends Model {
                 uo.full_name AS owner_name,
                 uo.email AS owner_email,
                 uo.contact AS owner_contact
-            FROM unit_ownership_history h
+            FROM unit_ownership_history_table h
             JOIN users_table uo ON h.owner_id = uo.user_id
             WHERE h.unit_id = ?
               AND (
@@ -404,9 +422,9 @@ class Unit extends Model {
                 r.client_name,
                 r.client_email,
                 r.client_contact,
-                r.inquiry_type,
-                                r.transaction_type,
-                                r.move_in_date,
+                i.inquiry_type,
+                r.transaction_type,
+                r.move_in_date,
                 r.move_out_date,
                 r.reservation_status,
                 r.payment_status,
@@ -414,7 +432,7 @@ class Unit extends Model {
                 r.created_at,
                 (
                     SELECT uo.full_name 
-                    FROM unit_ownership_history h
+                    FROM unit_ownership_history_table h
                     JOIN users_table uo ON h.owner_id = uo.user_id
                     WHERE h.unit_id = r.unit_id
                       AND (
@@ -425,6 +443,7 @@ class Unit extends Model {
                     LIMIT 1
                 ) AS owner_during_stay
             FROM reservation_table r
+            LEFT JOIN inquiry_table i ON r.inq_id = i.inq_id
             WHERE r.unit_id = ?
             ORDER BY 
                 CASE 
@@ -554,7 +573,7 @@ class Unit extends Model {
 
             if ($unitOwnerId !== null && $unitOwnerId > 0) {
                 $stmtHistory = $this->db->prepare("
-                    INSERT INTO unit_ownership_history (
+                    INSERT INTO unit_ownership_history_table (
                         unit_id, 
                         owner_id, 
                         start_date, 
@@ -634,7 +653,7 @@ class Unit extends Model {
                 // 1. Close old owner's active record if exists
                 if ($oldOwnerId !== null && $oldOwnerId > 0) {
                     $stmtCloseOld = $this->db->prepare("
-                        UPDATE unit_ownership_history 
+                        UPDATE unit_ownership_history_table 
                         SET end_date = ?, 
                             ownership_status = 'transferred', 
                             remarks = CONCAT(IFNULL(remarks, ''), ' [Transferred on ', ?, ']')
@@ -646,7 +665,7 @@ class Unit extends Model {
                 // 2. Open new active history record
                 if ($newOwnerId !== null && $newOwnerId > 0) {
                     $stmtNewHistory = $this->db->prepare("
-                        INSERT INTO unit_ownership_history (unit_id, owner_id, start_date, end_date, ownership_status, transfer_type, remarks)
+                        INSERT INTO unit_ownership_history_table (unit_id, owner_id, start_date, end_date, ownership_status, transfer_type, remarks)
                         VALUES (?, ?, ?, NULL, 'active', ?, ?)
                     ");
                     $remarkText = $transferReason !== '' ? $transferReason : 'Ownership updated by Administrator';

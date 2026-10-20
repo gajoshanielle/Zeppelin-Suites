@@ -41,7 +41,7 @@ class UnitOwner extends Model {
         // Maintenance requests
         $maintSql = "
             SELECT m.maintenance_id, m.status, u.unit_number
-            FROM maintenance_requests m
+            FROM maintenance_table m
             LEFT JOIN units_table u ON u.unit_id = m.unit_id
             WHERE m.unit_owner_id = ?
             ORDER BY m.submitted_at DESC
@@ -52,7 +52,7 @@ class UnitOwner extends Model {
         // Pending approval requests
         $resReqSql = "
             SELECT oar.request_id, i.sender_name, un.unit_number
-            FROM owner_approval_requests oar
+            FROM owner_approval_table oar
             LEFT JOIN inquiry_table i ON i.inq_id = oar.inq_id
             LEFT JOIN units_table un ON un.unit_id = oar.unit_id
             WHERE oar.unit_owner_id = ? AND oar.request_status = 'pending'
@@ -130,17 +130,21 @@ class UnitOwner extends Model {
 
         // All leases (current, upcoming, past)
         $leasesSql = "
-            SELECT * FROM reservation_table
-            WHERE unit_id = ?
+            SELECT 
+                r.*,
+                i.inquiry_type
+            FROM reservation_table r
+            LEFT JOIN inquiry_table i ON r.inq_id = i.inq_id
+            WHERE r.unit_id = ?
             ORDER BY 
                 CASE 
-                    WHEN (move_in_date <= CURDATE() AND move_out_date >= CURDATE() AND LOWER(reservation_status) NOT IN ('cancelled', 'rejected')) THEN 1
-                    WHEN (move_in_date > CURDATE() AND LOWER(reservation_status) NOT IN ('cancelled', 'rejected')) THEN 2
-                    WHEN (move_out_date < CURDATE() AND LOWER(reservation_status) NOT IN ('cancelled', 'rejected')) THEN 3
+                    WHEN (r.move_in_date <= CURDATE() AND r.move_out_date >= CURDATE() AND LOWER(r.reservation_status) NOT IN ('cancelled', 'rejected')) THEN 1
+                    WHEN (r.move_in_date > CURDATE() AND LOWER(r.reservation_status) NOT IN ('cancelled', 'rejected')) THEN 2
+                    WHEN (r.move_out_date < CURDATE() AND LOWER(r.reservation_status) NOT IN ('cancelled', 'rejected')) THEN 3
                     ELSE 4
                 END ASC,
-                move_in_date DESC,
-                reservation_id DESC
+                r.move_in_date DESC,
+                r.reservation_id DESC
         ";
         $leasesList = $this->fetchAll($leasesSql, [$unitId]);
 
@@ -203,7 +207,7 @@ class UnitOwner extends Model {
                    AND LOWER(res.reservation_status) NOT IN ('cancelled', 'rejected') 
                    AND res.move_out_date >= CURDATE()
                  ORDER BY res.move_out_date DESC LIMIT 1) AS active_move_out
-            FROM owner_approval_requests r
+            FROM owner_approval_table r
             INNER JOIN inquiry_table i ON r.inq_id = i.inq_id
             INNER JOIN units_table u ON r.unit_id = u.unit_id
             WHERE r.unit_owner_id = ?
@@ -223,8 +227,8 @@ class UnitOwner extends Model {
                 u.unit_type,
                 u.floor_number,
                 u.unit_current_status,
-                (SELECT COUNT(*) FROM reservation_documents d WHERE d.reservation_id = r.reservation_id) AS total_docs,
-                (SELECT COUNT(*) FROM reservation_documents d WHERE d.reservation_id = r.reservation_id AND d.status = 'complete') AS completed_docs
+                (SELECT COUNT(*) FROM reservation_documents_table d WHERE d.reservation_id = r.reservation_id) AS total_docs,
+                (SELECT COUNT(*) FROM reservation_documents_table d WHERE d.reservation_id = r.reservation_id AND d.status = 'complete') AS completed_docs
             FROM reservation_table r
             INNER JOIN units_table u ON r.unit_id = u.unit_id
             WHERE u.unit_owner_id = ?
@@ -253,12 +257,10 @@ class UnitOwner extends Model {
                 owner.full_name AS owner_name,
                 owner.email AS owner_email,
                 owner.contact AS owner_contact,
-                owner.additional_contact AS owner_additional_contact,
                 owner.additional_email AS owner_additional_email,
                 client_user.user_id AS client_user_id,
                 client_user.resident_status AS client_resident_status,
                 client_user.contact AS client_user_contact,
-                client_user.date_of_birth AS client_dob,
                 cancel_requester.full_name AS cancellation_requested_by_name,
                 inq.inquiry_type AS inquiry_type,
                 inq.lease_duration AS inq_lease_duration
@@ -357,7 +359,7 @@ class UnitOwner extends Model {
                  WHERE r.unit_id = u.unit_id 
                    AND (r.reservation_status = 'reserved' OR r.officially_booked_at IS NOT NULL) 
                  ORDER BY r.reservation_id DESC LIMIT 1) AS tenant_name
-            FROM maintenance_requests m
+            FROM maintenance_table m
             INNER JOIN units_table u ON m.unit_id = u.unit_id
             LEFT JOIN users_table owner ON m.unit_owner_id = owner.user_id
             WHERE m.unit_owner_id = ? OR m.submitted_by_user_id = ?
@@ -480,7 +482,7 @@ class UnitOwner extends Model {
         $photoPathsValue = !empty($photoPaths) ? implode(',', $photoPaths) : null;
 
         $insertSql = "
-            INSERT INTO maintenance_requests (
+            INSERT INTO maintenance_table (
                 submitted_by_user_id,
                 submitted_by_role,
                 unit_owner_id,
@@ -585,7 +587,7 @@ class UnitOwner extends Model {
                 b.block_id, b.unit_id, b.start_date, b.end_date, b.block_type, b.remarks,
                 b.created_by_role, b.created_at,
                 u.unit_type, u.unit_number
-            FROM unit_blocked_dates b
+            FROM unit_blocked_dates_table b
             INNER JOIN units_table u ON b.unit_id = u.unit_id
             WHERE u.unit_owner_id = ?
             ORDER BY b.start_date
@@ -621,16 +623,12 @@ class UnitOwner extends Model {
         $owner = $this->fetchOne("SELECT * FROM users_table WHERE user_id = ? LIMIT 1", [$ownerId]);
         if (!$owner) return null;
 
-        $hasDobCol = false;
-        $hasAddPhoneCol = false;
         $hasAddEmailCol = false;
         $hasQrCol = false;
 
         try {
             $colsStmt = $this->db->query("SHOW COLUMNS FROM users_table");
             $cols = $colsStmt->fetchAll(PDO::FETCH_COLUMN);
-            $hasDobCol = in_array('date_of_birth', $cols, true);
-            $hasAddPhoneCol = in_array('additional_contact', $cols, true);
             $hasAddEmailCol = in_array('additional_email', $cols, true);
             $hasQrCol = in_array('gcash_QR', $cols, true);
             if (!$hasQrCol) {
@@ -679,7 +677,7 @@ class UnitOwner extends Model {
                 m.submitted_at,
                 u.unit_number, 
                 u.unit_type 
-            FROM maintenance_requests m 
+            FROM maintenance_table m 
             LEFT JOIN units_table u ON m.unit_id = u.unit_id 
             WHERE m.submitted_by_user_id = ? 
                OR m.unit_owner_id = ? 
@@ -690,8 +688,6 @@ class UnitOwner extends Model {
 
         return [
             'owner'           => $owner,
-            'hasDobCol'       => $hasDobCol,
-            'hasAddPhoneCol'  => $hasAddPhoneCol,
             'hasAddEmailCol'  => $hasAddEmailCol,
             'hasQrCol'        => $hasQrCol,
             'units'           => $units,
@@ -776,8 +772,6 @@ class UnitOwner extends Model {
     public function updateProfile(int $ownerId, array $data): array {
         $fullName = trim((string)($data['full_name'] ?? ''));
         $contact = trim((string)($data['contact'] ?? ''));
-        $dob = !empty($data['date_of_birth']) ? (string)$data['date_of_birth'] : null;
-        $addContact = !empty($data['additional_contact']) ? trim((string)$data['additional_contact']) : null;
         $addEmail = !empty($data['additional_email']) ? trim((string)$data['additional_email']) : null;
 
         if ($fullName === '') {
@@ -791,14 +785,6 @@ class UnitOwner extends Model {
             $colsStmt = $this->db->query("SHOW COLUMNS FROM users_table");
             $columns = $colsStmt->fetchAll(PDO::FETCH_COLUMN);
 
-            if (in_array('date_of_birth', $columns, true)) {
-                $updates[] = "date_of_birth = ?";
-                $params[] = $dob;
-            }
-            if (in_array('additional_contact', $columns, true)) {
-                $updates[] = "additional_contact = ?";
-                $params[] = $addContact;
-            }
             if (in_array('additional_email', $columns, true)) {
                 $updates[] = "additional_email = ?";
                 $params[] = $addEmail;
@@ -831,7 +817,7 @@ class UnitOwner extends Model {
                     unit_id,
                     unit_owner_id,
                     request_status
-                FROM owner_approval_requests
+                FROM owner_approval_table
                 WHERE request_id = ?
                   AND unit_owner_id = ?
                 FOR UPDATE
@@ -854,7 +840,7 @@ class UnitOwner extends Model {
             if ($action === 'approve') {
                 // 1. Approve this owner's request (no FCFS: do not expire other owners, do not block)
                 $this->execute(
-                    "UPDATE owner_approval_requests SET request_status = 'approved', owner_remarks = ?, responded_at = NOW() WHERE request_id = ?",
+                    "UPDATE owner_approval_table SET request_status = 'approved', owner_remarks = ?, responded_at = NOW() WHERE request_id = ?",
                     [$remarks, $requestId]
                 );
 
@@ -870,13 +856,12 @@ class UnitOwner extends Model {
                     $updateInqSql = "
                         UPDATE inquiry_table
                         SET approval_status = 'approved',
-                            owner_remarks = ?,
                             reservation_token = ?,
                             reservation_token_expires_at = ?,
                             approval_approved_at = NOW()
                         WHERE inq_id = ?
                     ";
-                    $this->execute($updateInqSql, [$remarks, $reservationToken, $expiresAt, $inqId]);
+                    $this->execute($updateInqSql, [$reservationToken, $expiresAt, $inqId]);
                 }
 
                 $this->db->commit();
@@ -887,7 +872,7 @@ class UnitOwner extends Model {
             if ($action === 'decline') {
                 // 1. Decline this request
                 $this->execute(
-                    "UPDATE owner_approval_requests SET request_status = 'declined', owner_remarks = ?, responded_at = NOW() WHERE request_id = ?",
+                    "UPDATE owner_approval_table SET request_status = 'declined', owner_remarks = ?, responded_at = NOW() WHERE request_id = ?",
                     [$remarks, $requestId]
                 );
 
@@ -896,7 +881,7 @@ class UnitOwner extends Model {
                     "SELECT 
                         SUM(CASE WHEN request_status = 'pending' THEN 1 ELSE 0 END) AS pending_count,
                         SUM(CASE WHEN request_status = 'approved' THEN 1 ELSE 0 END) AS approved_count
-                     FROM owner_approval_requests WHERE inq_id = ?",
+                     FROM owner_approval_table WHERE inq_id = ?",
                     [$inqId]
                 );
                 $pendingCount = (int)($countsRow['pending_count'] ?? 0);
@@ -905,8 +890,8 @@ class UnitOwner extends Model {
                 // Keep the inquiry's main status unchanged; owner decision is tracked separately.
                 if ($pendingCount === 0 && $approvedCount === 0) {
                     $this->execute(
-                        "UPDATE inquiry_table SET approval_status = 'declined', owner_remarks = ? WHERE inq_id = ? AND approval_status != 'approved'",
-                        [$remarks, $inqId]
+                        "UPDATE inquiry_table SET approval_status = 'declined' WHERE inq_id = ? AND approval_status != 'approved'",
+                        [$inqId]
                     );
                 }
 
@@ -940,7 +925,7 @@ class UnitOwner extends Model {
 
         // 2. Validate listing_type
         $listingType = trim((string)($data['listing_type'] ?? 'For Lease'));
-        if (!in_array($listingType, ['For Lease', 'Resale'], true)) {
+        if (!in_array($listingType, ['For Lease', 'Resale', 'Not Available'], true)) {
             $listingType = 'For Lease';
         }
 
@@ -965,18 +950,21 @@ class UnitOwner extends Model {
             : ($unit['reselling_price'] !== null ? (float)$unit['reselling_price'] : null);
         if ($resellingPrice !== null && $resellingPrice < 0) $resellingPrice = 0.0;
 
-        // 5. Update unit_current_status based on listing_type if not currently occupied/under maintenance
+        // 5. Update unit_current_status based on listing_type if not currently occupied/under maintenance/reserved/on hold
         $currentStatus = (string)($unit['unit_current_status'] ?? 'Ready for Occupancy');
         $newStatus = $currentStatus;
-        if (!in_array(strtolower($currentStatus), ['occupied', 'under maintenance'], true)) {
+        $protectedStatuses = ['occupied', 'under maintenance', 'reserved', 'on hold'];
+        if (!in_array(strtolower($currentStatus), $protectedStatuses, true)) {
             if ($listingType === 'Resale') {
                 $newStatus = 'For Resale';
+            } elseif ($listingType === 'Not Available') {
+                $newStatus = 'On Hold';
             } elseif ($listingType === 'For Lease' && in_array(strtolower($currentStatus), ['resale', 'for resale'], true)) {
                 $newStatus = 'Ready for Occupancy';
             }
         }
 
-        // 6. Update both resellling_price and reselling_price columns for database compatibility
+        // 6. Update unit settings in database
         $updateSql = "
             UPDATE units_table 
             SET listing_type = ?,
@@ -990,7 +978,6 @@ class UnitOwner extends Model {
             $listingType,
             $stayCategory,
             $leaseRate,
-            $resellingPrice,
             $resellingPrice,
             $newStatus,
             $unitId,

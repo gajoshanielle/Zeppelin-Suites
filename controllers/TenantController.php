@@ -56,24 +56,17 @@ class TenantController extends Controller {
 
         $tenantId = (int)$userSession['user_id'];
         $toast = null;
-        if (empty($_SESSION['tenant_password_csrf'])) {
-            $_SESSION['tenant_password_csrf'] = bin2hex(random_bytes(32));
-        }
 
         if ($this->isPost()) {
+            $this->validateCsrf();
             $action = (string)$this->getPost('action', '');
             if ($action === 'change_password') {
-                $submittedToken = (string)$this->getPost('csrf_token', '');
-                if (!hash_equals((string)$_SESSION['tenant_password_csrf'], $submittedToken)) {
-                    $result = ['success' => false, 'message' => 'Your session token is invalid. Refresh the page and try again.'];
-                } else {
-                    $result = $this->userModel->changePassword(
-                        $tenantId,
-                        (string)$this->getPost('current_password', ''),
-                        (string)$this->getPost('new_password', ''),
-                        (string)$this->getPost('confirm_password', '')
-                    );
-                }
+                $result = $this->userModel->changePassword(
+                    $tenantId,
+                    (string)$this->getPost('current_password', ''),
+                    (string)$this->getPost('new_password', ''),
+                    (string)$this->getPost('confirm_password', '')
+                );
                 $toast = ['type' => $result['success'] ? 'success' : 'error', 'msg' => $result['message']];
             } elseif ($action === 'update_profile') {
                 $result = $this->tenantModel->updateProfile($tenantId, $_POST);
@@ -104,7 +97,7 @@ class TenantController extends Controller {
             'leases'         => $leases,
             'documents'      => $documents,
             'maintenance'    => $maintenance,
-            'passwordCsrfToken' => (string)$_SESSION['tenant_password_csrf'],
+            'passwordCsrfToken' => Csrf::token(),
             'tenantName'     => $name,
             'tenantEmail'    => (string)($tenant['email'] ?? $userSession['email'] ?? ''),
             'tenantInitials' => $initials,

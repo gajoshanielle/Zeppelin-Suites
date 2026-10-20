@@ -1122,9 +1122,17 @@ $inquiries = $inquiries ?? [];
         remarksInput.name = "remarks";
         remarksInput.value = document.getElementById("mOwnerRemarks")?.value.trim() || "";
 
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content 
+          || <?= json_encode(\Csrf::token(), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
+        const csrfInput = document.createElement("input");
+        csrfInput.type = "hidden";
+        csrfInput.name = "csrf_token";
+        csrfInput.value = csrfToken;
+
         form.appendChild(requestInput);
         form.appendChild(actionInput);
         form.appendChild(remarksInput);
+        form.appendChild(csrfInput);
 
         document.body.appendChild(form);
         form.submit();

@@ -124,6 +124,8 @@ class Router {
 
             $matches = $this->matchPath($route['path'], $cleanPath);
             if ($matches !== null) {
+                $isAuthenticatedRoute = false;
+
                 // Execute route middlewares
                 foreach ($route['middlewares'] as $middleware) {
                     if (is_callable($middleware)) {
@@ -132,6 +134,7 @@ class Router {
                         // Check if role name or middleware method
                         if (in_array(strtolower($middleware), ['admin', 'unit owner', 'tenant'], true)) {
                             Middleware::requireRole([$middleware]);
+                            $isAuthenticatedRoute = true;
                         } elseif ($middleware === 'guest') {
                             Middleware::requireGuest();
                         } elseif (method_exists(Middleware::class, $middleware)) {
@@ -139,7 +142,13 @@ class Router {
                         }
                     } elseif (is_array($middleware)) {
                         Middleware::requireRole($middleware);
+                        $isAuthenticatedRoute = true;
                     }
+                }
+
+                // Enforce CSRF token verification on authenticated state-changing POST requests
+                if ($method === 'POST' && $isAuthenticatedRoute) {
+                    Csrf::check();
                 }
 
                 // Invoke route handler

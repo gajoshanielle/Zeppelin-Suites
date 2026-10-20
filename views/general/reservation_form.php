@@ -81,10 +81,29 @@ if (stripos($inqLeaseDuration, 'longer') !== false || stripos($inqLeaseDuration,
 }
 $inqPreferredMoveIn = !empty($selectedUnitData['preferred_move_in_time']) ? htmlspecialchars((string) $selectedUnitData['preferred_move_in_time']) : 'Immediately';
 
-// Expiry date for date limits and move-in lead time (3-day buffer)
+// Expiry date for date limits and move-in lead time
 $maxSigningDate = !empty($max_signing_date) ? $max_signing_date : date('Y-m-d', strtotime('+30 days'));
-$move_in_min = date('Y-m-d', strtotime('+3 days'));
-$move_in_max = $maxSigningDate;
+$move_in_min = !empty($selectedUnitData['earliest_move_in_date']) ? $selectedUnitData['earliest_move_in_date'] : (!empty($earliest_move_in_date) ? $earliest_move_in_date : date('Y-m-d', strtotime('+3 days')));
+$move_in_min_formatted = !empty($selectedUnitData['earliest_move_in_formatted']) ? $selectedUnitData['earliest_move_in_formatted'] : (!empty($earliest_move_in_formatted) ? $earliest_move_in_formatted : date('M j, Y', strtotime($move_in_min)));
+
+// Calculate maximum allowed move-in date based on preferred timeline
+$prefMoveLower = strtolower(trim((string) $inqPreferredMoveIn));
+$moveMaxDate = new DateTime('today');
+if (strpos($prefMoveLower, 'immediate') !== false) {
+  $moveMaxDate->modify('+30 days');
+} elseif (strpos($prefMoveLower, '1 month') !== false) {
+  $moveMaxDate->modify('+45 days');
+} elseif (strpos($prefMoveLower, '1-2') !== false || strpos($prefMoveLower, '1–2') !== false || strpos($prefMoveLower, '1-3') !== false || strpos($prefMoveLower, '1–3') !== false) {
+  $moveMaxDate->modify('+90 days');
+} elseif (strpos($prefMoveLower, '2-3') !== false || strpos($prefMoveLower, '2–3') !== false) {
+  $moveMaxDate->modify('+105 days');
+} elseif (strpos($prefMoveLower, '3-6') !== false || strpos($prefMoveLower, '3–6') !== false) {
+  $moveMaxDate->modify('+180 days');
+} else {
+  $moveMaxDate->modify('+180 days');
+}
+
+$move_in_max = $moveMaxDate->format('Y-m-d');
 $signing_min = !$is_lease ? date('Y-m-d', strtotime('+3 days')) : date('Y-m-d');
 ?>
 <!DOCTYPE html>
@@ -410,6 +429,15 @@ $signing_min = !$is_lease ? date('Y-m-d', strtotime('+3 days')) : date('Y-m-d');
                     </div>
                   </div>
                 </div>
+
+                <!-- Active Lease Period indicator -->
+                <div class="mt-3.5 pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between text-xs gap-2">
+                  <span class="text-slate-500 font-medium flex items-center gap-1.5">
+                    <span class="w-2 h-2 rounded-full bg-amber-400 inline-block"></span>
+                    Existing Active Lease:
+                  </span>
+                  <span class="font-bold text-slate-900 font-mono" id="dispUnitLeasePeriod"><?= htmlspecialchars($selectedUnitData['current_lease_period'] ?? 'No active lease') ?></span>
+                </div>
               </div>
 
               <!-- 2. CLIENT INFORMATION -->
@@ -523,15 +551,29 @@ $signing_min = !$is_lease ? date('Y-m-d', strtotime('+3 days')) : date('Y-m-d');
                       <input type="date" id="moveInDate" name="move_in_date" min="<?= $move_in_min ?>"
                         max="<?= $move_in_max ?>" required
                         class="w-full px-3.5 py-2 bg-white border border-slate-200 rounded-lg text-xs text-slate-800 focus:outline-none focus:border-slate-900"
+                        oninput="handleMoveInChange(this.value)"
                         onchange="handleMoveInChange(this.value)">
-                      <p class="text-[10px] text-slate-400 mt-1">Requires a 3-day lead time for contract execution and
-                        building admin clearance.</p>
+                      <p class="text-[11px] font-semibold text-emerald-700 mt-1.5 flex items-center gap-1.5" id="dispEarliestMoveInWrap">
+                        <span class="w-2 h-2 rounded-full bg-emerald-500 inline-block shrink-0"></span>
+                        Earliest available move-in: <span class="font-bold font-mono" id="dispEarliestMoveInDate"><?= htmlspecialchars($move_in_min_formatted) ?></span>
+                      </p>
+                      <p class="text-[10px] text-slate-400 mt-0.5">Requires building admin clearance and prior tenant turnover.</p>
                     </div>
                     <div>
                       <label class="block text-xs font-semibold text-slate-600 mb-1">Move-out Date</label>
                       <input type="text" id="moveOutDateDisplay" name="move_out_date_display"
                         placeholder="auto calculated" readonly
                         class="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-600 font-mono focus:outline-none">
+                    </div>
+
+                    <div id="dateConflictAlert" class="hidden sm:col-span-2 p-3 bg-red-50 border border-red-200 rounded-lg text-xs text-red-700 flex items-start gap-2.5">
+                      <svg class="w-4 h-4 text-red-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                      </svg>
+                      <div>
+                        <p class="font-bold text-red-800" id="dateConflictTitle">Dates Conflict With Existing Reservation</p>
+                        <p class="text-[11px] text-red-600 mt-0.5 font-medium" id="dateConflictMessage"></p>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1197,6 +1239,21 @@ $signing_min = !$is_lease ? date('Y-m-d', strtotime('+3 days')) : date('Y-m-d');
       return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
     }
 
+    let blockedRanges = <?= json_encode($blocked_ranges ?? []) ?>;
+
+    function checkDateOverlap(moveInVal, moveOutVal) {
+      if (!isLease || !moveInVal || !moveOutVal || !Array.isArray(blockedRanges)) return null;
+      for (const range of blockedRanges) {
+        if (!range.start) continue;
+        const rStart = range.start;
+        const rEnd = range.end || range.start;
+        if (moveInVal <= rEnd && moveOutVal >= rStart) {
+          return range;
+        }
+      }
+      return null;
+    }
+
     function handleMoveInChange(moveInVal) {
       const months = parseDurationToMonths(leaseDurationStr);
       const moveOutVal = addMonthsToDate(moveInVal, months);
@@ -1204,6 +1261,35 @@ $signing_min = !$is_lease ? date('Y-m-d', strtotime('+3 days')) : date('Y-m-d');
       const moveOutDisplay = document.getElementById('moveOutDateDisplay');
       if (moveOutInput) moveOutInput.value = moveOutVal;
       if (moveOutDisplay) moveOutDisplay.value = moveOutVal ? formatDisplayDate(moveOutVal) : '';
+
+      // Real-time overlap check against active reservations
+      const conflict = checkDateOverlap(moveInVal, moveOutVal);
+      const alertBox = document.getElementById('dateConflictAlert');
+      const msgBox = document.getElementById('dateConflictMessage');
+      const moveInEl = document.getElementById('moveInDate');
+
+      if (conflict) {
+        if (alertBox) alertBox.classList.remove('hidden');
+        if (msgBox) {
+          const cStart = formatDisplayDate(conflict.start);
+          const cEnd = formatDisplayDate(conflict.end);
+          const reqStart = formatDisplayDate(moveInVal);
+          const reqEnd = formatDisplayDate(moveOutVal);
+          const currentUnitObj = (Array.isArray(approvedUnitsData) ? approvedUnitsData.find(u => parseInt(u.unit_id, 10) === currentUnitId) : null) || {};
+          const unitPrefix = currentUnitObj.unit_number ? `unit ${currentUnitObj.unit_number}` : 'this unit';
+          msgBox.textContent = `Your requested stay (${reqStart} – ${reqEnd}) overlaps with an existing active reservation on ${unitPrefix} (${cStart} – ${cEnd}). Please select a different move-in date.`;
+        }
+        if (moveInEl) {
+          moveInEl.classList.add('border-red-500', 'bg-red-50/40');
+          moveInEl.classList.remove('border-slate-200');
+        }
+      } else {
+        if (alertBox) alertBox.classList.add('hidden');
+        if (moveInEl) {
+          moveInEl.classList.remove('border-red-500', 'bg-red-50/40');
+          moveInEl.classList.add('border-slate-200');
+        }
+      }
 
       updateSigningCalendarLimit(moveInVal);
     }
@@ -1648,6 +1734,39 @@ $signing_min = !$is_lease ? date('Y-m-d', strtotime('+3 days')) : date('Y-m-d');
       // 3. Update GCash QR Display & Proof Upload state
       const hasQr = Boolean(unit.owner_has_qr && unit.owner_qr_path);
       updateQrAndProofUI(hasQr, unit.owner_name || 'Owner', unit.owner_qr_path || '');
+
+      // 4. Update Active Lease Period indicator
+      const dispUnitLeasePeriod = document.getElementById('dispUnitLeasePeriod');
+      if (dispUnitLeasePeriod) {
+        dispUnitLeasePeriod.textContent = unit.current_lease_period || 'No active lease';
+      }
+
+      // 5. Update blocked ranges for selected unit and re-check date overlap
+      if (Array.isArray(unit.blocked_ranges)) {
+        blockedRanges = unit.blocked_ranges;
+      } else {
+        blockedRanges = [];
+      }
+
+      // 6. Dynamically lock move-in datepicker min to unit's earliest available date
+      const moveInInput = document.getElementById('moveInDate');
+      const dispEarliestDate = document.getElementById('dispEarliestMoveInDate');
+      if (unit.earliest_move_in_date) {
+        if (moveInInput) {
+          moveInInput.min = unit.earliest_move_in_date;
+          // If the currently selected date is earlier than the unit's opening, automatically clamp it
+          if (moveInInput.value && moveInInput.value < unit.earliest_move_in_date) {
+            moveInInput.value = unit.earliest_move_in_date;
+          }
+        }
+        if (dispEarliestDate) {
+          dispEarliestDate.textContent = unit.earliest_move_in_formatted || unit.earliest_move_in_date;
+        }
+      }
+
+      if (moveInInput && moveInInput.value) {
+        handleMoveInChange(moveInInput.value);
+      }
     }
 
     function escapeHtml(str) {
@@ -1693,16 +1812,30 @@ $signing_min = !$is_lease ? date('Y-m-d', strtotime('+3 days')) : date('Y-m-d');
       }
 
       const moveIn = document.getElementById('moveInDate');
-      const minMoveIn = '<?= $move_in_min ?>';
+      const minMoveIn = (moveIn && moveIn.min) ? moveIn.min : '<?= $move_in_min ?>';
       if (isLease && (!moveIn || !moveIn.value)) {
         showFormModal(false, 'Move-in Date Required', 'Please select your Move-in Date.');
         if (moveIn) moveIn.focus();
         return false;
       }
       if (isLease && moveIn && moveIn.value < minMoveIn) {
-        showFormModal(false, 'Invalid Move-in Date', "Move-in date must be at least 3 days from today (" + minMoveIn + ") to allow for contract execution and building administration clearance.");
+        showFormModal(false, 'Invalid Move-in Date', "Move-in date must be on or after the unit's earliest opening date (" + minMoveIn + ") to allow for turnover and administration clearance.");
         moveIn.focus();
         return false;
+      }
+
+      if (isLease && moveIn && moveIn.value) {
+        const moveOutInput = document.getElementById('moveOutDate');
+        const conflict = checkDateOverlap(moveIn.value, moveOutInput ? moveOutInput.value : '');
+        if (conflict) {
+          const cStart = formatDisplayDate(conflict.start);
+          const cEnd = formatDisplayDate(conflict.end);
+          const currentUnitObj = (Array.isArray(approvedUnitsData) ? approvedUnitsData.find(u => parseInt(u.unit_id, 10) === currentUnitId) : null) || {};
+          const unitPrefix = currentUnitObj.unit_number ? `unit ${currentUnitObj.unit_number}` : 'this unit';
+          showFormModal(false, 'Reservation Date Conflict', "The selected lease period overlaps with an existing active reservation on " + unitPrefix + " (" + cStart + " to " + cEnd + "). Please choose a different move-in date.");
+          moveIn.focus();
+          return false;
+        }
       }
 
       // Validate that signing appointment is not scheduled after move-in date
@@ -1873,6 +2006,9 @@ $signing_min = !$is_lease ? date('Y-m-d', strtotime('+3 days')) : date('Y-m-d');
       opacity: 1;
     }
   </style>
+
+  <!-- ── COUNTRY & NATIONALITY UTILITIES ──────────────────────────── -->
+  <?php include __DIR__ . '/../components/country_phone_library.php'; ?>
 
 </body>
 

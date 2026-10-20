@@ -210,7 +210,7 @@ class Resident extends Model {
     public function getResidentDetails(int $userId): ?array {
         $userSql = "
             SELECT user_id, full_name, email, contact, user_role, resident_status, created_at,
-                   date_of_birth, additional_contact, additional_email
+                   additional_email
             FROM users_table
             WHERE user_id = ? AND user_role IN ('unit owner', 'tenant')
             LIMIT 1
@@ -271,11 +271,11 @@ class Resident extends Model {
                 ) AS current_tenant_name
             FROM reservation_table r
             JOIN units_table u ON r.unit_id = u.unit_id
-            WHERE (r.client_email = ? OR r.client_name = ?)
+            WHERE r.client_email = ?
               AND LOWER(r.reservation_status) NOT IN ('cancelled', 'rejected')
             ORDER BY u.unit_number ASC
         ";
-        $leasedUnits = $this->fetchAll($leasedSql, [$resident['email'], $resident['full_name']]);
+        $leasedUnits = $this->fetchAll($leasedSql, [$resident['email']]);
 
         $units = $ownedUnits;
         foreach ($leasedUnits as $lu) {
@@ -289,10 +289,10 @@ class Resident extends Model {
             SELECT r.*, u.unit_number, u.unit_type, u.floor_number 
             FROM reservation_table r 
             LEFT JOIN units_table u ON r.unit_id = u.unit_id 
-            WHERE r.client_email = ? OR r.client_name = ? OR u.unit_owner_id = ? 
+            WHERE r.client_email = ? OR u.unit_owner_id = ? 
             ORDER BY r.created_at DESC LIMIT 50
         ";
-        $reservations = $this->fetchAll($rSql, [$resident['email'], $resident['full_name'], $userId]);
+        $reservations = $this->fetchAll($rSql, [$resident['email'], $userId]);
 
         // Fetch maintenance requests
         $mSql = "
@@ -309,7 +309,7 @@ class Resident extends Model {
                 m.submitted_at,
                 u.unit_number, 
                 u.unit_type 
-            FROM maintenance_requests m 
+            FROM maintenance_table m 
             LEFT JOIN units_table u ON m.unit_id = u.unit_id 
             WHERE m.submitted_by_user_id = ? 
                OR m.unit_owner_id = ? 
@@ -335,8 +335,6 @@ class Resident extends Model {
         $role = strtolower(trim((string)($data['user_role'] ?? 'tenant')));
         $status = trim((string)($data['resident_status'] ?? 'Active'));
         $newPassword = trim((string)($data['new_password'] ?? ''));
-        $dob = !empty($data['date_of_birth']) ? trim((string)$data['date_of_birth']) : null;
-        $addContact = !empty($data['additional_contact']) ? trim((string)$data['additional_contact']) : null;
         $addEmail = !empty($data['additional_email']) ? trim((string)$data['additional_email']) : null;
 
         if ($userId <= 0 || $fullName === '' || $email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
@@ -353,11 +351,9 @@ class Resident extends Model {
             "contact = ?",
             "user_role = ?",
             "resident_status = ?",
-            "date_of_birth = ?",
-            "additional_contact = ?",
             "additional_email = ?"
         ];
-        $params = [$fullName, $email, $contact, $role, $status, $dob, $addContact, $addEmail];
+        $params = [$fullName, $email, $contact, $role, $status, $addEmail];
 
         if ($newPassword !== '') {
             $fields[] = "password = ?";

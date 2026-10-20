@@ -163,4 +163,192 @@ class AuthController extends Controller {
         $baseUrl = rtrim((string)env('APP_URL', '/Zeppelin-Suites'), '/');
         $this->redirect("{$baseUrl}/login");
     }
+
+    /**
+     * Send password reset verification code via AJAX POST.
+     * Always returns generic success response to prevent user enumeration.
+     */
+    public function sendPasswordResetCode(): void {
+        if (!$this->isPost()) {
+            $this->json(['success' => false, 'message' => 'Invalid request method.'], 405);
+            return;
+        }
+
+        $email = filter_var(trim((string)$this->getPost('email', '')), FILTER_SANITIZE_EMAIL);
+        if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            $this->json(['success' => false, 'message' => 'Please enter a valid email address.'], 400);
+            return;
+        }
+
+        $email = strtolower($email);
+        $user = $this->userModel->findByEmail($email);
+
+        // Generic response message to prevent email enumeration
+        $genericSuccessMsg = 'If your email is registered in our system, you will receive a 6-digit verification code shortly.';
+
+        if (!$user) {
+            // Sleep briefly to mitigate timing attacks, then return generic message
+            usleep(250000);
+            $this->json(['success' => true, 'message' => $genericSuccessMsg]);
+            return;
+        }
+
+        $resetResult = $this->userModel->createPasswordReset($email);
+        if (!$resetResult['success']) {
+            if (!empty($resetResult['rate_limited'])) {
+                $this->json(['success' => false, 'message' => $resetResult['error']], 429);
+                return;
+            }
+            $this->json(['success' => false, 'message' => $resetResult['error'] ?? 'Unable to generate verification code.'], 500);
+            return;
+        }
+
+        $code = (string)$resetResult['code'];
+        $userName = (string)($user['full_name'] ?? 'User');
+
+        // Dispatch email using project's existing email configuration & PHPMailer
+        $this->dispatchPasswordResetEmail($email, $userName, $code);
+
+        $this->json([
+            'success' => true,
+            'message' => $genericSuccessMsg,
+        ]);
+    }
+
+    /**
+     * Verify submitted 6-digit reset code via AJAX POST.
+     */
+    public function verifyPasswordResetCode(): void {
+        if (!$this->isPost()) {
+            $this->json(['success' => false, 'message' => 'Invalid request method.'], 405);
+            return;
+        }
+
+        $email = filter_var(trim((string)$this->getPost('email', '')), FILTER_SANITIZE_EMAIL);
+        $code = trim((string)$this->getPost('code', ''));
+
+        if (empty($email) || empty($code)) {
+            $this->json(['success' => false, 'message' => 'Email and verification code are required.'], 400);
+            return;
+        }
+
+        $result = $this->userModel->verifyPasswordResetCode($email, $code);
+        if (!$result['success']) {
+            $this->json(['success' => false, 'message' => $result['error']], 400);
+            return;
+        }
+
+        $this->json([
+            'success' => true,
+            'message' => 'Verification code confirmed. You may now enter your new password.',
+        ]);
+    }
+
+    /**
+     * Set new password via AJAX POST.
+     */
+    public function resetPassword(): void {
+        if (!$this->isPost()) {
+            $this->json(['success' => false, 'message' => 'Invalid request method.'], 405);
+            return;
+        }
+
+        $email = filter_var(trim((string)$this->getPost('email', '')), FILTER_SANITIZE_EMAIL);
+        $code = trim((string)$this->getPost('code', ''));
+        $newPassword = (string)$this->getPost('new_password', '');
+        $confirmPassword = (string)$this->getPost('confirm_password', '');
+
+        if (empty($email) || empty($code) || empty($newPassword) || empty($confirmPassword)) {
+            $this->json(['success' => false, 'message' => 'All fields are required.'], 400);
+            return;
+        }
+
+        $result = $this->userModel->resetPasswordWithCode($email, $code, $newPassword, $confirmPassword);
+        if (!$result['success']) {
+            $this->json(['success' => false, 'message' => $result['error']], 400);
+            return;
+        }
+
+        $this->json([
+            'success' => true,
+            'message' => $result['message'],
+        ]);
+    }
+
+    /**
+     * Dispatch password reset email using existing PHPMailer & config setup.
+     */
+    private function dispatchPasswordResetEmail(string $email, string $name, string $code): bool {
+        $emailConfigFile = dirname(__DIR__) . '/config/email_config.php';
+        if (file_exists($emailConfigFile)) {
+            require_once $emailConfigFile;
+        }
+
+        $mailerDir = dirname(__DIR__) . '/phpmailer/src';
+        if (file_exists($mailerDir . '/PHPMailer.php')) {
+            require_once $mailerDir . '/Exception.php';
+            require_once $mailerDir . '/PHPMailer.php';
+            require_once $mailerDir . '/SMTP.php';
+        }
+
+        $subject = 'Zeppelin Suites - Password Reset Verification Code';
+        $body = "Dear {$name},\n\n"
+            . "We received a request to reset your password for your Zeppelin Suites account.\n\n"
+            . "Your 6-digit verification code is:\n\n"
+            . "        {$code}\n\n"
+            . "This code is valid for 10 minutes. For security reasons, do not share this code with anyone.\n\n"
+            . "If you did not request a password reset, you can safely ignore this email. Your password will remain unchanged.\n\n"
+            . "Thank you,\n"
+            . "Zeppelin Suites Management Team";
+
+        $username = defined('SMTP_USERNAME') ? SMTP_USERNAME : (string)env('SMTP_USERNAME', '');
+        $password = defined('SMTP_PASSWORD') ? SMTP_PASSWORD : (string)env('SMTP_PASSWORD', '');
+
+        // If credentials are blank, simulate delivery in developer log
+        if (empty($username) || empty($password)) {
+            error_log("[Zeppelin Suites Dev Mail] Simulating password reset email to {$email}. Code: {$code}");
+            return true;
+        }
+
+        if (!class_exists(\PHPMailer\PHPMailer\PHPMailer::class)) {
+            error_log("PHPMailer library unavailable for password reset email to {$email}");
+            return false;
+        }
+
+        try {
+            $mail = new \PHPMailer\PHPMailer\PHPMailer(true);
+            $mail->isSMTP();
+            $mail->Host       = defined('SMTP_HOST') ? SMTP_HOST : (string)env('SMTP_HOST', 'smtp.gmail.com');
+            $mail->SMTPAuth   = true;
+            $mail->Username   = $username;
+            $mail->Password   = str_replace(' ', '', (string)$password);
+            $mail->SMTPSecure = (defined('SMTP_PORT') && SMTP_PORT === 465)
+                ? \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_SMTPS
+                : \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS;
+            $mail->Port       = defined('SMTP_PORT') ? (int)SMTP_PORT : 587;
+
+            $mail->SMTPOptions = [
+                'ssl' => [
+                    'verify_peer'       => false,
+                    'verify_peer_name'  => false,
+                    'allow_self_signed' => true,
+                ],
+            ];
+
+            $mail->setFrom(
+                defined('MAIL_FROM_EMAIL') ? MAIL_FROM_EMAIL : (string)env('MAIL_FROM_EMAIL', 'noreply@zeppelinsuites.com'),
+                defined('MAIL_FROM_NAME') ? MAIL_FROM_NAME : (string)env('MAIL_FROM_NAME', 'Zeppelin Suites')
+            );
+            $mail->addAddress($email, $name);
+            $mail->isHTML(false);
+            $mail->Subject = $subject;
+            $mail->Body    = $body;
+
+            $mail->send();
+            return true;
+        } catch (\Throwable $e) {
+            error_log("Failed to send password reset email to {$email}: " . $e->getMessage());
+            return false;
+        }
+    }
 }

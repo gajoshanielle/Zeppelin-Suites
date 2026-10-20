@@ -81,8 +81,8 @@ include __DIR__ . '/../components/public_navbar.php';
                         name="remember">
                     <label class="text-sm cursor-pointer select-none" for="rememberCheckbox">Remember me</label>
                 </div>
-                <a class="text-sm text-slate-700 hover:text-slate-900 underline transition-colors"
-                    href="mailto:support@zeppelinsuites.com?subject=Password%20Reset%20Request">Forgot password?</a>
+                <button type="button" onclick="openForgotPasswordModal()"
+                    class="text-sm text-slate-700 hover:text-slate-900 underline transition-colors cursor-pointer bg-transparent border-0 p-0">Forgot password?</button>
             </div>
 
             <!-- Submit Button -->
@@ -93,6 +93,145 @@ include __DIR__ . '/../components/public_navbar.php';
         </form>
     </div>
 </main>
+
+<!-- Forgot Password Multi-Step Modal -->
+<div id="forgotPasswordModal"
+    class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 px-4 transition-opacity">
+    <div
+        class="bg-white p-6 sm:p-8 rounded-2xl w-full max-w-md shadow-2xl border border-slate-100 animate-in fade-in zoom-in duration-200 relative">
+        <!-- Close Button -->
+        <button onclick="closeForgotPasswordModal()"
+            class="absolute top-5 right-5 text-slate-400 hover:text-slate-700 transition-colors cursor-pointer p-1 rounded-full hover:bg-slate-100"
+            aria-label="Close modal">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+        </button>
+
+        <!-- Step Indicator -->
+        <div class="flex items-center justify-center gap-2 mb-6">
+            <div id="stepDot1" class="w-8 h-2 rounded-full bg-slate-900 transition-all"></div>
+            <div id="stepDot2" class="w-8 h-2 rounded-full bg-slate-200 transition-all"></div>
+            <div id="stepDot3" class="w-8 h-2 rounded-full bg-slate-200 transition-all"></div>
+        </div>
+
+        <!-- Feedback Alert Box -->
+        <div id="fpAlert" class="hidden mb-4 p-3 rounded-xl text-xs font-medium leading-relaxed"></div>
+
+        <!-- STEP 1: Enter Email -->
+        <div id="fpStep1" class="space-y-4">
+            <div class="text-center">
+                <div class="w-12 h-12 rounded-full bg-slate-100 text-slate-800 mx-auto flex items-center justify-center mb-3">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"
+                            d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    </svg>
+                </div>
+                <h3 class="text-xl font-bold text-slate-900">Reset Password</h3>
+                <p class="text-xs text-slate-500 mt-1">Enter your registered email address and we'll send you a 6-digit verification code.</p>
+            </div>
+
+            <form onsubmit="handleSendCode(event)" class="space-y-4 mt-4">
+                <div class="flex items-center w-full bg-white border border-slate-300 h-12 rounded-full overflow-hidden px-5 gap-3 focus-within:border-slate-900 focus-within:ring-2 focus-within:ring-slate-900/10">
+                    <svg class="w-4 h-4 text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207" />
+                    </svg>
+                    <input type="email" id="fpEmail" placeholder="yourname@gmail.com"
+                        class="bg-transparent text-slate-800 placeholder-slate-400 outline-none text-sm w-full h-full"
+                        required>
+                </div>
+
+                <button type="submit" id="fpBtnSend"
+                    class="w-full h-11 rounded-full text-white bg-slate-900 hover:bg-slate-800 transition-all font-medium text-sm shadow-sm flex items-center justify-center cursor-pointer">
+                    <span>Send Verification Code</span>
+                </button>
+            </form>
+        </div>
+
+        <!-- STEP 2: Enter Verification Code -->
+        <div id="fpStep2" class="space-y-4 hidden">
+            <div class="text-center">
+                <div class="w-12 h-12 rounded-full bg-amber-50 text-amber-600 mx-auto flex items-center justify-center mb-3">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"
+                            d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    </svg>
+                </div>
+                <h3 class="text-xl font-bold text-slate-900">Enter Verification Code</h3>
+                <p class="text-xs text-slate-500 mt-1">Please enter the 6-digit code sent to <strong id="fpTargetEmailDisplay" class="text-slate-800"></strong>.</p>
+                <p class="text-[11px] text-slate-400 mt-0.5">Code expires in 10 minutes.</p>
+            </div>
+
+            <form onsubmit="handleVerifyCode(event)" class="space-y-4 mt-4">
+                <div class="flex items-center justify-center">
+                    <input type="text" id="fpCode" maxlength="6" pattern="[0-9]{6}" inputmode="numeric" placeholder="123456"
+                        class="w-48 text-center tracking-[0.4em] font-mono text-2xl font-bold py-2.5 border border-slate-300 rounded-xl focus:border-slate-900 focus:ring-2 focus:ring-slate-900/10 outline-none"
+                        required autofocus>
+                </div>
+
+                <button type="submit" id="fpBtnVerify"
+                    class="w-full h-11 rounded-full text-white bg-slate-900 hover:bg-slate-800 transition-all font-medium text-sm shadow-sm flex items-center justify-center cursor-pointer">
+                    <span>Verify Code</span>
+                </button>
+
+                <div class="flex items-center justify-between text-xs text-slate-500 pt-2">
+                    <button type="button" onclick="goToStep(1)" class="hover:text-slate-900 underline cursor-pointer">Change email</button>
+                    <button type="button" id="fpBtnResend" onclick="handleResendCode()" class="hover:text-slate-900 underline cursor-pointer">Resend code</button>
+                </div>
+            </form>
+        </div>
+
+        <!-- STEP 3: Set New Password -->
+        <div id="fpStep3" class="space-y-4 hidden">
+            <div class="text-center">
+                <div class="w-12 h-12 rounded-full bg-emerald-50 text-emerald-600 mx-auto flex items-center justify-center mb-3">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"
+                            d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                    </svg>
+                </div>
+                <h3 class="text-xl font-bold text-slate-900">Set New Password</h3>
+                <p class="text-xs text-slate-500 mt-1">Create a new secure password with at least 6 characters.</p>
+            </div>
+
+            <form onsubmit="handleResetPassword(event)" class="space-y-4 mt-4">
+                <div class="flex items-center w-full bg-white border border-slate-300 h-12 rounded-full overflow-hidden px-5 gap-3 focus-within:border-slate-900 focus-within:ring-2 focus-within:ring-slate-900/10">
+                    <input type="password" id="fpNewPass" placeholder="New Password (min 6 characters)"
+                        class="bg-transparent text-slate-800 placeholder-slate-400 outline-none text-sm w-full h-full"
+                        required minlength="6">
+                </div>
+
+                <div class="flex items-center w-full bg-white border border-slate-300 h-12 rounded-full overflow-hidden px-5 gap-3 focus-within:border-slate-900 focus-within:ring-2 focus-within:ring-slate-900/10">
+                    <input type="password" id="fpConfirmPass" placeholder="Confirm New Password"
+                        class="bg-transparent text-slate-800 placeholder-slate-400 outline-none text-sm w-full h-full"
+                        required minlength="6">
+                </div>
+
+                <button type="submit" id="fpBtnReset"
+                    class="w-full h-11 rounded-full text-white bg-slate-900 hover:bg-slate-800 transition-all font-medium text-sm shadow-sm flex items-center justify-center cursor-pointer">
+                    <span>Save New Password</span>
+                </button>
+            </form>
+        </div>
+
+        <!-- Success Complete Screen -->
+        <div id="fpSuccess" class="space-y-4 hidden text-center py-3">
+            <div class="w-14 h-14 rounded-full bg-emerald-100 text-emerald-600 mx-auto flex items-center justify-center mb-3">
+                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                </svg>
+            </div>
+            <h3 class="text-xl font-bold text-slate-900">Password Changed!</h3>
+            <p id="fpSuccessMsg" class="text-xs text-slate-600">Your password has been updated successfully. You can now log in with your new credentials.</p>
+
+            <button type="button" onclick="closeForgotPasswordModal()"
+                class="mt-4 w-full h-11 rounded-full text-white bg-slate-900 hover:bg-slate-800 transition-all font-medium text-sm shadow-sm flex items-center justify-center cursor-pointer">
+                Return to Sign In
+            </button>
+        </div>
+    </div>
+</div>
 
 <!-- Error Modal -->
 <div id="errorModal"
@@ -116,6 +255,10 @@ include __DIR__ . '/../components/public_navbar.php';
 </div>
 
 <script>
+    const BASE_URL = <?= json_encode($baseUrl, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
+    let fpCurrentEmail = '';
+    let fpCurrentCode = '';
+
     function togglePasswordVisibility() {
         const passwordInput = document.getElementById('passwordInput');
         const eyeOpenIcon = document.getElementById('eyeOpenIcon');
@@ -141,6 +284,223 @@ include __DIR__ . '/../components/public_navbar.php';
     function closeModal() {
         document.getElementById("errorModal").classList.add("hidden");
         document.body.style.overflow = 'auto';
+    }
+
+    // --- Forgot Password Flow Functions ---
+    function openForgotPasswordModal() {
+        document.getElementById('forgotPasswordModal').classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
+        goToStep(1);
+    }
+
+    function closeForgotPasswordModal() {
+        document.getElementById('forgotPasswordModal').classList.add('hidden');
+        document.body.style.overflow = 'auto';
+        hideFpAlert();
+    }
+
+    function showFpAlert(message, isError = true) {
+        const alertBox = document.getElementById('fpAlert');
+        alertBox.textContent = message;
+        alertBox.className = isError
+            ? 'mb-4 p-3 rounded-xl text-xs font-medium leading-relaxed bg-red-50 text-red-700 border border-red-200 block'
+            : 'mb-4 p-3 rounded-xl text-xs font-medium leading-relaxed bg-emerald-50 text-emerald-700 border border-emerald-200 block';
+    }
+
+    function hideFpAlert() {
+        const alertBox = document.getElementById('fpAlert');
+        alertBox.classList.add('hidden');
+        alertBox.textContent = '';
+    }
+
+    function goToStep(step) {
+        hideFpAlert();
+        ['fpStep1', 'fpStep2', 'fpStep3', 'fpSuccess'].forEach(id => {
+            document.getElementById(id).classList.add('hidden');
+        });
+
+        const dot1 = document.getElementById('stepDot1');
+        const dot2 = document.getElementById('stepDot2');
+        const dot3 = document.getElementById('stepDot3');
+
+        dot1.className = 'w-8 h-2 rounded-full ' + (step >= 1 ? 'bg-slate-900' : 'bg-slate-200') + ' transition-all';
+        dot2.className = 'w-8 h-2 rounded-full ' + (step >= 2 ? 'bg-slate-900' : 'bg-slate-200') + ' transition-all';
+        dot3.className = 'w-8 h-2 rounded-full ' + (step >= 3 ? 'bg-slate-900' : 'bg-slate-200') + ' transition-all';
+
+        if (step === 1) {
+            document.getElementById('fpStep1').classList.remove('hidden');
+            setTimeout(() => document.getElementById('fpEmail').focus(), 100);
+        } else if (step === 2) {
+            document.getElementById('fpStep2').classList.remove('hidden');
+            document.getElementById('fpTargetEmailDisplay').textContent = fpCurrentEmail;
+            setTimeout(() => document.getElementById('fpCode').focus(), 100);
+        } else if (step === 3) {
+            document.getElementById('fpStep3').classList.remove('hidden');
+            setTimeout(() => document.getElementById('fpNewPass').focus(), 100);
+        } else if (step === 4) {
+            document.getElementById('fpSuccess').classList.remove('hidden');
+        }
+    }
+
+    async function handleSendCode(e) {
+        e.preventDefault();
+        hideFpAlert();
+        const email = document.getElementById('fpEmail').value.trim();
+        if (!email) return;
+
+        const btn = document.getElementById('fpBtnSend');
+        const originalHtml = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<span>Sending code...</span>';
+
+        try {
+            const formData = new FormData();
+            formData.append('email', email);
+
+            const res = await fetch(`${BASE_URL}/api/auth/forgot-password/send-code`, {
+                method: 'POST',
+                body: formData,
+            });
+            const data = await res.json();
+
+            btn.disabled = false;
+            btn.innerHTML = originalHtml;
+
+            if (data.success) {
+                fpCurrentEmail = email;
+                goToStep(2);
+                showFpAlert(data.message, false);
+            } else {
+                showFpAlert(data.message || 'Unable to send verification code.');
+            }
+        } catch (err) {
+            btn.disabled = false;
+            btn.innerHTML = originalHtml;
+            showFpAlert('Network error. Please try again.');
+        }
+    }
+
+    async function handleResendCode() {
+        if (!fpCurrentEmail) return;
+        hideFpAlert();
+        const resendBtn = document.getElementById('fpBtnResend');
+        resendBtn.disabled = true;
+        resendBtn.textContent = 'Sending...';
+
+        try {
+            const formData = new FormData();
+            formData.append('email', fpCurrentEmail);
+
+            const res = await fetch(`${BASE_URL}/api/auth/forgot-password/send-code`, {
+                method: 'POST',
+                body: formData,
+            });
+            const data = await res.json();
+
+            resendBtn.disabled = false;
+            resendBtn.textContent = 'Resend code';
+
+            if (data.success) {
+                showFpAlert('A new verification code has been dispatched.', false);
+            } else {
+                showFpAlert(data.message || 'Unable to resend code.');
+            }
+        } catch (err) {
+            resendBtn.disabled = false;
+            resendBtn.textContent = 'Resend code';
+            showFpAlert('Network error while resending code.');
+        }
+    }
+
+    async function handleVerifyCode(e) {
+        e.preventDefault();
+        hideFpAlert();
+        const code = document.getElementById('fpCode').value.trim();
+        if (!code || code.length !== 6) {
+            showFpAlert('Please enter the complete 6-digit code.');
+            return;
+        }
+
+        const btn = document.getElementById('fpBtnVerify');
+        const originalHtml = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<span>Verifying...</span>';
+
+        try {
+            const formData = new FormData();
+            formData.append('email', fpCurrentEmail);
+            formData.append('code', code);
+
+            const res = await fetch(`${BASE_URL}/api/auth/forgot-password/verify-code`, {
+                method: 'POST',
+                body: formData,
+            });
+            const data = await res.json();
+
+            btn.disabled = false;
+            btn.innerHTML = originalHtml;
+
+            if (data.success) {
+                fpCurrentCode = code;
+                goToStep(3);
+                showFpAlert('Code verified! Enter your new password below.', false);
+            } else {
+                showFpAlert(data.message || 'Invalid or expired verification code.');
+            }
+        } catch (err) {
+            btn.disabled = false;
+            btn.innerHTML = originalHtml;
+            showFpAlert('Network error. Please try again.');
+        }
+    }
+
+    async function handleResetPassword(e) {
+        e.preventDefault();
+        hideFpAlert();
+        const newPass = document.getElementById('fpNewPass').value;
+        const confirmPass = document.getElementById('fpConfirmPass').value;
+
+        if (newPass.length < 6) {
+            showFpAlert('Password must be at least 6 characters long.');
+            return;
+        }
+
+        if (newPass !== confirmPass) {
+            showFpAlert('New password and confirmation do not match.');
+            return;
+        }
+
+        const btn = document.getElementById('fpBtnReset');
+        const originalHtml = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<span>Saving...</span>';
+
+        try {
+            const formData = new FormData();
+            formData.append('email', fpCurrentEmail);
+            formData.append('code', fpCurrentCode);
+            formData.append('new_password', newPass);
+            formData.append('confirm_password', confirmPass);
+
+            const res = await fetch(`${BASE_URL}/api/auth/forgot-password/reset`, {
+                method: 'POST',
+                body: formData,
+            });
+            const data = await res.json();
+
+            btn.disabled = false;
+            btn.innerHTML = originalHtml;
+
+            if (data.success) {
+                goToStep(4);
+            } else {
+                showFpAlert(data.message || 'Failed to update password.');
+            }
+        } catch (err) {
+            btn.disabled = false;
+            btn.innerHTML = originalHtml;
+            showFpAlert('Network error. Please try again.');
+        }
     }
 
     <?php if (!empty($errorMessage)): ?>

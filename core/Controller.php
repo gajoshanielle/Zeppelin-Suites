@@ -70,6 +70,14 @@ abstract class Controller {
     }
 
     /**
+     * Validate CSRF token for the current request.
+     * Halts with 403 Forbidden on mismatch.
+     */
+    protected function validateCsrf(): void {
+        Csrf::check();
+    }
+
+    /**
      * Check if current request method is GET.
      */
     protected function isGet(): bool {

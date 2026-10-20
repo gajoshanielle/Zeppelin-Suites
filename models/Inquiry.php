@@ -44,7 +44,6 @@ class Inquiry extends Model {
                 i.status,
                 i.approval_status,
                 i.approved_unit_id,
-                i.owner_remarks,
                 i.approval_approved_at,
                 DATE_FORMAT(i.approval_approved_at, '%b %d, %Y %h:%i %p') AS approval_approved_at_display,
                 i.lease_duration,
@@ -71,12 +70,12 @@ class Inquiry extends Model {
                 u.unit_number,
                 u.unit_type,
                 owner.full_name AS owner_name
-            FROM owner_approval_requests r
+            FROM owner_approval_table r
             LEFT JOIN units_table u ON r.unit_id = u.unit_id
             LEFT JOIN users_table owner ON r.unit_owner_id = owner.user_id
             WHERE NOT EXISTS (
                 SELECT 1
-                FROM owner_approval_requests newer
+                FROM owner_approval_table newer
                 WHERE newer.inq_id = r.inq_id
                   AND newer.unit_id = r.unit_id
                   AND newer.request_id > r.request_id
@@ -153,7 +152,7 @@ class Inquiry extends Model {
                 owner.full_name AS approved_owner_name
             FROM inquiry_table i
             LEFT JOIN units_table u ON i.approved_unit_id = u.unit_id
-            LEFT JOIN owner_approval_requests r
+            LEFT JOIN owner_approval_table r
                 ON r.inq_id = i.inq_id
                 AND r.unit_id = i.approved_unit_id
                 AND r.request_status = 'approved'
@@ -181,7 +180,7 @@ class Inquiry extends Model {
                 owner.full_name AS owner_name,
                 owner.email AS owner_email,
                 owner.contact AS owner_contact
-            FROM owner_approval_requests r
+            FROM owner_approval_table r
             INNER JOIN units_table u ON r.unit_id = u.unit_id
             LEFT JOIN users_table owner ON r.unit_owner_id = owner.user_id
             WHERE r.inq_id = ? AND r.request_status = 'approved'
@@ -217,12 +216,27 @@ class Inquiry extends Model {
         return $row;
     }
 
+    public const ALLOWED_STATUSES = [
+        'pending',
+        'responded',
+        'onhold',
+        'declined',
+        'reservation submitted',
+        'officially booked',
+    ];
+
     /**
      * Update an inquiry's status directly.
      */
     public function updateStatus(int $inqId, string $status): bool {
-        $allowed = ['pending', 'responded', 'onhold', 'declined', 'reservation submitted', 'officially booked'];
-        $cleanStatus = in_array(strtolower($status), $allowed, true) ? strtolower($status) : 'pending';
+        $cleanStatus = strtolower(trim($status));
+        if ($cleanStatus === 'on hold') {
+            $cleanStatus = 'onhold';
+        }
+
+        if (!in_array($cleanStatus, self::ALLOWED_STATUSES, true)) {
+            return false;
+        }
 
         $sql = "UPDATE inquiry_table SET status = ? WHERE inq_id = ?";
         return $this->execute($sql, [$cleanStatus, $inqId]);
@@ -274,12 +288,7 @@ class Inquiry extends Model {
 
             $updateSql = "
                 UPDATE inquiry_table
-                SET status = 'responded',
-                    reservation_link_sent_at = CASE
-                        WHEN approval_status = 'approved' AND reservation_token IS NOT NULL
-                        THEN NOW()
-                        ELSE reservation_link_sent_at
-                    END
+                SET status = 'responded'
                 WHERE inq_id = ?
             ";
             $this->execute($updateSql, [$inqId]);
@@ -327,15 +336,10 @@ class Inquiry extends Model {
 
             $mail->send();
 
-            // Update status and timestamp
+            // Update status
             $updateSql = "
                 UPDATE inquiry_table
-                SET status = 'responded',
-                    reservation_link_sent_at = CASE
-                        WHEN approval_status = 'approved' AND reservation_token IS NOT NULL
-                        THEN NOW()
-                        ELSE reservation_link_sent_at
-                    END
+                SET status = 'responded'
                 WHERE inq_id = ?
             ";
             $this->execute($updateSql, [$inqId]);
@@ -378,7 +382,7 @@ class Inquiry extends Model {
                 AND (u.unit_current_status = 'For Resale' OR u.unit_current_status = 'Resale')
                 AND u.unit_owner_id IS NOT NULL
                 AND u.unit_id NOT IN (
-                    SELECT unit_id FROM owner_approval_requests
+                    SELECT unit_id FROM owner_approval_table
                     WHERE inq_id = ? AND request_status IN ('pending', 'approved')
                 )
                 ORDER BY u.unit_number ASC
@@ -492,7 +496,7 @@ class Inquiry extends Model {
                 AND LOWER(r.reservation_status) NOT IN ('cancelled','rejected')
                 AND r.move_in_date <= CURDATE()
                 AND r.move_out_date >= CURDATE()
-            LEFT JOIN unit_blocked_dates b
+            LEFT JOIN unit_blocked_dates_table b
                 ON u.unit_id = b.unit_id
                 AND b.start_date <= CURDATE()
                 AND b.end_date >= CURDATE()
@@ -500,7 +504,7 @@ class Inquiry extends Model {
             AND u.unit_current_status NOT IN ('For Resale', 'Resale', 'On Hold', 'Under maintenance', 'Archived')
             AND u.unit_owner_id IS NOT NULL
             AND u.unit_id NOT IN (
-                SELECT unit_id FROM owner_approval_requests
+                SELECT unit_id FROM owner_approval_table
                 WHERE inq_id = ? AND request_status IN ('pending', 'approved')
             )
             GROUP BY u.unit_id
@@ -579,7 +583,7 @@ class Inquiry extends Model {
 
             $blockSql = "
                 SELECT unit_id, start_date, end_date, block_type, remarks
-                FROM unit_blocked_dates
+                FROM unit_blocked_dates_table
                 WHERE unit_id IN ($placeholders)
                 AND start_date IS NOT NULL
                 AND (end_date >= CURDATE() OR end_date IS NULL)
@@ -690,7 +694,7 @@ class Inquiry extends Model {
         try {
             // Delete existing pending request for this batch of units to reset cleanly
             $deleteStmt = $this->db->prepare("
-                DELETE FROM owner_approval_requests 
+                DELETE FROM owner_approval_table 
                 WHERE inq_id = ? AND request_status = 'pending' AND unit_id = ?
             ");
             foreach ($unitIds as $uId) {
@@ -707,7 +711,7 @@ class Inquiry extends Model {
             ");
 
             $insertStmt = $this->db->prepare("
-                INSERT INTO owner_approval_requests (inq_id, unit_id, unit_owner_id, request_status)
+                INSERT INTO owner_approval_table (inq_id, unit_id, unit_owner_id, request_status)
                 VALUES (?, ?, ?, 'pending')
             ");
 
@@ -736,8 +740,7 @@ class Inquiry extends Model {
 
             $updateInqStmt = $this->db->prepare("
                 UPDATE inquiry_table
-                SET approval_status = 'requested',
-                    approval_requested_at = NOW()
+                SET approval_status = 'requested'
                 WHERE inq_id = ?
             ");
             $updateInqStmt->execute([$inqId]);
@@ -773,13 +776,13 @@ class Inquiry extends Model {
                     u.unit_number,
                     u.unit_type,
                     owner.full_name AS owner_name
-                FROM owner_approval_requests r
+                FROM owner_approval_table r
                 LEFT JOIN units_table u ON r.unit_id = u.unit_id
                 LEFT JOIN users_table owner ON r.unit_owner_id = owner.user_id
                 WHERE r.inq_id = ?
                   AND NOT EXISTS (
                     SELECT 1
-                    FROM owner_approval_requests newer
+                    FROM owner_approval_table newer
                     WHERE newer.inq_id = r.inq_id
                       AND newer.unit_id = r.unit_id
                       AND newer.request_id > r.request_id
@@ -825,7 +828,7 @@ class Inquiry extends Model {
         try {
             $checkSql = "
                 SELECT request_id, request_status
-                FROM owner_approval_requests
+                FROM owner_approval_table
                 WHERE request_id = ? AND inq_id = ?
                 FOR UPDATE
             ";
@@ -840,19 +843,19 @@ class Inquiry extends Model {
                 return ['success' => false, 'message' => 'This request has already been responded to and cannot be cancelled.'];
             }
 
-            $delStmt = $this->db->prepare("DELETE FROM owner_approval_requests WHERE request_id = ?");
+            $delStmt = $this->db->prepare("DELETE FROM owner_approval_table WHERE request_id = ?");
             $delStmt->execute([$requestId]);
 
             $pendingRow = $this->fetchOne("
                 SELECT COUNT(*) AS pending_count
-                FROM owner_approval_requests
+                FROM owner_approval_table
                 WHERE inq_id = ? AND request_status = 'pending'
             ", [$inqId]);
             $pendingCount = (int)($pendingRow['pending_count'] ?? 0);
 
             $totalRow = $this->fetchOne("
                 SELECT COUNT(*) AS total_count
-                FROM owner_approval_requests
+                FROM owner_approval_table
                 WHERE inq_id = ?
             ", [$inqId]);
             $totalCount = (int)($totalRow['total_count'] ?? 0);
@@ -860,8 +863,7 @@ class Inquiry extends Model {
             if ($totalCount === 0) {
                 $resetStmt = $this->db->prepare("
                     UPDATE inquiry_table
-                    SET approval_status = 'not_requested',
-                        approval_requested_at = NULL
+                    SET approval_status = 'not_requested'
                     WHERE inq_id = ? AND approval_status != 'approved'
                 ");
                 $resetStmt->execute([$inqId]);
@@ -901,7 +903,7 @@ class Inquiry extends Model {
             // Check that this unit has an approved request for this inquiry
             $checkSql = "
                 SELECT r.request_id, r.request_status, r.owner_remarks, u.unit_number, u.unit_type, u.lease_rate
-                FROM owner_approval_requests r
+                FROM owner_approval_table r
                 LEFT JOIN units_table u ON r.unit_id = u.unit_id
                 WHERE r.inq_id = ? AND r.unit_id = ? AND r.request_status = 'approved'
                 LIMIT 1
@@ -921,13 +923,12 @@ class Inquiry extends Model {
                 UPDATE inquiry_table
                 SET approval_status = 'approved',
                     approved_unit_id = ?,
-                    owner_remarks = ?,
                     reservation_token = ?,
                     reservation_token_expires_at = ?,
                     approval_approved_at = COALESCE(approval_approved_at, NOW())
                 WHERE inq_id = ?
             ";
-            $this->execute($updateSql, [$unitId, $req['owner_remarks'] ?? '', $token, $expiresAt, $inqId]);
+            $this->execute($updateSql, [$unitId, $token, $expiresAt, $inqId]);
 
             $this->db->commit();
 

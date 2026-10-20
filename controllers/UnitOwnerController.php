@@ -339,6 +339,7 @@ class UnitOwnerController extends Controller {
         }
 
         if ($this->isPost()) {
+            $this->validateCsrf();
             $action = (string)$this->getPost('action', '');
             if ($action === 'update_profile') {
                 $result = $this->ownerModel->updateProfile($ownerId, $_POST);
@@ -363,6 +364,18 @@ class UnitOwnerController extends Controller {
                     'type' => $result['success'] ? 'success' : 'error',
                     'msg'  => $result['message'],
                 ];
+            } elseif ($action === 'change_password') {
+                $userModel = new User();
+                $result = $userModel->changePassword(
+                    $ownerId,
+                    (string)$this->getPost('current_password', ''),
+                    (string)$this->getPost('new_password', ''),
+                    (string)$this->getPost('confirm_password', '')
+                );
+                $toast = [
+                    'type' => $result['success'] ? 'success' : 'error',
+                    'msg'  => $result['message'],
+                ];
             }
         }
 
@@ -373,23 +386,22 @@ class UnitOwnerController extends Controller {
         }
 
         $this->render('owner/account', [
-            'pageTitle'       => 'Zeppelin Suites — Account Settings',
-            'activeTab'       => 'account',
-            'activeSubTab'    => $activeSubTab,
-            'baseUrl'         => $baseUrl,
-            'ownerName'       => (string)($accountData['owner']['full_name'] ?? $userSession['full_name']),
-            'ownerInitial'    => $userSession['initial'],
-            'owner'           => $accountData['owner'],
-            'hasDobCol'       => $accountData['hasDobCol'],
-            'hasAddPhoneCol'  => $accountData['hasAddPhoneCol'],
-            'hasAddEmailCol'  => $accountData['hasAddEmailCol'],
-            'hasQrCol'        => $accountData['hasQrCol'],
-            'units'           => $accountData['units'],
-            'maintenance'     => $accountData['maintenance'],
-            'unitsCount'      => $accountData['unitsCount'],
-            'requestsCount'   => $accountData['requestsCount'],
-            'pendingRequests' => $accountData['pendingRequests'],
-            'toast'           => $toast,
+            'pageTitle'         => 'Zeppelin Suites — Account Settings',
+            'activeTab'         => 'account',
+            'activeSubTab'      => $activeSubTab,
+            'baseUrl'           => $baseUrl,
+            'ownerName'         => (string)($accountData['owner']['full_name'] ?? $userSession['full_name']),
+            'ownerInitial'      => $userSession['initial'],
+            'owner'             => $accountData['owner'],
+            'hasAddEmailCol'    => $accountData['hasAddEmailCol'],
+            'hasQrCol'          => $accountData['hasQrCol'],
+            'units'             => $accountData['units'],
+            'maintenance'       => $accountData['maintenance'],
+            'unitsCount'        => $accountData['unitsCount'],
+            'requestsCount'     => $accountData['requestsCount'],
+            'pendingRequests'   => $accountData['pendingRequests'],
+            'passwordCsrfToken' => Csrf::token(),
+            'toast'             => $toast,
         ]);
     }
 

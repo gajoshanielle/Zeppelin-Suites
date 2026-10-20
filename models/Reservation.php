@@ -6,7 +6,7 @@ require_once __DIR__ . '/../core/CloudStorage.php';
 
 /**
  * Zeppelin Suites - Reservation Model
- * Handles all database operations for reservation_table, reservation_documents, and unit occupancy sync.
+ * Handles all database operations for reservation_table, reservation_documents_table, and unit occupancy sync.
  * Strictly NO direct HTML or presentation logic.
  */
 class Reservation extends Model
@@ -21,18 +21,20 @@ class Reservation extends Model
     {
         $sql = "
             UPDATE units_table u
-            JOIN (
-                SELECT
-                    unit_id,
-                    MAX(move_out_date) AS latest_move_out
-                FROM reservation_table
-                WHERE LOWER(reservation_status) NOT IN ('cancelled', 'rejected')
-                GROUP BY unit_id
-            ) latest ON latest.unit_id = u.unit_id
             SET u.unit_current_status = 'Ready for Occupancy'
-            WHERE u.unit_current_status IN ('Reserved', 'Occupied')
-              AND latest.latest_move_out IS NOT NULL
-              AND latest.latest_move_out < CURDATE()
+            WHERE LOWER(COALESCE(u.listing_type, 'for lease')) NOT IN ('resale', 'not available')
+              AND LOWER(u.unit_current_status) IN ('occupied', 'reserved')
+              AND NOT EXISTS (
+                  SELECT 1
+                  FROM reservation_table r
+                  WHERE r.unit_id = u.unit_id
+                    AND LOWER(r.reservation_status) NOT IN ('cancelled', 'rejected')
+                    AND (
+                        (LOWER(r.transaction_type) = 'unit resale' AND LOWER(r.reservation_status) IN ('reserved', 'handover'))
+                        OR (r.move_out_date IS NOT NULL AND r.move_out_date >= CURDATE())
+                        OR (LOWER(r.reservation_status) = 'reserved' AND (r.move_in_date IS NULL OR r.move_in_date >= CURDATE()))
+                    )
+              )
         ";
 
         try {
@@ -90,8 +92,8 @@ class Reservation extends Model
                 owner.email AS owner_email,
                 cancel_requester.full_name AS cancellation_requested_by_name,
 
-                (SELECT COUNT(*) FROM reservation_documents d WHERE d.reservation_id = r.reservation_id) AS total_docs,
-                (SELECT COUNT(*) FROM reservation_documents d WHERE d.reservation_id = r.reservation_id AND d.status = 'complete') AS completed_docs
+                (SELECT COUNT(*) FROM reservation_documents_table d WHERE d.reservation_id = r.reservation_id) AS total_docs,
+                (SELECT COUNT(*) FROM reservation_documents_table d WHERE d.reservation_id = r.reservation_id AND d.status = 'complete') AS completed_docs
             FROM reservation_table r
             LEFT JOIN inquiry_table i ON r.inq_id = i.inq_id
             LEFT JOIN units_table u ON r.unit_id = u.unit_id
@@ -326,8 +328,14 @@ class Reservation extends Model
 
             if ($existingUser) {
                 $tenantUserId = (int) $existingUser['user_id'];
-                $currentRole = strtolower((string) $existingUser['user_role']);
-                $newRole = ($currentRole === 'admin') ? $existingUser['user_role'] : ($isResale ? 'unit owner' : 'tenant');
+                $currentRole = strtolower(trim((string) $existingUser['user_role']));
+                // Never downgrade an existing admin or unit owner to tenant.
+                // Promote tenant to unit owner if this is a resale purchase.
+                if ($currentRole === 'admin' || $currentRole === 'unit owner') {
+                    $newRole = $existingUser['user_role'];
+                } else {
+                    $newRole = $isResale ? 'unit owner' : 'tenant';
+                }
                 $initialStatus = ($existingUser['resident_status'] === 'Active') ? 'Active' : 'Inactive';
 
                 $updateUserSql = "
@@ -340,12 +348,13 @@ class Reservation extends Model
                 ";
                 $this->execute($updateUserSql, [$initialStatus, $newRole, $clientName, $clientContact, $tenantUserId]);
             } else {
+                $newRole = $isResale ? 'unit owner' : 'tenant';
                 $hashedPassword = password_hash($defaultPassword, PASSWORD_BCRYPT);
                 $insertUserSql = "
                     INSERT INTO users_table (full_name, email, password, contact, user_role, resident_status, created_at)
                     VALUES (?, ?, ?, ?, ?, 'Inactive', NOW())
                 ";
-                $this->execute($insertUserSql, [$clientName, $clientEmail, $hashedPassword, $clientContact, $isResale ? 'unit owner' : 'tenant']);
+                $this->execute($insertUserSql, [$clientName, $clientEmail, $hashedPassword, $clientContact, $newRole]);
                 $tenantUserId = (int) $this->lastInsertId();
             }
 
@@ -354,10 +363,10 @@ class Reservation extends Model
                 if ($currentOwnerId !== $tenantUserId) {
                     $today = date('Y-m-d');
                     if ($currentOwnerId > 0) {
-                        $this->execute("UPDATE unit_ownership_history SET end_date = ?, ownership_status = 'transferred', remarks = CONCAT(IFNULL(remarks, ''), ' [Transferred on ', ?, ']') WHERE unit_id = ? AND owner_id = ? AND ownership_status = 'active'", [$today, $today, $unitId, $currentOwnerId]);
+                        $this->execute("UPDATE unit_ownership_history_table SET end_date = ?, ownership_status = 'transferred', remarks = CONCAT(IFNULL(remarks, ''), ' [Transferred on ', ?, ']') WHERE unit_id = ? AND owner_id = ? AND ownership_status = 'active'", [$today, $today, $unitId, $currentOwnerId]);
                     }
                     $this->execute("UPDATE units_table SET unit_owner_id = ? WHERE unit_id = ?", [$tenantUserId, $unitId]);
-                    $this->execute("INSERT INTO unit_ownership_history (unit_id, owner_id, start_date, end_date, ownership_status, transfer_type, remarks) VALUES (?, ?, ?, NULL, 'active', 'Resale', 'Ownership transferred upon completed resale')", [$unitId, $tenantUserId, $today]);
+                    $this->execute("INSERT INTO unit_ownership_history_table (unit_id, owner_id, start_date, end_date, ownership_status, transfer_type, remarks) VALUES (?, ?, ?, NULL, 'active', 'Resale', 'Ownership transferred upon completed resale')", [$unitId, $tenantUserId, $today]);
                 }
             }
 
@@ -372,15 +381,20 @@ class Reservation extends Model
             require_once __DIR__ . '/../config/owner_notifications.php';
             $emailSent = notifyTenantOfHandover($clientEmail, $clientName, $unitDisplay, $defaultPassword);
 
+            $accountTypeDisplay = ($newRole === 'unit owner') ? 'Unit owner' : (($newRole === 'admin') ? 'Administrator' : 'Tenant');
+            $message = $existingUser 
+                ? "Unit handover completed! Existing {$accountTypeDisplay} account has been updated for unit {$unitDisplay}."
+                : "Unit handover completed! {$accountTypeDisplay} account has been created (will activate upon first login). Login credentials (Email: {$clientEmail}, Password: {$defaultPassword}) have been sent to {$clientEmail}.";
+
             return [
                 'success' => true,
-                'message' => "Unit handover completed! " . ($isResale ? 'Unit owner' : 'Tenant') . " account has been created (will activate upon first login). Login credentials (Email: {$clientEmail}, Password: {$defaultPassword}) have been sent to {$clientEmail}.",
+                'message' => $message,
                 'email_sent' => $emailSent,
                 'tenant' => [
                     'user_id' => $tenantUserId,
                     'name' => $clientName,
                     'email' => $clientEmail,
-                    'role' => $isResale ? 'unit owner' : 'tenant',
+                    'role' => $newRole,
                     'status' => 'Active',
                     'password' => $defaultPassword,
                 ]
@@ -417,13 +431,11 @@ class Reservation extends Model
                 owner.full_name AS owner_name,
                 owner.email AS owner_email,
                 owner.contact AS owner_contact,
-                owner.additional_contact AS owner_additional_contact,
                 owner.additional_email AS owner_additional_email,
 
                 client_user.user_id AS client_user_id,
                 client_user.resident_status AS client_resident_status,
                 client_user.contact AS client_user_contact,
-                client_user.date_of_birth AS client_dob,
 
                 cancel_requester.full_name AS cancellation_requested_by_name,
                 inq.inquiry_type AS inquiry_type,
@@ -494,7 +506,7 @@ class Reservation extends Model
             return ['status' => 'error', 'message' => 'This reservation link has expired.'];
         }
 
-        // 3. Fetch all approved units from owner_approval_requests
+        // 3. Fetch all approved units from owner_approval_table
         $approvedUnitsSql = "
             SELECT 
                 r.request_id,
@@ -517,7 +529,7 @@ class Reservation extends Model
                 owner.email AS owner_email,
                 owner.contact AS owner_contact,
                 owner.gcash_QR AS owner_gcash_qr
-            FROM owner_approval_requests r
+            FROM owner_approval_table r
             INNER JOIN units_table u ON r.unit_id = u.unit_id
             LEFT JOIN users_table owner ON owner.user_id = COALESCE(u.unit_owner_id, r.unit_owner_id)
             WHERE r.inq_id = ? AND r.request_status = 'approved'
@@ -525,7 +537,7 @@ class Reservation extends Model
         ";
         $rawUnits = $this->fetchAll($approvedUnitsSql, [(int) $inquiry['inq_id']]);
 
-        // Fallback if no owner_approval_requests row exists but approved_unit_id is set
+        // Fallback if no owner_approval_table row exists but approved_unit_id is set
         if (empty($rawUnits) && !empty($inquiry['approved_unit_id'])) {
             $fallbackSql = "
                 SELECT 
@@ -669,31 +681,77 @@ class Reservation extends Model
         $maxSigningDate = date('Y-m-d', strtotime($tokenExpiresAt));
 
         // Combined data
-        $data = array_merge($inquiry, $selectedUnit);
-
-        // Blocked ranges for calendar
-        $blockedRanges = [];
+        // Blocked ranges for calendar (for each approved unit)
         if ($isLease) {
-            $blockedTypeFilter = "(transaction_type IN ('Lease Inquiry', 'Unit Reservation', 'lease', 'Lease') OR transaction_type LIKE '%Lease%' OR transaction_type LIKE '%Rental%')";
+            $blockedTypeFilter = "(transaction_type IN ('Unit Leasing', 'Lease Inquiry', 'Unit Reservation', 'lease', 'Lease') OR LOWER(transaction_type) LIKE '%leas%' OR LOWER(transaction_type) LIKE '%rent%')";
         } else {
             $blockedTypeFilter = "(transaction_type = 'Resale Inquiry' OR transaction_type LIKE '%Resale%' OR transaction_type LIKE '%Buy%' OR transaction_type LIKE '%Purchase%')";
         }
 
-        $blockedRows = $this->fetchAll("
-            SELECT move_in_date, move_out_date
-            FROM reservation_table
-            WHERE unit_id = ?
-              AND reservation_status NOT IN ('cancelled', 'rejected')
-              AND move_in_date IS NOT NULL
-              AND {$blockedTypeFilter}
-        ", [(int) $selectedUnit['unit_id']]);
-
-        foreach ($blockedRows as $row) {
-            $blockedRanges[] = [
-                'start' => $row['move_in_date'],
-                'end' => $row['move_out_date']
-            ];
+        $allUnitIds = array_keys($processedUnits);
+        $unitBlockedRanges = [];
+        foreach ($allUnitIds as $id) {
+            $unitBlockedRanges[$id] = [];
         }
+
+        if (!empty($allUnitIds)) {
+            $placeholders = implode(',', array_fill(0, count($allUnitIds), '?'));
+            $blockedRows = $this->fetchAll("
+                SELECT unit_id, move_in_date, move_out_date
+                FROM reservation_table
+                WHERE unit_id IN ({$placeholders})
+                  AND reservation_status NOT IN ('cancelled', 'rejected')
+                  AND move_in_date IS NOT NULL
+                  AND {$blockedTypeFilter}
+            ", $allUnitIds);
+
+            foreach ($blockedRows as $row) {
+                $uId = (int) $row['unit_id'];
+                $unitBlockedRanges[$uId][] = [
+                    'start' => $row['move_in_date'],
+                    'end' => $row['move_out_date']
+                ];
+            }
+        }
+
+        $baseBuffer = date('Y-m-d', strtotime('+3 days'));
+        $today = date('Y-m-d');
+        foreach ($processedUnits as $uId => &$pUnit) {
+            $ranges = $unitBlockedRanges[$uId] ?? [];
+            $pUnit['blocked_ranges'] = $ranges;
+
+            $latestMoveOut = '';
+            foreach ($ranges as $rng) {
+                $rngEnd = !empty($rng['end']) ? $rng['end'] : $rng['start'];
+                if ($rngEnd >= $today && $rngEnd > $latestMoveOut) {
+                    $latestMoveOut = $rngEnd;
+                }
+            }
+
+            if ($latestMoveOut !== '') {
+                $earliestAvail = date('Y-m-d', strtotime($latestMoveOut . ' +1 day'));
+                $earliestMoveIn = ($earliestAvail > $baseBuffer) ? $earliestAvail : $baseBuffer;
+            } else {
+                $earliestMoveIn = $baseBuffer;
+            }
+
+            $pUnit['earliest_move_in_date'] = $earliestMoveIn;
+            $pUnit['earliest_move_in_formatted'] = date('M j, Y', strtotime($earliestMoveIn));
+
+            if (!empty($ranges)) {
+                $firstRange = $ranges[0];
+                $pUnit['current_lease_period'] = date('M j, Y', strtotime($firstRange['start'])) . ' – ' . date('M j, Y', strtotime($firstRange['end']));
+                $pUnit['available_from'] = date('M j, Y', strtotime($firstRange['end'] . ' +1 day'));
+            } else {
+                $pUnit['current_lease_period'] = 'No active lease';
+                $pUnit['available_from'] = 'Available Immediately';
+            }
+        }
+        unset($pUnit);
+
+        $selectedUnit = $processedUnits[$selectedUnitId];
+        $data = array_merge($inquiry, $selectedUnit);
+        $blockedRanges = $unitBlockedRanges[$selectedUnitId] ?? [];
 
         return [
             'status' => 'ok',
@@ -713,6 +771,8 @@ class Reservation extends Model
             'lease_months' => $leaseMonths,
             'max_signing_date' => $maxSigningDate,
             'blocked_ranges' => $blockedRanges,
+            'earliest_move_in_date' => $selectedUnit['earliest_move_in_date'],
+            'earliest_move_in_formatted' => $selectedUnit['earliest_move_in_formatted'],
             'token' => $token,
         ];
     }
@@ -760,6 +820,7 @@ class Reservation extends Model
             return ['success' => false, 'error' => 'Invalid payment percentage.'];
         }
 
+        $paymentReference = trim((string) ($post['payment_reference'] ?? $post['reference_number'] ?? 'N/A'));
         if ($paymentReference === '') {
             $paymentReference = 'N/A';
         }
@@ -778,6 +839,20 @@ class Reservation extends Model
 
         if ($isLease && $moveInDate === '') {
             return ['success' => false, 'error' => 'Move-in date is required.'];
+        }
+        if ($isLease && $moveInDate !== '' && $moveOutDate === '') {
+            $durStr = strtolower($leaseDuration !== '' ? $leaseDuration : (string)($data['lease_duration'] ?? '1 year'));
+            $months = 12;
+            if (strpos($durStr, 'year') !== false) {
+                $m = preg_match('/(\d+)/', $durStr, $matches);
+                $months = $m ? ((int)$matches[1]) * 12 : 12;
+            } elseif (strpos($durStr, 'month') !== false) {
+                $m = preg_match('/(\d+)/', $durStr, $matches);
+                $months = $m ? (int)$matches[1] : 1;
+            }
+            $d = new DateTime($moveInDate);
+            $d->modify("+{$months} months");
+            $moveOutDate = $d->format('Y-m-d');
         }
         $minMoveIn = date('Y-m-d', strtotime('+3 days'));
         if ($isLease && $moveInDate < $minMoveIn) {
@@ -911,10 +986,10 @@ class Reservation extends Model
                     FROM reservation_table
                     WHERE unit_id = ?
                       AND reservation_status NOT IN ('cancelled', 'rejected')
-                      AND (transaction_type IN ('Lease Inquiry', 'Unit Reservation', 'lease', 'Lease') OR transaction_type LIKE '%Lease%' OR transaction_type LIKE '%Rental%')
+                      AND (transaction_type IN ('Unit Leasing', 'Lease Inquiry', 'Unit Reservation', 'lease', 'Lease') OR LOWER(transaction_type) LIKE '%leas%' OR LOWER(transaction_type) LIKE '%rent%')
                       AND move_in_date IS NOT NULL
                       AND move_in_date <= ?
-                      AND COALESCE(move_out_date, move_in_date) >= ?
+                      AND COALESCE(NULLIF(move_out_date, '0000-00-00'), move_in_date) >= ?
                     FOR UPDATE
                 ");
                 $overlapStmt->execute([(int) $data['unit_id'], $moveOutDate, $moveInDate]);
@@ -990,11 +1065,9 @@ class Reservation extends Model
                 $stmt->execute([$leaseDuration, (int) $data['inq_id']]);
             }
 
-            // Update unit status to 'On Hold' for resale
-            if (!$isLease) {
-                $stmt = $this->db->prepare("UPDATE units_table SET unit_current_status = 'On Hold' WHERE unit_id = ?");
-                $stmt->execute([(int) $data['unit_id']]);
-            }
+            // Update unit status to 'On Hold' for both lease and resale
+            $stmt = $this->db->prepare("UPDATE units_table SET unit_current_status = 'On Hold' WHERE unit_id = ?");
+            $stmt->execute([(int) $data['unit_id']]);
 
             // Update inquiry status
             $stmt = $this->db->prepare("UPDATE inquiry_table SET status = 'reservation submitted' WHERE inq_id = ?");
@@ -1217,7 +1290,7 @@ class Reservation extends Model
 
         $counts = $this->fetchOne(
             "SELECT COUNT(*) AS total, SUM(CASE WHEN status = 'complete' THEN 1 ELSE 0 END) AS completed 
-             FROM reservation_documents WHERE reservation_id = ?",
+             FROM reservation_documents_table WHERE reservation_id = ?",
             [$reservationId]
         );
         $total = (int) ($counts['total'] ?? 0);
@@ -1281,6 +1354,8 @@ class Reservation extends Model
         if ($action === 'complete') {
             $this->checkAndPromoteToOfficiallyBooked($reservationId, $userId, $role);
         }
+
+        $status = $action === 'complete' ? 'Completed' : 'Pending Signing';
 
         return [
             'success' => true,
@@ -1375,7 +1450,7 @@ class Reservation extends Model
         }
 
         $existing = $this->fetchAll(
-            "SELECT * FROM reservation_documents WHERE reservation_id = ? ORDER BY document_id ASC",
+            "SELECT * FROM reservation_documents_table WHERE reservation_id = ? ORDER BY document_id ASC",
             [$reservationId]
         );
 
@@ -1389,13 +1464,13 @@ class Reservation extends Model
 
             foreach ($defaultDocs as $d) {
                 $this->execute(
-                    "INSERT INTO reservation_documents (reservation_id, document_key, document_name, status) VALUES (?, ?, ?, 'pending')",
+                    "INSERT INTO reservation_documents_table (reservation_id, document_key, document_name, status) VALUES (?, ?, ?, 'pending')",
                     [$reservationId, $d['key'], $d['name']]
                 );
             }
 
             $existing = $this->fetchAll(
-                "SELECT * FROM reservation_documents WHERE reservation_id = ? ORDER BY document_id ASC",
+                "SELECT * FROM reservation_documents_table WHERE reservation_id = ? ORDER BY document_id ASC",
                 [$reservationId]
             );
         }
@@ -1437,7 +1512,7 @@ class Reservation extends Model
             $status = (!empty($docLink)) ? 'complete' : 'pending';
 
             $this->execute(
-                "UPDATE reservation_documents 
+                "UPDATE reservation_documents_table 
                  SET status = ?, 
                      document_link = ?, 
                      updated_by = ?, 
@@ -1449,7 +1524,7 @@ class Reservation extends Model
 
         $counts = $this->fetchOne(
             "SELECT COUNT(*) AS total, SUM(CASE WHEN status = 'complete' THEN 1 ELSE 0 END) AS completed 
-             FROM reservation_documents WHERE reservation_id = ?",
+             FROM reservation_documents_table WHERE reservation_id = ?",
             [$reservationId]
         );
 
@@ -1647,7 +1722,7 @@ class Reservation extends Model
         }
 
         $docRow = $this->fetchOne(
-            "SELECT * FROM reservation_documents WHERE document_id = ? AND reservation_id = ? LIMIT 1",
+            "SELECT * FROM reservation_documents_table WHERE document_id = ? AND reservation_id = ? LIMIT 1",
             [$documentId, $reservationId]
         );
 
@@ -1685,7 +1760,7 @@ class Reservation extends Model
 
         $now = date('Y-m-d H:i:s');
         $this->execute(
-            "UPDATE reservation_documents 
+            "UPDATE reservation_documents_table 
              SET status = 'complete', 
                  document_link = ?, 
                  updated_by = ?, 
@@ -1697,7 +1772,7 @@ class Reservation extends Model
         // Check if all documents completed
         $counts = $this->fetchOne(
             "SELECT COUNT(*) AS total, SUM(CASE WHEN status = 'complete' THEN 1 ELSE 0 END) AS completed 
-             FROM reservation_documents WHERE reservation_id = ?",
+             FROM reservation_documents_table WHERE reservation_id = ?",
             [$reservationId]
         );
 
@@ -1722,8 +1797,13 @@ class Reservation extends Model
         } else {
             $this->execute(
                 "UPDATE reservation_table 
-                 SET updated_at = NOW() WHERE reservation_id = ?",
-                [$userId, $userRole, $now, $reservationId]
+                 SET reservation_status = CASE 
+                         WHEN LOWER(reservation_status) = 'requirements completed' 
+                         THEN 'requirements pending' 
+                         ELSE reservation_status 
+                     END
+                 WHERE reservation_id = ?",
+                [$reservationId]
             );
         }
 
@@ -1742,7 +1822,7 @@ class Reservation extends Model
     public function deleteReservationDocument(int $reservationId, int $documentId, int $userId, string $userRole): array
     {
         $docRow = $this->fetchOne(
-            "SELECT * FROM reservation_documents WHERE document_id = ? AND reservation_id = ? LIMIT 1",
+            "SELECT * FROM reservation_documents_table WHERE document_id = ? AND reservation_id = ? LIMIT 1",
             [$documentId, $reservationId]
         );
 
@@ -1759,7 +1839,7 @@ class Reservation extends Model
 
         $now = date('Y-m-d H:i:s');
         $this->execute(
-            "UPDATE reservation_documents 
+            "UPDATE reservation_documents_table 
              SET status = 'pending', 
                  document_link = NULL, 
                  updated_by = ?, 
@@ -1771,14 +1851,13 @@ class Reservation extends Model
         // Update reservation status to pending requirements if it was completed
         $this->execute(
             "UPDATE reservation_table 
-             SET updated_at = ?,
-                 reservation_status = CASE 
+             SET reservation_status = CASE 
                      WHEN LOWER(reservation_status) = 'requirements completed' 
                      THEN 'requirements pending' 
                      ELSE reservation_status 
                  END
              WHERE reservation_id = ?",
-            [$now, $reservationId]
+            [$reservationId]
         );
 
         return [
@@ -1821,6 +1900,8 @@ class Reservation extends Model
         }
 
         $requestedByRole = strtolower(trim((string) ($res['cancellation_requested_by_role'] ?? '')));
+
+        $cleanRemarks = trim($remarks);
 
         $clientEmailSent = false;
         if ($clientEmail !== '') {

@@ -21,5 +21,6 @@
 </head>
 <body class="min-h-screen flex flex-col bg-white overflow-x-hidden text-slate-800">
     <?= $content ?>
+    <?= Csrf::script() ?>
 </body>
 </html>

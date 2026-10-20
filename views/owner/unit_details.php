@@ -88,9 +88,14 @@ $stayCategory = trim((string) ($unit['stay_category'] ?? 'Long term'));
 $leaseRate = (float) ($unit['lease_rate'] ?? 0);
 $resellingPrice = (float) ($unit['reselling_price'] ?? 0);
 $isResale = (strcasecmp($listingType, 'Resale') === 0 || strcasecmp($currentStatus, 'Resale') === 0 || strcasecmp($currentStatus, 'For Resale') === 0 || stripos($listingType, 'resell') !== false);
+$isNotAvailable = (strcasecmp($listingType, 'Not Available') === 0);
 
 $statusLower = strtolower($currentStatus);
-if ($statusLower === 'ready for occupancy') {
+$isStatusProtected = in_array($statusLower, ['reserved', 'on hold', 'occupied', 'under maintenance'], true);
+if ($isNotAvailable && !$isStatusProtected) {
+  $statusClass = 'bg-rose-50 text-rose-700 border-rose-200';
+  $statusDot = 'bg-rose-500';
+} elseif ($statusLower === 'ready for occupancy') {
   $statusClass = 'bg-emerald-50 text-emerald-700 border-emerald-200';
   $statusDot = 'bg-emerald-500';
 } elseif ($statusLower === 'reserved') {
@@ -109,7 +114,7 @@ if ($statusLower === 'ready for occupancy') {
   $statusClass = 'bg-slate-50 text-slate-700 border-slate-200';
   $statusDot = 'bg-slate-400';
 }
-$displayStatus = ($statusLower === 'resale' || $statusLower === 'for resale') ? 'For Resale' : $currentStatus;
+$displayStatus = ($isNotAvailable && !$isStatusProtected) ? 'Not Available' : (($statusLower === 'resale' || $statusLower === 'for resale') ? 'For Resale' : $currentStatus);
 
 $activeTenant = $activeTenant ?? null;
 $leasesList = $leasesList ?? $pastTenants ?? [];
@@ -119,7 +124,10 @@ $nextAvailabilityText = 'Immediately Available';
 $nextAvailabilitySub = 'Ready for new move-in';
 $isCurrentlyOccupied = false;
 
-if ($statusLower === 'resale') {
+if ($isNotAvailable) {
+  $nextAvailabilityText = 'Not Available';
+  $nextAvailabilitySub = 'Unit is not currently listed';
+} elseif ($statusLower === 'resale') {
   $nextAvailabilityText = 'Available for Resale';
   $nextAvailabilitySub = 'Unit is currently listed for sale';
 } elseif ($statusLower === 'under maintenance') {
@@ -443,7 +451,7 @@ if ($statusLower === 'resale') {
               </div>
             </div>
             <p class="text-xs text-slate-500 mt-3" id="displayListingSub">
-              <?= $listingType === 'Resale' ? 'Listed for purchase / sale' : 'Offered for lease' ?>
+              <?= $listingType === 'Not Available' ? 'Unit is off-market / unlisted' : ($listingType === 'Resale' ? 'Listed for purchase / sale' : 'Offered for lease') ?>
             </p>
           </div>
 
@@ -453,24 +461,24 @@ if ($statusLower === 'resale') {
             <div>
               <div class="flex items-center justify-between gap-2">
                 <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wider" id="cardRateTitle">
-                  <?= $listingType === 'Resale' ? 'Reselling Price' : 'Lease Rate' ?></p>
+                  <?= $listingType === 'Not Available' ? 'Listing Rate' : ($listingType === 'Resale' ? 'Reselling Price' : 'Lease Rate') ?></p>
                 <span
-                  class="w-7 h-7 rounded-lg <?= $listingType === 'Resale' ? 'bg-blue-50 text-blue-600' : 'bg-emerald-50 text-emerald-600' ?> flex items-center justify-center font-bold text-xs shrink-0"
+                  class="w-7 h-7 rounded-lg <?= $listingType === 'Not Available' ? 'bg-slate-100 text-slate-500' : ($listingType === 'Resale' ? 'bg-blue-50 text-blue-600' : 'bg-emerald-50 text-emerald-600') ?> flex items-center justify-center font-bold text-xs shrink-0"
                   id="cardRateIcon">
                   ₱
                 </span>
               </div>
               <div class="mt-3">
                 <p class="text-lg md:text-xl font-bold text-slate-900 font-mono leading-tight" id="displayLeaseRate">
-                  <?= $listingType === 'Resale' ? peso($resellingPrice > 0 ? $resellingPrice : $leaseRate, true) : peso($leaseRate, true) ?>
+                  <?= $listingType === 'Not Available' ? '—' : ($listingType === 'Resale' ? peso($resellingPrice > 0 ? $resellingPrice : $leaseRate, true) : peso($leaseRate, true)) ?>
                 </p>
               </div>
             </div>
             <div class="flex items-center justify-between text-xs text-slate-500 mt-3 flex-wrap gap-1">
               <span
-                id="displayRateSub"><?= $listingType === 'Resale' ? 'Outright unit selling price' : 'Per month standard rate' ?></span>
+                id="displayRateSub"><?= $listingType === 'Not Available' ? 'Unit is unlisted' : ($listingType === 'Resale' ? 'Outright unit selling price' : 'Per month standard rate') ?></span>
               <span id="displayResaleSecondary"
-                class="text-[11px] text-slate-400 font-mono <?= ($listingType !== 'Resale' && $resellingPrice > 0) ? '' : 'hidden' ?>">
+                class="text-[11px] text-slate-400 font-mono <?= ($listingType === 'For Lease' && $resellingPrice > 0) ? '' : 'hidden' ?>">
                 Resale: <?= peso($resellingPrice) ?> (Saved)
               </span>
               <span id="displayLeaseSecondary"
@@ -487,7 +495,10 @@ if ($statusLower === 'resale') {
               <div class="flex items-center justify-between gap-2">
                 <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Lease Term Duration</p>
                 <div class="flex items-center gap-1.5" id="badgeStayEditableContainer">
-                  <?php if ($listingType === 'Resale'): ?>
+                  <?php if ($listingType === 'Not Available'): ?>
+                    <span
+                      class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200">Off Market</span>
+                  <?php elseif ($listingType === 'Resale'): ?>
                     <span
                       class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200">Resale
                       Mode</span>
@@ -506,11 +517,11 @@ if ($statusLower === 'resale') {
               </div>
               <div class="mt-3">
                 <p class="text-lg md:text-xl font-bold text-slate-900 leading-tight" id="displayStayCategory">
-                  <?= clean($stayCategory) ?></p>
+                  <?= $listingType === 'Not Available' ? 'N/A' : clean($stayCategory) ?></p>
               </div>
             </div>
             <p class="text-xs text-slate-500 mt-3" id="displayStaySub">
-              <?= strtolower($stayCategory) === 'short term' ? 'Flexible short stay' : 'Standard 6-12+ mos lease' ?>
+              <?= $listingType === 'Not Available' ? 'Not applicable for unlisted unit' : (strtolower($stayCategory) === 'short term' ? 'Flexible short stay' : 'Standard 6-12+ mos lease') ?>
             </p>
           </div>
 
@@ -583,7 +594,9 @@ if ($statusLower === 'resale') {
             <div>
               <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Lease Term Duration</p>
               <p class="text-sm font-semibold text-slate-900 mt-1 flex items-center gap-2" id="specStayCategory">
-                <?php if ($listingType === 'Resale'): ?>
+                <?php if ($listingType === 'Not Available'): ?>
+                  <span class="text-slate-400 italic">N/A (Off Market)</span>
+                <?php elseif ($listingType === 'Resale'): ?>
                   <span class="text-slate-400 italic">N/A (Resale)</span>
                 <?php else: ?>
                   <span><?= clean($stayCategory) ?></span>
@@ -594,9 +607,9 @@ if ($statusLower === 'resale') {
             </div>
             <div>
               <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wider" id="specRateLabel">
-                <?= $listingType === 'Resale' ? 'Reselling Price' : 'Lease Monthly Rate' ?></p>
+                <?= $listingType === 'Not Available' ? 'Listing Rate' : ($listingType === 'Resale' ? 'Reselling Price' : 'Lease Monthly Rate') ?></p>
               <p class="text-sm font-bold text-slate-900 font-mono mt-1" id="specLeaseRate">
-                <?= $listingType === 'Resale' ? peso($resellingPrice > 0 ? $resellingPrice : $leaseRate, false) : peso($leaseRate, true) ?>
+                <?= $listingType === 'Not Available' ? '—' : ($listingType === 'Resale' ? peso($resellingPrice > 0 ? $resellingPrice : $leaseRate, false) : peso($leaseRate, true)) ?>
               </p>
             </div>
           </div>
@@ -770,7 +783,7 @@ if ($statusLower === 'resale') {
                     $mOut = fmtDate($l['move_out_date']);
                     $durationText = getDurationText($l['move_in_date'], $l['move_out_date']);
                     $resStatus = strtolower(trim($l['reservation_status'] ?? ''));
-                    $transType = clean($l['transaction_type'] ?: ($l['inquiry_type'] ?: 'Unit Leasing'));
+                    $transType = clean(($l['transaction_type'] ?? '') ?: (($l['inquiry_type'] ?? '') ?: 'Unit Leasing'));
 
                     // Classify lease timeline
                     $today = date('Y-m-d');
@@ -858,29 +871,38 @@ if ($statusLower === 'resale') {
           <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
             Listing Mode <span class="text-red-500">*</span>
           </label>
-          <div class="grid grid-cols-2 gap-3">
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
             <label
-              class="cursor-pointer border border-slate-200 rounded-xl p-3.5 flex items-center gap-3 hover:border-slate-900 transition-all listing-card has-[:checked]:border-slate-900 has-[:checked]:bg-slate-50/80">
+              class="cursor-pointer border border-slate-200 rounded-xl p-3 flex items-center gap-2.5 hover:border-slate-900 transition-all listing-card has-[:checked]:border-slate-900 has-[:checked]:bg-slate-50/80">
               <input type="radio" name="listing_type" value="For Lease" <?= $listingType === 'For Lease' ? 'checked' : '' ?> class="w-4 h-4 text-slate-900 focus:ring-slate-900">
               <div>
                 <p class="text-xs font-bold text-slate-900">For Lease</p>
-                <p class="text-[11px] text-slate-500">Available for rental tenancy</p>
+                <p class="text-[10px] text-slate-500 leading-tight mt-0.5">Rental tenancy</p>
               </div>
             </label>
             <label
-              class="cursor-pointer border border-slate-200 rounded-xl p-3.5 flex items-center gap-3 hover:border-slate-900 transition-all listing-card has-[:checked]:border-slate-900 has-[:checked]:bg-slate-50/80">
+              class="cursor-pointer border border-slate-200 rounded-xl p-3 flex items-center gap-2.5 hover:border-slate-900 transition-all listing-card has-[:checked]:border-slate-900 has-[:checked]:bg-slate-50/80">
               <input type="radio" name="listing_type" value="Resale" <?= $listingType === 'Resale' ? 'checked' : '' ?>
                 class="w-4 h-4 text-slate-900 focus:ring-slate-900">
               <div>
                 <p class="text-xs font-bold text-slate-900">Resale</p>
-                <p class="text-[11px] text-slate-500">Available for outright sale</p>
+                <p class="text-[10px] text-slate-500 leading-tight mt-0.5">Outright sale</p>
+              </div>
+            </label>
+            <label
+              class="cursor-pointer border border-slate-200 rounded-xl p-3 flex items-center gap-2.5 hover:border-slate-900 transition-all listing-card has-[:checked]:border-slate-900 has-[:checked]:bg-slate-50/80">
+              <input type="radio" name="listing_type" value="Not Available" <?= $listingType === 'Not Available' ? 'checked' : '' ?>
+                class="w-4 h-4 text-slate-900 focus:ring-slate-900">
+              <div>
+                <p class="text-xs font-bold text-slate-900">Not Available</p>
+                <p class="text-[10px] text-slate-500 leading-tight mt-0.5">Off-market / unlisted</p>
               </div>
             </label>
           </div>
         </div>
 
         <!-- Stay Category -->
-        <div>
+        <div id="containerStayCategory">
           <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
             Lease Term Duration <span class="text-red-500">*</span>
           </label>
@@ -987,7 +1009,9 @@ if ($statusLower === 'resale') {
     }
 
     function togglePricingInputs(userInitiated = false) {
-      const isResale = document.querySelector('input[name="listing_type"][value="Resale"]')?.checked;
+      const selectedType = document.querySelector('input[name="listing_type"]:checked')?.value || 'For Lease';
+      const isResale = (selectedType === 'Resale');
+      const isNotAvailable = (selectedType === 'Not Available');
       const stayCategoryContainer = document.getElementById('containerStayCategory');
       const leaseContainer = document.getElementById('containerLeaseRate');
       const resaleContainer = document.getElementById('containerResellingPrice');
@@ -997,9 +1021,38 @@ if ($statusLower === 'resale') {
       const reqResaleStar = document.getElementById('reqResaleStar');
       const leaseInput = document.getElementById('leaseRateInput');
       const resaleInput = document.getElementById('reselllingPriceInput');
-      const stayCategoryGroup = document.getElementById('stayCategoryFieldGroup');
 
-      if (isResale) {
+      if (isNotAvailable) {
+        if (stayCategoryContainer) {
+          stayCategoryContainer.classList.add('hidden');
+          stayCategoryContainer.querySelectorAll('input[name="stay_category"]').forEach(r => {
+            r.disabled = true;
+            r.required = false;
+          });
+        }
+
+        if (leaseContainer) {
+          leaseContainer.classList.remove('bg-emerald-50/30', 'border-emerald-400', 'shadow-xs');
+          leaseContainer.classList.add('bg-slate-50/50', 'border-slate-200');
+        }
+        if (badgeLease) {
+          badgeLease.className = 'text-[10px] font-medium px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200';
+          badgeLease.textContent = 'Saved in Background';
+        }
+        reqLeaseStar?.classList.add('hidden');
+        if (leaseInput) leaseInput.required = false;
+
+        if (resaleContainer) {
+          resaleContainer.classList.remove('bg-blue-50/30', 'border-blue-400', 'shadow-xs');
+          resaleContainer.classList.add('bg-slate-50/50', 'border-slate-200');
+        }
+        if (badgeResale) {
+          badgeResale.className = 'text-[10px] font-medium px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200';
+          badgeResale.textContent = 'Saved in Background';
+        }
+        reqResaleStar?.classList.add('hidden');
+        if (resaleInput) resaleInput.required = false;
+      } else if (isResale) {
         if (stayCategoryContainer) {
           stayCategoryContainer.classList.add('hidden');
           stayCategoryContainer.querySelectorAll('input[name="stay_category"]').forEach(r => {
@@ -1142,9 +1195,12 @@ if ($statusLower === 'resale') {
         if (res.success) {
           const data = res.data;
           const isResale = (data.listing_type === 'Resale');
+          const isNotAvailable = (data.listing_type === 'Not Available');
 
           document.getElementById('displayListingType').textContent = data.listing_type;
-          document.getElementById('displayListingSub').textContent = isResale ? 'Listed for purchase / sale' : 'Offered for lease';
+          document.getElementById('displayListingSub').textContent = isNotAvailable
+            ? 'Unit is off-market / unlisted'
+            : (isResale ? 'Listed for purchase / sale' : 'Offered for lease');
 
           const specListing = document.getElementById('specListingType');
           if (specListing) {
@@ -1156,7 +1212,19 @@ if ($statusLower === 'resale') {
           const specStay = document.getElementById('specStayCategory');
           const badgeStay = document.getElementById('badgeStayEditableContainer');
 
-          if (isResale) {
+          if (isNotAvailable) {
+            if (displayStayCategory) displayStayCategory.textContent = 'N/A';
+            if (displayStaySub) displayStaySub.textContent = 'Not applicable for unlisted unit';
+            if (badgeStay) {
+              badgeStay.innerHTML = `<span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200">Off Market</span>
+            <span class="w-7 h-7 rounded-lg bg-slate-100 text-slate-500 flex items-center justify-center shrink-0">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/></svg>
+            </span>`;
+            }
+            if (specStay) {
+              specStay.innerHTML = `<span class="text-slate-400 italic">N/A (Off Market)</span>`;
+            }
+          } else if (isResale) {
             if (displayStayCategory) displayStayCategory.textContent = 'N/A';
             if (displayStaySub) displayStaySub.textContent = 'Not applicable for resale listing';
             if (badgeStay) {
@@ -1190,7 +1258,14 @@ if ($statusLower === 'resale') {
           const specLeaseRate = document.getElementById('specLeaseRate');
           const formattedResale = (data.resellling_price_formatted && data.resellling_price_formatted !== '—') ? data.resellling_price_formatted : (data.reselling_price_formatted || '—');
 
-          if (isResale) {
+          if (isNotAvailable) {
+            if (cardTitle) cardTitle.textContent = 'Listing Rate';
+            if (cardIcon) cardIcon.className = 'w-7 h-7 rounded-lg bg-slate-100 text-slate-500 flex items-center justify-center font-bold text-xs shrink-0';
+            if (displayRate) displayRate.textContent = '—';
+            if (displayRateSub) displayRateSub.textContent = 'Unit is unlisted';
+            if (specRateLabel) specRateLabel.textContent = 'Listing Rate';
+            if (specLeaseRate) specLeaseRate.textContent = '—';
+          } else if (isResale) {
             if (cardTitle) cardTitle.textContent = 'Reselling Price';
             if (cardIcon) cardIcon.className = 'w-7 h-7 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-xs shrink-0';
             if (displayRate) displayRate.textContent = (formattedResale !== '—') ? formattedResale : data.lease_rate_formatted;
@@ -1206,20 +1281,50 @@ if ($statusLower === 'resale') {
             if (specLeaseRate) specLeaseRate.textContent = data.lease_rate_formatted;
           }
 
-          const specRateTitle = document.getElementById('specRateTitle');
-          if (specRateTitle) specRateTitle.textContent = isResale ? 'Reselling Price' : 'Lease Monthly Rate';
-          const specLeaseRate = document.getElementById('specLeaseRate');
-          if (specLeaseRate) specLeaseRate.textContent = isResale ? ((formattedResale !== '—') ? formattedResale : data.lease_rate_formatted) : data.lease_rate_formatted;
-
           const leaseSection = document.getElementById('leaseHistorySection');
           if (leaseSection) {
-            if (isResale) leaseSection.classList.add('hidden');
+            if (isResale || isNotAvailable) leaseSection.classList.add('hidden');
             else leaseSection.classList.remove('hidden');
           }
 
           if (data.unit_current_status) {
+            const statusLower = (data.unit_current_status || '').toLowerCase();
+            const isProtected = ['reserved', 'on hold', 'occupied', 'under maintenance'].includes(statusLower);
             const statusText = document.getElementById('displayStatusText');
-            if (statusText) statusText.textContent = data.unit_current_status;
+            if (statusText) {
+              if (isProtected) {
+                statusText.textContent = data.unit_current_status;
+              } else if (isNotAvailable) {
+                statusText.textContent = 'Not Available';
+              } else if (isResale || statusLower === 'resale' || statusLower === 'for resale') {
+                statusText.textContent = 'For Resale';
+              } else {
+                statusText.textContent = data.unit_current_status;
+              }
+            }
+            const statusBadge = document.getElementById('displayStatusBadge');
+            const statusDot = document.getElementById('displayStatusDot');
+            if (statusBadge && statusDot) {
+              if (statusLower === 'reserved') {
+                statusBadge.className = 'inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-0.5 rounded-full border bg-amber-50 text-amber-700 border-amber-200';
+                statusDot.className = 'w-1.5 h-1.5 rounded-full bg-amber-500';
+              } else if (statusLower === 'on hold') {
+                statusBadge.className = 'inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-0.5 rounded-full border bg-purple-50 text-purple-700 border-purple-200';
+                statusDot.className = 'w-1.5 h-1.5 rounded-full bg-purple-500';
+              } else if (statusLower === 'occupied') {
+                statusBadge.className = 'inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-0.5 rounded-full border bg-rose-50 text-rose-700 border-rose-200';
+                statusDot.className = 'w-1.5 h-1.5 rounded-full bg-rose-500';
+              } else if (isNotAvailable) {
+                statusBadge.className = 'inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-0.5 rounded-full border bg-rose-50 text-rose-700 border-rose-200';
+                statusDot.className = 'w-1.5 h-1.5 rounded-full bg-rose-500';
+              } else if (isResale || statusLower === 'resale' || statusLower === 'for resale') {
+                statusBadge.className = 'inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-0.5 rounded-full border bg-blue-50 text-blue-700 border-blue-200';
+                statusDot.className = 'w-1.5 h-1.5 rounded-full bg-blue-500';
+              } else {
+                statusBadge.className = 'inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-0.5 rounded-full border bg-emerald-50 text-emerald-700 border-emerald-200';
+                statusDot.className = 'w-1.5 h-1.5 rounded-full bg-emerald-500';
+              }
+            }
           }
 
           closeEditModal();

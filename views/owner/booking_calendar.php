@@ -213,15 +213,15 @@
 .bar-end    { margin-right: 4px; border-radius: 0 9999px 9999px 0; }
 .bar-single { margin-left: 4px; margin-right: 4px; border-radius: 9999px; padding-left: 8px; }
 
-.bar-occupied    { background: #16a34a; }
-.bar-reserved    { background: #ca8a04; }
-.bar-maintenance { background: #f59e0b; }
-.bar-unavailable { background: #64748b; }
+.bar-occupied    { background: #DC2626; }
+.bar-reserved    { background: #F59E0B; }
+.bar-maintenance { background: #7C3AED; }
+.bar-unavailable { background: #6B7280; }
 
-.dot-occupied    { background: #16a34a; }
-.dot-reserved    { background: #ca8a04; }
-.dot-maintenance { background: #f59e0b; }
-.dot-unavailable { background: #64748b; }
+.dot-occupied    { background: #DC2626; }
+.dot-reserved    { background: #F59E0B; }
+.dot-maintenance { background: #7C3AED; }
+.dot-unavailable { background: #6B7280; }
 
 /* QUICK-VIEW POPOVER */
 #quickView {
@@ -289,10 +289,10 @@
   display: inline-flex; align-items: center; gap: 5px;
   padding: 2px 10px; border-radius: 999px; font-size: 11px; font-weight: 700;
 }
-.badge-occupied    { background: #dcfce7; color: #16a34a; }
-.badge-reserved    { background: #fef9c3; color: #ca8a04; }
-.badge-maintenance { background: #fef3c7; color: #d97706; }
-.badge-unavailable { background: #f1f5f9; color: #475569; }
+.badge-occupied    { background: #fee2e2; color: #DC2626; }
+.badge-reserved    { background: #fef3c7; color: #D97706; }
+.badge-maintenance { background: #ede9fe; color: #7C3AED; }
+.badge-unavailable { background: #f3f4f6; color: #6B7280; }
 
 /* MODALS */
 .modal-backdrop {

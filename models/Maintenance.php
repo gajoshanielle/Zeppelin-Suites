@@ -42,7 +42,7 @@ class Maintenance extends Model {
                  WHERE r.unit_id = u.unit_id 
                    AND (r.reservation_status = 'reserved' OR r.officially_booked_at IS NOT NULL) 
                  ORDER BY r.reservation_id DESC LIMIT 1) AS tenant_name
-            FROM maintenance_requests m
+            FROM maintenance_table m
             LEFT JOIN units_table u ON m.unit_id = u.unit_id
             LEFT JOIN users_table owner ON m.unit_owner_id = owner.user_id
             ORDER BY m.submitted_at DESC
@@ -141,7 +141,7 @@ class Maintenance extends Model {
         try {
             $checkStmt = $this->db->prepare("
                 SELECT m.maintenance_id, m.subject, owner.full_name AS owner_name, owner.email AS owner_email
-                FROM maintenance_requests m
+                FROM maintenance_table m
                 LEFT JOIN users_table owner ON m.unit_owner_id = owner.user_id
                 WHERE m.maintenance_id = ?
                 FOR UPDATE
@@ -155,7 +155,7 @@ class Maintenance extends Model {
             }
 
             $updateStmt = $this->db->prepare("
-                UPDATE maintenance_requests
+                UPDATE maintenance_table
                 SET status = ?,
                     admin_remarks = ?,
                     updated_at = NOW(),
@@ -170,7 +170,7 @@ class Maintenance extends Model {
             $this->db->commit();
 
             // Notify unit owner if notification helper exists
-            $notifyFile = dirname(__DIR__) . '/php_files/owner_notifications.php';
+            $notifyFile = dirname(__DIR__) . '/config/owner_notifications.php';
             if (file_exists($notifyFile)) {
                 require_once $notifyFile;
                 if (function_exists('notifyOwnerOfMaintenanceFeedback')) {
@@ -290,7 +290,7 @@ class Maintenance extends Model {
             $photoPathsValue = !empty($photoPaths) ? implode(',', $photoPaths) : null;
 
             $stmt = $this->db->prepare("
-                INSERT INTO maintenance_requests (
+                INSERT INTO maintenance_table (
                     submitted_by_user_id,
                     submitted_by_role,
                     unit_owner_id,
