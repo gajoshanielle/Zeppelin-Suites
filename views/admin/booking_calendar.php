@@ -340,6 +340,96 @@ $activeTab = $activeTab ?? 'bookingcalendar';
   z-index: 9999; white-space: nowrap;
 }
 #rangeToast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* Responsive Month Calendar Grid */
+.month-day-cell {
+  aspect-ratio: 1 / 1;
+  min-height: 48px;
+  max-height: 72px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 2px;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+  position: relative;
+}
+.month-day-cell:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  transform: translateY(-1px);
+}
+.month-day-cell.is-selected {
+  border-color: #0f172a !important;
+  background: #f8fafc !important;
+  box-shadow: 0 0 0 2px #0f172a, 0 4px 12px rgba(15,23,42,0.08) !important;
+}
+.month-day-cell.is-today-cell .day-num {
+  background: #0f172a;
+  color: #ffffff;
+  border-radius: 999px;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+}
+.month-day-cell.is-other-month {
+  opacity: 0.3;
+  background: #f8fafc;
+  border-color: transparent;
+  cursor: default;
+  pointer-events: none;
+}
+.month-day-dots {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  flex-wrap: wrap;
+  max-width: 100%;
+  padding-bottom: 2px;
+}
+.status-mini-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+@media (max-width: 480px) {
+  .month-day-cell {
+    min-height: 42px;
+    padding: 3px 1px;
+    border-radius: 8px;
+  }
+  .status-mini-dot {
+    width: 5px;
+    height: 5px;
+  }
+}
+
+/* Mobile QuickView Modal Adaptations */
+@media (max-width: 767px) {
+  #quickView {
+    left: 50% !important;
+    top: auto !important;
+    bottom: 20px !important;
+    transform: translateX(-50%) translateY(20px) !important;
+    width: calc(100vw - 32px) !important;
+    max-width: 360px !important;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.25), 0 0 0 100vmax rgba(0,0,0,0.3) !important;
+  }
+  #quickView.visible {
+    transform: translateX(-50%) translateY(0) !important;
+  }
+}
 </style>
 </head>
 
@@ -361,13 +451,13 @@ $activeTab = $activeTab ?? 'bookingcalendar';
   <!-- Page Content -->
   <div class="main-scroll p-4 md:p-6">
     <!-- Page Title Bar -->
-    <div class="glass-header relative z-30 border border-slate-100/80 px-5 py-4 mb-5 rounded-2xl flex items-center justify-between">
+    <div class="glass-header relative z-30 border border-slate-100/80 p-4 sm:px-5 sm:py-4 mb-5 rounded-2xl flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
       <div>
         <h1 class="text-xl font-bold text-slate-900">Booking Calendar</h1>
-        <p class="text-xs text-slate-400 mt-0.5">Click any empty date cell to block dates or hover for reservation details.</p>
+        <p class="text-xs text-slate-400 mt-0.5">Easily manage reservations and block unit availability.</p>
       </div>
-      <div class="flex items-center gap-2 relative">
-        <button class="btn-press px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-sm font-medium transition-all active:scale-95" onclick="changeMonth(-1)" title="Previous month">
+      <div class="flex flex-wrap items-center gap-2 relative">
+        <button class="btn-press px-2.5 sm:px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-sm font-medium transition-all active:scale-95" onclick="changeMonth(-1)" title="Previous month">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
         </button>
 
@@ -376,13 +466,13 @@ $activeTab = $activeTab ?? 'bookingcalendar';
           
           <!-- Month Dropdown Trigger -->
           <div class="relative">
-            <button type="button" id="monthPickerBtn" onclick="toggleMonthPicker(event)" class="btn-press flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-bold text-slate-900 hover:bg-white hover:shadow-xs transition-all" title="Click to change month">
+            <button type="button" id="monthPickerBtn" onclick="toggleMonthPicker(event)" class="btn-press flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs sm:text-sm font-bold text-slate-900 hover:bg-white hover:shadow-xs transition-all" title="Click to change month">
               <span id="monthNameText">Month</span>
               <svg class="w-3.5 h-3.5 text-slate-400 transition-transform duration-200" id="monthChevron" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
             </button>
 
             <!-- Month Popup -->
-            <div id="monthPickerPopup" onclick="event.stopPropagation()" class="hidden absolute left-0 top-full mt-2 w-64 bg-white rounded-2xl shadow-2xl border border-slate-200/90 p-3.5 z-50 transform origin-top-left transition-all">
+            <div id="monthPickerPopup" onclick="event.stopPropagation()" class="hidden absolute left-0 top-full mt-2 w-64 max-w-[calc(100vw-32px)] bg-white rounded-2xl shadow-2xl border border-slate-200/90 p-3.5 z-50 transform origin-top-left transition-all">
               <div class="flex items-center justify-between pb-2.5 mb-2.5 border-b border-slate-100">
                 <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Select Month</span>
                 <span id="popupCurrentYear" class="text-xs font-bold text-slate-700 font-mono"></span>
@@ -395,13 +485,13 @@ $activeTab = $activeTab ?? 'bookingcalendar';
 
           <!-- Year Dropdown Trigger -->
           <div class="relative">
-            <button type="button" id="yearPickerBtn" onclick="toggleYearPicker(event)" class="btn-press flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-bold text-slate-900 font-mono hover:bg-white hover:shadow-xs transition-all" title="Click to change year">
+            <button type="button" id="yearPickerBtn" onclick="toggleYearPicker(event)" class="btn-press flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs sm:text-sm font-bold text-slate-900 font-mono hover:bg-white hover:shadow-xs transition-all" title="Click to change year">
               <span id="yearNameText">Year</span>
               <svg class="w-3.5 h-3.5 text-slate-400 transition-transform duration-200" id="yearChevron" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
             </button>
 
             <!-- Year Popup -->
-            <div id="yearPickerPopup" onclick="event.stopPropagation()" class="hidden absolute left-0 sm:left-auto sm:right-0 top-full mt-2 w-72 bg-white rounded-2xl shadow-2xl border border-slate-200/90 p-3.5 z-50 transform origin-top-right transition-all">
+            <div id="yearPickerPopup" onclick="event.stopPropagation()" class="hidden absolute left-0 sm:left-auto sm:right-0 top-full mt-2 w-72 max-w-[calc(100vw-32px)] bg-white rounded-2xl shadow-2xl border border-slate-200/90 p-3.5 z-50 transform origin-top-right transition-all">
               <div class="flex items-center justify-between pb-2.5 mb-2.5 border-b border-slate-100">
                 <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Select Year</span>
                 <div class="flex items-center gap-1">
@@ -420,11 +510,11 @@ $activeTab = $activeTab ?? 'bookingcalendar';
 
         </div>
 
-        <button class="btn-press px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-sm font-medium transition-all active:scale-95" onclick="changeMonth(1)" title="Next month">
+        <button class="btn-press px-2.5 sm:px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-sm font-medium transition-all active:scale-95" onclick="changeMonth(1)" title="Next month">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
         </button>
-        <button class="btn-press px-3 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-sm font-medium transition-all active:scale-95" onclick="goToday()">Today</button>
-        <button class="btn-press px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs sm:text-sm font-medium transition-all active:scale-95 flex items-center gap-1.5" onclick="openBlockDatesModalManual()">
+        <button class="btn-press px-3 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs sm:text-sm font-medium transition-all active:scale-95" onclick="goToday()">Today</button>
+        <button class="btn-press px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs sm:text-sm font-medium transition-all active:scale-95 flex items-center gap-1.5 shadow-xs" onclick="openBlockDatesModalManual()">
           <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/></svg>
           <span>+ Block Dates</span>
         </button>
@@ -432,54 +522,128 @@ $activeTab = $activeTab ?? 'bookingcalendar';
     </div>
 
     <!-- Layout: Filters + Timeline -->
-    <div class="flex gap-4 items-start relative z-10">
+    <div class="flex flex-col lg:flex-row gap-4 items-stretch lg:items-start relative z-10">
 
-      <!-- ── FILTERS SIDEBAR ── -->
-      <aside class="shrink-0 w-64 bg-white border border-slate-100/80 rounded-2xl p-4 shadow-lg sticky top-0">
-
-        <!-- Unit Types Filter Buttons -->
-        <div class="mb-5">
-          <div class="mb-3">
+      <!-- ── FILTERS SIDEBAR (Collapsible on mobile) ── -->
+      <aside class="w-full lg:w-64 shrink-0 bg-white border border-slate-100/80 rounded-2xl p-4 shadow-lg sticky top-0 lg:self-start">
+        <div class="flex items-center justify-between cursor-pointer lg:cursor-default" onclick="toggleFilterSidebarMobile()">
+          <div class="flex items-center gap-2">
             <h2 class="text-sm font-bold text-slate-900 uppercase tracking-wider">Show Rooms</h2>
+            <span id="activeFilterBadge" class="lg:hidden text-[11px] font-mono font-bold bg-slate-100 text-slate-700 px-2 py-0.5 rounded-full">All</span>
           </div>
-
-          <div class="space-y-1.5" id="unitTypeFilters">
-            <!-- Injected by JS -->
-          </div>
+          <button type="button" class="lg:hidden p-1.5 rounded-lg hover:bg-slate-100 text-slate-500 transition-colors" title="Toggle Filters">
+            <svg id="filterChevronIcon" class="w-4 h-4 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+          </button>
         </div>
 
-        <!-- Legend -->
-        <div class="mb-2">
-          <h2 class="text-sm font-bold text-slate-900 uppercase tracking-wider mb-3">Legend</h2>
-          <div class="space-y-1.5">
-            <div class="flex items-center gap-2.5 py-1.5 px-2.5 bg-slate-50 rounded-xl">
-              <span class="w-3 h-3 rounded-full dot-occupied shrink-0"></span>
-              <span class="text-xs font-semibold text-slate-700">Occupied</span>
+        <div id="filterCollapsibleContent" class="hidden lg:block mt-3 lg:mt-3">
+          <!-- Unit Types Filter Buttons -->
+          <div class="mb-5">
+            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-1 gap-1.5" id="unitTypeFilters">
+              <!-- Injected by JS -->
             </div>
-            <div class="flex items-center gap-2.5 py-1.5 px-2.5 bg-slate-50 rounded-xl">
-              <span class="w-3 h-3 rounded-full dot-reserved shrink-0"></span>
-              <span class="text-xs font-semibold text-slate-700">Reserved</span>
-            </div>
-            <div class="flex items-center gap-2.5 py-1.5 px-2.5 bg-slate-50 rounded-xl">
-              <span class="w-3 h-3 rounded-full dot-maintenance shrink-0"></span>
-              <span class="text-xs font-semibold text-slate-700">Maintenance</span>
-            </div>
-            <div class="flex items-center gap-2.5 py-1.5 px-2.5 bg-slate-50 rounded-xl">
-              <span class="w-3 h-3 rounded-full dot-unavailable shrink-0"></span>
-              <span class="text-xs font-semibold text-slate-700">Not Available</span>
+          </div>
+
+          <!-- Legend -->
+          <div class="mb-2">
+            <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2.5">Legend</h2>
+            <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-1 gap-1.5">
+              <div class="flex items-center gap-2 py-1.5 px-2 bg-slate-50 rounded-xl">
+                <span class="w-2.5 h-2.5 rounded-full dot-occupied shrink-0"></span>
+                <span class="text-xs font-semibold text-slate-700">Occupied</span>
+              </div>
+              <div class="flex items-center gap-2 py-1.5 px-2 bg-slate-50 rounded-xl">
+                <span class="w-2.5 h-2.5 rounded-full dot-reserved shrink-0"></span>
+                <span class="text-xs font-semibold text-slate-700">Reserved</span>
+              </div>
+              <div class="flex items-center gap-2 py-1.5 px-2 bg-slate-50 rounded-xl">
+                <span class="w-2.5 h-2.5 rounded-full dot-maintenance shrink-0"></span>
+                <span class="text-xs font-semibold text-slate-700">Maintenance</span>
+              </div>
+              <div class="flex items-center gap-2 py-1.5 px-2 bg-slate-50 rounded-xl">
+                <span class="w-2.5 h-2.5 rounded-full dot-unavailable shrink-0"></span>
+                <span class="text-xs font-semibold text-slate-700">Not Available</span>
+              </div>
             </div>
           </div>
         </div>
       </aside>
 
-      <!-- ── TIMELINE CALENDAR ── -->
-      <div class="flex-1 bg-white border border-slate-100/80 rounded-2xl shadow-lg overflow-hidden">
-        <div class="timeline-wrapper" id="timelineWrapper">
-          <table class="timeline-table" id="timelineTable">
-            <thead id="timelineHead"></thead>
-            <tbody id="timelineBody"></tbody>
-          </table>
+      <!-- ── CALENDAR VIEW CONTAINER (Supports Month & Timeline View) ── -->
+      <div class="flex-1 bg-white border border-slate-100/80 rounded-2xl shadow-lg overflow-hidden flex flex-col min-w-0">
+        
+        <!-- View Switcher & Title bar for calendar content -->
+        <div class="px-4 py-3 border-b border-slate-100 flex flex-wrap items-center justify-between gap-2.5 bg-slate-50/60">
+          <!-- View Switcher Tabs -->
+          <div class="inline-flex p-1 bg-slate-200/80 rounded-xl text-xs font-semibold" id="viewSwitcher">
+            <button type="button" id="btnViewMonth" onclick="switchCalendarView('month')" class="btn-press px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 text-slate-900 bg-white shadow-xs font-bold">
+              <svg class="w-3.5 h-3.5 text-slate-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+              <span>Month View</span>
+            </button>
+            <button type="button" id="btnViewTimeline" onclick="switchCalendarView('timeline')" class="btn-press px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 text-slate-600 hover:text-slate-900 font-semibold">
+              <svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg>
+              <span>Timeline View</span>
+            </button>
+          </div>
+
+          <div class="text-xs text-slate-500 font-medium" id="viewModeHint">
+            <span class="hidden sm:inline">Tap any date below to inspect and manage room bookings</span>
+          </div>
         </div>
+
+        <!-- 1. MONTH CALENDAR CONTAINER (100% width, no horizontal scroll, fits all mobile screens) -->
+        <div id="monthViewContainer" class="p-3 sm:p-5 flex flex-col gap-4">
+          <!-- 7-Column Month Calendar Grid -->
+          <div class="bg-slate-50/70 border border-slate-200/70 rounded-2xl p-2.5 sm:p-4">
+            <!-- Day-of-week headers -->
+            <div class="grid grid-cols-7 gap-1 mb-1.5 text-center text-[10px] sm:text-xs font-bold text-slate-500 uppercase tracking-wider">
+              <span class="py-1 text-rose-500">Sun</span>
+              <span class="py-1">Mon</span>
+              <span class="py-1">Tue</span>
+              <span class="py-1">Wed</span>
+              <span class="py-1">Thu</span>
+              <span class="py-1">Fri</span>
+              <span class="py-1 text-rose-500">Sat</span>
+            </div>
+            <!-- Days Cells Grid (fits 100% width, no horizontal scroll) -->
+            <div class="grid grid-cols-7 gap-1 sm:gap-1.5" id="monthGridCells">
+              <!-- Injected by renderMonthView() -->
+            </div>
+          </div>
+
+          <!-- Selected Day Detail Schedule Panel -->
+          <div id="selectedDayPanel" class="bg-white border border-slate-200/80 rounded-2xl p-4 sm:p-5 shadow-xs flex flex-col gap-3">
+            <div class="flex flex-wrap items-center justify-between gap-2.5 pb-3 border-b border-slate-100">
+              <div>
+                <div class="flex items-center gap-2">
+                  <h3 class="text-base sm:text-lg font-bold text-slate-900" id="selectedDateTitle">Date Schedule</h3>
+                  <span id="selectedDateBadge" class="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-slate-900 text-white"></span>
+                </div>
+                <p class="text-xs text-slate-400 mt-0.5" id="selectedDateSummary">Loading room status...</p>
+              </div>
+              <button type="button" onclick="openBlockForSelectedDate()" class="btn-press px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all shadow-xs">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                <span>+ Block This Date</span>
+              </button>
+            </div>
+
+            <!-- Room Cards Container -->
+            <div class="space-y-2.5" id="selectedDayRoomList">
+              <!-- Injected by renderSelectedDaySchedule() -->
+            </div>
+          </div>
+        </div>
+
+        <!-- 2. TIMELINE CALENDAR CONTAINER (Matrix table with smooth horizontal scroll) -->
+        <div id="timelineViewContainer" class="hidden flex-1 overflow-hidden">
+          <div class="timeline-wrapper" id="timelineWrapper">
+            <table class="timeline-table" id="timelineTable">
+              <thead id="timelineHead"></thead>
+              <tbody id="timelineBody"></tbody>
+            </table>
+          </div>
+        </div>
+
       </div>
 
     </div>
@@ -591,12 +755,17 @@ $activeTab = $activeTab ?? 'bookingcalendar';
 
 <!-- ═══════════ QUICK-VIEW POPOVER ═══════════ -->
 <div id="quickView">
-  <div class="qv-header flex items-center justify-between">
+  <div class="qv-header flex items-center justify-between gap-2">
     <div>
       <p class="font-bold text-slate-900 text-sm" id="qv_guestName">—</p>
       <p class="text-[11px] text-slate-400 mt-0.5" id="qv_roomInfo">—</p>
     </div>
-    <span class="status-badge" id="qv_statusBadge">—</span>
+    <div class="flex items-center gap-1.5 shrink-0">
+      <span class="status-badge" id="qv_statusBadge">—</span>
+      <button type="button" onclick="hideQuickView()" class="p-1 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors" title="Close">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
   </div>
 
   <!-- Body for regular booking -->
@@ -658,7 +827,10 @@ let UNIT_TYPES   = [];
 let bookings     = [];
 let blockedDates = [];
 
-let currentDate = new Date();
+let currentDate  = new Date();
+const BASE_URL   = "<?= htmlspecialchars($baseUrl) ?>";
+let currentView  = window.innerWidth < 1024 ? "month" : "timeline";
+let selectedDate = toLocalISODate(new Date());
 
 const STATUS_BAR = {
   "Occupied":      "bar-occupied",
@@ -674,9 +846,17 @@ const STATUS_BADGE = {
   "Not Available": "badge-unavailable"
 };
 
+function toggleFilterSidebarMobile() {
+  const content = document.getElementById("filterCollapsibleContent");
+  const icon = document.getElementById("filterChevronIcon");
+  if (!content) return;
+  content.classList.toggle("hidden");
+  if (icon) icon.classList.toggle("rotate-180");
+}
+
 async function loadCalendarData() {
   try {
-    const res  = await fetch("<?= htmlspecialchars($baseUrl) ?>/admin/booking-calendar/data");
+    const res  = await fetch(`${BASE_URL}/admin/booking-calendar/data`);
     const data = await res.json();
     if (!data.success) {
       showToast("⚠️ Could not load calendar data.");
@@ -767,12 +947,24 @@ function toggleUnitTypeFilter(key) {
 
   updateFilterButtons();
   syncVisibleRooms();
-  renderTimeline();
+  renderActiveView();
 }
 
 function updateFilterButtons() {
   const container = document.getElementById("unitTypeFilters");
   if (!container) return;
+
+  const allKeys = UNIT_TYPES.map(u => u.key);
+  const badge = document.getElementById("activeFilterBadge");
+  if (badge) {
+    if (selectedUnitTypes.size === allKeys.length) {
+      badge.textContent = "All";
+    } else if (selectedUnitTypes.size === 1) {
+      badge.textContent = [...selectedUnitTypes][0];
+    } else {
+      badge.textContent = `${selectedUnitTypes.size} Selected`;
+    }
+  }
 
   const buttons = container.querySelectorAll(".unit-filter-btn");
   buttons.forEach(btn => {
@@ -787,6 +979,352 @@ function updateFilterButtons() {
       <span class="unit-filter-count">${roomCount} ${roomCount === 1 ? 'room' : 'rooms'}</span>
     `;
   });
+}
+
+function switchCalendarView(mode) {
+  currentView = mode;
+  const btnMonth = document.getElementById("btnViewMonth");
+  const btnTimeline = document.getElementById("btnViewTimeline");
+  const monthContainer = document.getElementById("monthViewContainer");
+  const timelineContainer = document.getElementById("timelineViewContainer");
+  const hintEl = document.getElementById("viewModeHint");
+
+  if (mode === "month") {
+    if (btnMonth) {
+      btnMonth.className = "btn-press px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 text-slate-900 bg-white shadow-xs font-bold";
+    }
+    if (btnTimeline) {
+      btnTimeline.className = "btn-press px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 text-slate-600 hover:text-slate-900 font-semibold";
+    }
+    monthContainer?.classList.remove("hidden");
+    timelineContainer?.classList.add("hidden");
+    if (hintEl) hintEl.innerHTML = '<span class="hidden sm:inline">Tap any date below to inspect and manage room bookings</span>';
+    renderMonthView();
+  } else {
+    if (btnTimeline) {
+      btnTimeline.className = "btn-press px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 text-slate-900 bg-white shadow-xs font-bold";
+    }
+    if (btnMonth) {
+      btnMonth.className = "btn-press px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 text-slate-600 hover:text-slate-900 font-semibold";
+    }
+    timelineContainer?.classList.remove("hidden");
+    monthContainer?.classList.add("hidden");
+    if (hintEl) hintEl.innerHTML = '<span class="hidden sm:inline">Hover or tap on timeline bars for details</span>';
+    renderTimeline();
+    setTimeout(() => {
+      const today = toLocalISODate(new Date());
+      const todayTh = document.querySelector(`th[data-date="${today}"]`);
+      if (todayTh) todayTh.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+    }, 100);
+  }
+}
+
+function renderActiveView() {
+  if (currentView === "month") {
+    renderMonthView();
+  } else {
+    renderTimeline();
+  }
+}
+
+function renderMonthView() {
+  const year = currentDate.getFullYear();
+  const month = currentDate.getMonth();
+
+  const monthEl = document.getElementById("monthNameText");
+  const yearEl = document.getElementById("yearNameText");
+  if (monthEl) monthEl.textContent = MONTH_NAMES_FULL[month];
+  if (yearEl) yearEl.textContent = year;
+
+  const totalDays = new Date(year, month + 1, 0).getDate();
+  const firstDow = new Date(year, month, 1).getDay();
+  const prevMonthTotalDays = new Date(year, month, 0).getDate();
+  const today = toLocalISODate(new Date());
+
+  const grid = document.getElementById("monthGridCells");
+  if (!grid) return;
+  grid.innerHTML = "";
+
+  const curPrefix = `${year}-${String(month + 1).padStart(2, "0")}`;
+  if (!selectedDate || !selectedDate.startsWith(curPrefix)) {
+    if (today.startsWith(curPrefix)) {
+      selectedDate = today;
+    } else {
+      selectedDate = `${curPrefix}-01`;
+    }
+  }
+
+  // Preceding days from previous month
+  for (let i = firstDow - 1; i >= 0; i--) {
+    const dayNum = prevMonthTotalDays - i;
+    const cell = document.createElement("div");
+    cell.className = "month-day-cell is-other-month";
+    cell.innerHTML = `<span class="day-num text-xs font-semibold text-slate-400">${dayNum}</span>`;
+    grid.appendChild(cell);
+  }
+
+  // Days of current month
+  for (let d = 1; d <= totalDays; d++) {
+    const dateStr = formatDate(year, month, d);
+    const isToday = dateStr === today;
+    const isSelected = dateStr === selectedDate;
+
+    let occCount = 0;
+    let resCount = 0;
+    let maintCount = 0;
+    let blockCount = 0;
+
+    UNIT_TYPES.forEach(ut => {
+      const visRooms = ut.rooms.filter(r => visibleRooms.has(ut.key + "::" + r.room));
+      visRooms.forEach(rm => {
+        if (rm.maintenance) {
+          maintCount++;
+          return;
+        }
+        const b = bookings.find(item => item.unitType === ut.key && item.roomNumber === rm.room && dateStr >= item.startDate && dateStr <= item.endDate);
+        if (b) {
+          if (b.status === "Occupied") occCount++;
+          else resCount++;
+          return;
+        }
+        const blk = blockedDates.find(item => ((item.unitId && rm.unitId && item.unitId === rm.unitId) || (item.unitType === ut.key && item.roomNumber === rm.room)) && dateStr >= item.startDate && dateStr <= item.endDate);
+        if (blk) {
+          if (blk.blockType === "Maintenance") maintCount++;
+          else blockCount++;
+        }
+      });
+    });
+
+    const cell = document.createElement("div");
+    cell.className = `month-day-cell${isToday ? " is-today-cell" : ""}${isSelected ? " is-selected" : ""}`;
+    cell.dataset.date = dateStr;
+
+    let dotsHtml = '<div class="month-day-dots">';
+    if (occCount > 0) dotsHtml += `<span class="status-mini-dot dot-occupied" title="${occCount} Occupied"></span>`;
+    if (resCount > 0) dotsHtml += `<span class="status-mini-dot dot-reserved" title="${resCount} Reserved"></span>`;
+    if (maintCount > 0) dotsHtml += `<span class="status-mini-dot dot-maintenance" title="${maintCount} Maintenance"></span>`;
+    if (blockCount > 0) dotsHtml += `<span class="status-mini-dot dot-unavailable" title="${blockCount} Blocked"></span>`;
+    dotsHtml += '</div>';
+
+    cell.innerHTML = `
+      <span class="day-num text-xs font-semibold text-slate-700">${d}</span>
+      ${dotsHtml}
+    `;
+
+    cell.addEventListener("click", () => selectDate(dateStr));
+    grid.appendChild(cell);
+  }
+
+  // Trailing days padding
+  const totalCellsSoFar = firstDow + totalDays;
+  const remainingCells = (7 - (totalCellsSoFar % 7)) % 7;
+  for (let d = 1; d <= remainingCells; d++) {
+    const cell = document.createElement("div");
+    cell.className = "month-day-cell is-other-month";
+    cell.innerHTML = `<span class="day-num text-xs font-semibold text-slate-400">${d}</span>`;
+    grid.appendChild(cell);
+  }
+
+  renderSelectedDaySchedule(selectedDate);
+}
+
+function selectDate(dateStr) {
+  selectedDate = dateStr;
+  const cells = document.querySelectorAll("#monthGridCells .month-day-cell");
+  cells.forEach(c => {
+    if (c.dataset.date === dateStr) {
+      c.classList.add("is-selected");
+    } else {
+      c.classList.remove("is-selected");
+    }
+  });
+  renderSelectedDaySchedule(dateStr);
+}
+
+function renderSelectedDaySchedule(dateStr) {
+  const titleEl = document.getElementById("selectedDateTitle");
+  const badgeEl = document.getElementById("selectedDateBadge");
+  const summaryEl = document.getElementById("selectedDateSummary");
+  const listEl = document.getElementById("selectedDayRoomList");
+  if (!listEl) return;
+
+  const today = toLocalISODate(new Date());
+  const isToday = dateStr === today;
+  const dObj = new Date(dateStr + "T00:00:00");
+  const dowName = dObj.toLocaleDateString("en-US", { weekday: "long" });
+
+  if (titleEl) titleEl.textContent = formatDisplayDate(dateStr);
+  if (badgeEl) {
+    badgeEl.textContent = isToday ? "Today" : dowName;
+    badgeEl.className = isToday 
+      ? "text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-slate-900 text-white" 
+      : "text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700";
+  }
+
+  listEl.innerHTML = "";
+
+  let totalVisRooms = 0;
+  let occupiedRooms = 0;
+  let reservedRooms = 0;
+  let blockedRooms = 0;
+  let maintRooms = 0;
+
+  UNIT_TYPES.forEach(ut => {
+    const visRooms = ut.rooms.filter(r => visibleRooms.has(ut.key + "::" + r.room));
+    totalVisRooms += visRooms.length;
+
+    visRooms.forEach(rm => {
+      const booking = bookings.find(b => b.unitType === ut.key && b.roomNumber === rm.room && dateStr >= b.startDate && dateStr <= b.endDate);
+      const block = blockedDates.find(b => ((b.unitId && rm.unitId && b.unitId === rm.unitId) || (b.unitType === ut.key && b.roomNumber === rm.room)) && dateStr >= b.startDate && dateStr <= b.endDate);
+
+      const card = document.createElement("div");
+      card.className = "p-3 sm:p-4 rounded-xl border border-slate-200/90 hover:border-slate-300 bg-white transition-all shadow-xs flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3";
+
+      if (rm.maintenance) {
+        maintRooms++;
+        card.className += " bg-amber-50/40 border-amber-200";
+        card.innerHTML = `
+          <div class="flex items-start gap-3">
+            <span class="w-3 h-3 rounded-full dot-maintenance mt-1 shrink-0"></span>
+            <div>
+              <div class="flex items-center gap-2">
+                <span class="font-bold text-slate-900 text-sm">Room ${rm.room}</span>
+                <span class="text-xs text-slate-500 font-medium">(${ut.key})</span>
+                <span class="status-badge badge-maintenance text-[10px]">Maintenance</span>
+              </div>
+              <p class="text-xs text-amber-800 mt-1">This unit is marked under maintenance in the system.</p>
+            </div>
+          </div>
+          <div class="flex items-center justify-end">
+            <span class="text-xs text-slate-400 font-mono">Unavailable</span>
+          </div>
+        `;
+      } else if (booking) {
+        if (booking.status === "Occupied") occupiedRooms++;
+        else reservedRooms++;
+        const badgeClass = STATUS_BADGE[booking.status] || "badge-reserved";
+        const dotClass = booking.status === "Occupied" ? "dot-occupied" : "dot-reserved";
+
+        card.innerHTML = `
+          <div class="flex items-start gap-3">
+            <span class="w-3 h-3 rounded-full ${dotClass} mt-1 shrink-0"></span>
+            <div>
+              <div class="flex flex-wrap items-center gap-2">
+                <span class="font-bold text-slate-900 text-sm">Room ${rm.room}</span>
+                <span class="text-xs text-slate-500 font-medium">(${ut.key})</span>
+                <span class="status-badge ${badgeClass} text-[10px]">${booking.status}</span>
+              </div>
+              <p class="text-xs font-semibold text-slate-800 mt-1 flex items-center gap-2">
+                <span>Guest: ${booking.guestName || "—"}</span>
+                ${booking.phone ? `<span class="text-slate-400 font-normal">· ${booking.phone}</span>` : ""}
+              </p>
+              <p class="text-[11px] text-slate-500 mt-0.5">Stay: ${formatDisplayDate(booking.startDate)} &rarr; ${formatDisplayDate(booking.endDate)}</p>
+            </div>
+          </div>
+          <div class="flex items-center justify-end shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100">
+            <a href="${BASE_URL}/admin/reservations/view?reservation_id=${booking.id}" class="btn-press w-full sm:w-auto px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-semibold inline-flex items-center justify-center gap-1.5 shadow-xs transition-all">
+              <span>View Lease Details</span>
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+            </a>
+          </div>
+        `;
+      } else if (block) {
+        if (block.blockType === "Maintenance") maintRooms++;
+        else blockedRooms++;
+
+        const badgeClass = block.blockType === "Maintenance" ? "badge-maintenance" : "badge-unavailable";
+        const dotClass = block.blockType === "Maintenance" ? "dot-maintenance" : "dot-unavailable";
+        const byRole = block.createdByRole === "unit owner" ? "Unit Owner" : "Admin";
+        const blockJson = JSON.stringify(block).replace(/"/g, '&quot;');
+
+        card.innerHTML = `
+          <div class="flex items-start gap-3">
+            <span class="w-3 h-3 rounded-full ${dotClass} mt-1 shrink-0"></span>
+            <div>
+              <div class="flex flex-wrap items-center gap-2">
+                <span class="font-bold text-slate-900 text-sm">Room ${rm.room}</span>
+                <span class="text-xs text-slate-500 font-medium">(${ut.key})</span>
+                <span class="status-badge ${badgeClass} text-[10px]">${block.blockType}</span>
+              </div>
+              <p class="text-xs text-slate-600 mt-1">Blocked by <strong>${byRole}</strong> &bull; ${formatDisplayDate(block.startDate)} &rarr; ${formatDisplayDate(block.endDate)}</p>
+              ${block.remarks ? `<p class="text-[11px] text-slate-500 italic mt-0.5">"${block.remarks}"</p>` : ""}
+            </div>
+          </div>
+          <div class="flex items-center justify-end shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100">
+            <button type="button" onclick="confirmUnblockDirect(${blockJson})" class="btn-press w-full sm:w-auto px-3.5 py-1.5 border border-red-200 bg-red-50 hover:bg-red-100 text-red-700 rounded-xl text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition-all">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+              <span>Unblock</span>
+            </button>
+          </div>
+        `;
+      } else {
+        card.innerHTML = `
+          <div class="flex items-start gap-3">
+            <span class="w-3 h-3 rounded-full bg-emerald-400 mt-1 shrink-0"></span>
+            <div>
+              <div class="flex items-center gap-2">
+                <span class="font-bold text-slate-900 text-sm">Room ${rm.room}</span>
+                <span class="text-xs text-slate-500 font-medium">(${ut.key})</span>
+                <span class="status-badge text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200">Available</span>
+              </div>
+              <p class="text-xs text-slate-400 mt-0.5">Available for reservation on this date.</p>
+            </div>
+          </div>
+          <div class="flex items-center justify-end shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100">
+            <button type="button" onclick="openBlockDatesModal('${ut.key}', '${rm.room}', '${rm.unitId}', '${dateStr}')" class="btn-press w-full sm:w-auto px-3.5 py-1.5 border border-slate-200 hover:border-slate-400 bg-white hover:bg-slate-50 text-slate-700 hover:text-slate-900 rounded-xl text-xs font-semibold inline-flex items-center justify-center gap-1 shadow-xs transition-all">
+              <svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+              <span>Block Room</span>
+            </button>
+          </div>
+        `;
+      }
+
+      listEl.appendChild(card);
+    });
+  });
+
+  if (totalVisRooms === 0) {
+    listEl.innerHTML = `<p class="text-xs text-slate-400 italic py-4 text-center">No rooms selected in the filter.</p>`;
+    if (summaryEl) summaryEl.textContent = "No rooms matching active filters.";
+  } else {
+    const availCount = totalVisRooms - occupiedRooms - reservedRooms - blockedRooms - maintRooms;
+    if (summaryEl) {
+      summaryEl.textContent = `${totalVisRooms} rooms visible: ${availCount} available, ${occupiedRooms} occupied, ${reservedRooms} reserved, ${blockedRooms + maintRooms} blocked/maintenance.`;
+    }
+  }
+}
+
+function openBlockForSelectedDate() {
+  openBlockDatesModal(null, null, null, selectedDate);
+}
+
+function confirmUnblockDirect(block) {
+  if (!block) return;
+  showConfirmModal(
+    'Unblock Dates',
+    `Are you sure you want to unblock Room ${block.roomNumber} (${formatDisplayDate(block.startDate)} to ${formatDisplayDate(block.endDate)})?`,
+    async () => {
+      const fd = new FormData();
+      fd.append("block_id", block.blockId);
+
+      try {
+        const res = await fetch(`${BASE_URL}/admin/booking-calendar/unblock`, { method: "POST", body: fd });
+        const data = await res.json();
+        if (!data.success) {
+          showToast(`❌ ${data.message || 'Could not unblock dates.'}`);
+          return;
+        }
+        hideQuickView();
+        showToast("✓ Dates successfully unblocked.");
+        await loadCalendarData();
+        buildFilterSidebar();
+        renderActiveView();
+      } catch (err) {
+        console.error(err);
+        showToast("❌ Could not reach the server.");
+      }
+    }
+  );
 }
 
 function renderTimeline() {
@@ -960,13 +1498,14 @@ function toLocalISODate(d) {
 function changeMonth(dir) {
   currentDate.setMonth(currentDate.getMonth() + dir);
   closePickers();
-  renderTimeline();
+  renderActiveView();
 }
 
 function goToday() {
   currentDate = new Date();
+  selectedDate = toLocalISODate(new Date());
   closePickers();
-  renderTimeline();
+  renderActiveView();
 }
 
 let yearPickerBase = Math.floor(new Date().getFullYear() / 12) * 12;
@@ -1059,7 +1598,7 @@ function populateMonthGrid() {
     btn.addEventListener("click", () => {
       currentDate.setMonth(idx);
       closePickers();
-      renderTimeline();
+      renderActiveView();
     });
     grid.appendChild(btn);
   });
@@ -1090,7 +1629,7 @@ function populateYearGrid() {
     btn.addEventListener("click", () => {
       currentDate.setFullYear(y);
       closePickers();
-      renderTimeline();
+      renderActiveView();
     });
     grid.appendChild(btn);
   }
@@ -1199,7 +1738,7 @@ async function handleSaveBlockDates(e) {
 
   try {
     const fd = new FormData(form);
-    const res = await fetch("<?= htmlspecialchars($baseUrl) ?>/admin/booking-calendar/block", { method: "POST", body: fd });
+    const res = await fetch(`${BASE_URL}/admin/booking-calendar/block`, { method: "POST", body: fd });
     const data = await res.json();
 
     if (data.success) {
@@ -1207,7 +1746,7 @@ async function handleSaveBlockDates(e) {
       showToast(data.message || "Dates blocked successfully.");
       await loadCalendarData();
       buildFilterSidebar();
-      renderTimeline();
+      renderActiveView();
     } else {
       errNotice.textContent = data.message || "Failed to block dates.";
       errNotice.classList.remove("hidden");
@@ -1245,14 +1784,19 @@ function showQuickView(booking, e, pin = false) {
   document.getElementById("qv_blockedBody").classList.add("hidden");
 
   const leaseBtn = document.getElementById("qv_viewLeaseBtn");
-  leaseBtn.href = `<?= htmlspecialchars($baseUrl) ?>/admin/reservations/view?reservation_id=${booking.id}`;
+  leaseBtn.href = `${BASE_URL}/admin/reservations/view?reservation_id=${booking.id}`;
   leaseBtn.classList.remove("hidden");
   document.getElementById("qv_unblockBtn").classList.add("hidden");
 
-  const x = Math.min(e.clientX + 14, window.innerWidth  - 330);
-  const y = Math.min(e.clientY + 10, window.innerHeight - 260);
-  qv.style.left = x + "px";
-  qv.style.top  = y + "px";
+  if (window.innerWidth < 768) {
+    qv.style.left = "";
+    qv.style.top = "";
+  } else {
+    const x = Math.min(e.clientX + 14, window.innerWidth  - 330);
+    const y = Math.min(e.clientY + 10, window.innerHeight - 260);
+    qv.style.left = x + "px";
+    qv.style.top  = y + "px";
+  }
   qv.classList.add("visible");
 
   if (pin) {
@@ -1283,10 +1827,15 @@ function showBlockedQuickView(block, e, pin = false) {
   document.getElementById("qv_viewLeaseBtn").classList.add("hidden");
   document.getElementById("qv_unblockBtn").classList.remove("hidden");
 
-  const x = Math.min(e.clientX + 14, window.innerWidth  - 330);
-  const y = Math.min(e.clientY + 10, window.innerHeight - 280);
-  qv.style.left = x + "px";
-  qv.style.top  = y + "px";
+  if (window.innerWidth < 768) {
+    qv.style.left = "";
+    qv.style.top = "";
+  } else {
+    const x = Math.min(e.clientX + 14, window.innerWidth  - 330);
+    const y = Math.min(e.clientY + 10, window.innerHeight - 280);
+    qv.style.left = x + "px";
+    qv.style.top  = y + "px";
+  }
   qv.classList.add("visible");
 
   if (pin) {
@@ -1299,7 +1848,12 @@ function startHideTimer() {
 }
 
 function hideQuickView() {
-  document.getElementById("quickView").classList.remove("visible");
+  const qv = document.getElementById("quickView");
+  if (qv) {
+    qv.classList.remove("visible");
+    qv.style.left = "";
+    qv.style.top = "";
+  }
   currentQuickView = null;
 }
 
@@ -1318,7 +1872,7 @@ async function handleUnblockClick() {
       fd.append("block_id", block.blockId);
 
       try {
-        const res = await fetch("<?= htmlspecialchars($baseUrl) ?>/admin/booking-calendar/unblock", { method: "POST", body: fd });
+        const res = await fetch(`${BASE_URL}/admin/booking-calendar/unblock`, { method: "POST", body: fd });
         const data = await res.json();
         if (!data.success) {
           showToast(`❌ ${data.message || 'Could not unblock dates.'}`);
@@ -1328,7 +1882,7 @@ async function handleUnblockClick() {
         showToast("✓ Dates successfully unblocked.");
         await loadCalendarData();
         buildFilterSidebar();
-        renderTimeline();
+        renderActiveView();
       } catch (err) {
         console.error(err);
         showToast("❌ Could not reach the server.");
@@ -1393,13 +1947,7 @@ function executeCalConfirm() {
   await loadCalendarData();
   buildFilterSidebar();
   populateBlockManualUnits();
-  renderTimeline();
-
-  setTimeout(() => {
-    const today = toLocalISODate(new Date());
-    const todayTh = document.querySelector(`th[data-date="${today}"]`);
-    if (todayTh) todayTh.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
-  }, 200);
+  switchCalendarView(currentView);
 })();
 </script>
 

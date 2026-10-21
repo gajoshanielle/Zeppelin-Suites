@@ -185,13 +185,24 @@ $isInHousePayment = strtolower((string)$paymentMethod) === 'in-house';
 </script>
 <style>
 * { font-family: 'DM Sans', sans-serif; }
-.sidebar { width:256px; background:rgba(255,255,255,0.92); }
+.glass-header { background:#ffffff; }
+.sidebar { width:256px; background:#ffffff; transition: transform 0.3s ease; }
 .sidebar.collapsed { width:68px; }
-@media (max-width:767px) { .sidebar { position:fixed; z-index:50; height:100vh; width:256px !important; } }
+@media (max-width:767px) {
+  .sidebar {
+    position:fixed;
+    z-index:50;
+    height:100vh;
+    width:256px !important;
+    transform: translateX(-100%);
+    box-shadow: 4px 0 24px rgba(0,0,0,0.10);
+  }
+  .sidebar.open { transform: translateX(0); }
+}
 .main-wrapper { margin-left:256px; }
 .main-wrapper.sidebar-collapsed { margin-left:68px; }
 @media (max-width:767px) { .main-wrapper { margin-left:0 !important; } }
-.overlay { display:none; }
+.overlay { display:none; background:rgba(0,0,0,0.35); }
 .overlay.show { display:block; }
 .sidebar.collapsed .nav-label,.sidebar.collapsed .nav-badge,.sidebar.collapsed .notice-section { display:none; }
 .sidebar.collapsed .sidebar-link { justify-content:center; padding-left:0; padding-right:0; }

@@ -332,6 +332,96 @@
   z-index: 9999; white-space: nowrap;
 }
 #rangeToast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* Responsive Month Calendar Grid */
+.month-day-cell {
+  aspect-ratio: 1 / 1;
+  min-height: 48px;
+  max-height: 72px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 2px;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+  position: relative;
+}
+.month-day-cell:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  transform: translateY(-1px);
+}
+.month-day-cell.is-selected {
+  border-color: #0f172a !important;
+  background: #f8fafc !important;
+  box-shadow: 0 0 0 2px #0f172a, 0 4px 12px rgba(15,23,42,0.08) !important;
+}
+.month-day-cell.is-today-cell .day-num {
+  background: #0f172a;
+  color: #ffffff;
+  border-radius: 999px;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+}
+.month-day-cell.is-other-month {
+  opacity: 0.3;
+  background: #f8fafc;
+  border-color: transparent;
+  cursor: default;
+  pointer-events: none;
+}
+.month-day-dots {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  flex-wrap: wrap;
+  max-width: 100%;
+  padding-bottom: 2px;
+}
+.status-mini-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+@media (max-width: 480px) {
+  .month-day-cell {
+    min-height: 42px;
+    padding: 3px 1px;
+    border-radius: 8px;
+  }
+  .status-mini-dot {
+    width: 5px;
+    height: 5px;
+  }
+}
+
+/* Mobile QuickView Modal Adaptations */
+@media (max-width: 767px) {
+  #quickView {
+    left: 50% !important;
+    top: auto !important;
+    bottom: 20px !important;
+    transform: translateX(-50%) translateY(20px) !important;
+    width: calc(100vw - 32px) !important;
+    max-width: 360px !important;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.25), 0 0 0 100vmax rgba(0,0,0,0.3) !important;
+  }
+  #quickView.visible {
+    transform: translateX(-50%) translateY(0) !important;
+  }
+}
 </style>
 </head>
 
@@ -347,13 +437,13 @@
   <!-- Page Content -->
   <div class="main-scroll p-4 md:p-6">
     <!-- Page Title Bar -->
-    <div class="glass-header relative z-30 border border-slate-100/80 px-5 py-4 mb-5 rounded-2xl flex items-center justify-between">
+    <div class="glass-header relative z-30 border border-slate-100/80 p-4 sm:px-5 sm:py-4 mb-5 rounded-2xl flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
       <div>
-        <h1 class="text-xl font-bold text-slate-900 mb-0.5">Booking Calendar</h1>
-        <p class="text-slate-500 text-xs">Click any empty date cell to block dates for maintenance or unavailable. Hover a bar for details.</p>
+        <h1 class="text-xl font-bold text-slate-900">Booking Calendar</h1>
+        <p class="text-xs text-slate-400 mt-0.5">Easily manage reservations and block unit availability.</p>
       </div>
-      <div class="flex items-center gap-2 relative">
-        <button class="btn-press px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-sm font-medium transition-all active:scale-95" onclick="changeMonth(-1)" title="Previous month">
+      <div class="flex flex-wrap items-center gap-2 relative">
+        <button class="btn-press px-2.5 sm:px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-sm font-medium transition-all active:scale-95" onclick="changeMonth(-1)" title="Previous month">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
         </button>
 
@@ -362,13 +452,13 @@
           
           <!-- Month Dropdown Trigger -->
           <div class="relative">
-            <button type="button" id="monthPickerBtn" onclick="toggleMonthPicker(event)" class="btn-press flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-bold text-slate-900 hover:bg-white hover:shadow-xs transition-all" title="Click to change month">
+            <button type="button" id="monthPickerBtn" onclick="toggleMonthPicker(event)" class="btn-press flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs sm:text-sm font-bold text-slate-900 hover:bg-white hover:shadow-xs transition-all" title="Click to change month">
               <span id="monthNameText">Month</span>
               <svg class="w-3.5 h-3.5 text-slate-400 transition-transform duration-200" id="monthChevron" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
             </button>
 
             <!-- Month Popup -->
-            <div id="monthPickerPopup" onclick="event.stopPropagation()" class="hidden absolute left-0 top-full mt-2 w-64 bg-white rounded-2xl shadow-2xl border border-slate-200/90 p-3.5 z-50 transform origin-top-left transition-all">
+            <div id="monthPickerPopup" onclick="event.stopPropagation()" class="hidden absolute left-0 top-full mt-2 w-64 max-w-[calc(100vw-32px)] bg-white rounded-2xl shadow-2xl border border-slate-200/90 p-3.5 z-50 transform origin-top-left transition-all">
               <div class="flex items-center justify-between pb-2.5 mb-2.5 border-b border-slate-100">
                 <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Select Month</span>
                 <span id="popupCurrentYear" class="text-xs font-bold text-slate-700 font-mono"></span>
@@ -381,13 +471,13 @@
 
           <!-- Year Dropdown Trigger -->
           <div class="relative">
-            <button type="button" id="yearPickerBtn" onclick="toggleYearPicker(event)" class="btn-press flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-bold text-slate-900 font-mono hover:bg-white hover:shadow-xs transition-all" title="Click to change year">
+            <button type="button" id="yearPickerBtn" onclick="toggleYearPicker(event)" class="btn-press flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs sm:text-sm font-bold text-slate-900 font-mono hover:bg-white hover:shadow-xs transition-all" title="Click to change year">
               <span id="yearNameText">Year</span>
               <svg class="w-3.5 h-3.5 text-slate-400 transition-transform duration-200" id="yearChevron" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
             </button>
 
             <!-- Year Popup -->
-            <div id="yearPickerPopup" onclick="event.stopPropagation()" class="hidden absolute left-0 sm:left-auto sm:right-0 top-full mt-2 w-72 bg-white rounded-2xl shadow-2xl border border-slate-200/90 p-3.5 z-50 transform origin-top-right transition-all">
+            <div id="yearPickerPopup" onclick="event.stopPropagation()" class="hidden absolute left-0 sm:left-auto sm:right-0 top-full mt-2 w-72 max-w-[calc(100vw-32px)] bg-white rounded-2xl shadow-2xl border border-slate-200/90 p-3.5 z-50 transform origin-top-right transition-all">
               <div class="flex items-center justify-between pb-2.5 mb-2.5 border-b border-slate-100">
                 <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Select Year</span>
                 <div class="flex items-center gap-1">
@@ -406,11 +496,11 @@
 
         </div>
 
-        <button class="btn-press px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-sm font-medium transition-all active:scale-95" onclick="changeMonth(1)" title="Next month">
+        <button class="btn-press px-2.5 sm:px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-sm font-medium transition-all active:scale-95" onclick="changeMonth(1)" title="Next month">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
         </button>
-        <button class="btn-press px-3 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-sm font-medium transition-all active:scale-95" onclick="goToday()">Today</button>
-        <button class="btn-press px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs sm:text-sm font-medium transition-all active:scale-95 flex items-center gap-1.5" onclick="openBlockDatesModalManual()">
+        <button class="btn-press px-3 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs sm:text-sm font-medium transition-all active:scale-95" onclick="goToday()">Today</button>
+        <button class="btn-press px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs sm:text-sm font-medium transition-all active:scale-95 flex items-center gap-1.5 shadow-xs" onclick="openBlockDatesModalManual()">
           <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/></svg>
           <span>+ Block Dates</span>
         </button>
@@ -418,48 +508,128 @@
     </div>
 
     <!-- Layout: Filters + Timeline -->
-    <div class="flex gap-4 items-start relative z-10">
+    <div class="flex flex-col lg:flex-row gap-4 items-stretch lg:items-start relative z-10">
 
-      <!-- FILTERS SIDEBAR -->
-      <aside class="shrink-0 w-64 bg-white border border-slate-100/80 rounded-2xl p-4 shadow-lg sticky top-0">
-        <div class="mb-5">
-          <div class="mb-3">
+      <!-- ── FILTERS SIDEBAR (Collapsible on mobile) ── -->
+      <aside class="w-full lg:w-64 shrink-0 bg-white border border-slate-100/80 rounded-2xl p-4 shadow-lg sticky top-0 lg:self-start">
+        <div class="flex items-center justify-between cursor-pointer lg:cursor-default" onclick="toggleFilterSidebarMobile()">
+          <div class="flex items-center gap-2">
             <h2 class="text-sm font-bold text-slate-900 uppercase tracking-wider">My Units</h2>
+            <span id="activeFilterBadge" class="lg:hidden text-[11px] font-mono font-bold bg-slate-100 text-slate-700 px-2 py-0.5 rounded-full">All</span>
           </div>
-          <div class="space-y-1.5" id="unitTypeFilters"></div>
+          <button type="button" class="lg:hidden p-1.5 rounded-lg hover:bg-slate-100 text-slate-500 transition-colors" title="Toggle Filters">
+            <svg id="filterChevronIcon" class="w-4 h-4 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+          </button>
         </div>
 
-        <div class="mb-2">
-          <h2 class="text-sm font-bold text-slate-900 uppercase tracking-wider mb-3">Legend</h2>
-          <div class="space-y-1.5">
-            <div class="flex items-center gap-2.5 py-1.5 px-2.5 bg-slate-50 rounded-xl">
-              <span class="w-3 h-3 rounded-full dot-occupied shrink-0"></span>
-              <span class="text-xs font-semibold text-slate-700">Occupied</span>
+        <div id="filterCollapsibleContent" class="hidden lg:block mt-3 lg:mt-3">
+          <!-- Unit Types Filter Buttons -->
+          <div class="mb-5">
+            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-1 gap-1.5" id="unitTypeFilters">
+              <!-- Injected by JS -->
             </div>
-            <div class="flex items-center gap-2.5 py-1.5 px-2.5 bg-slate-50 rounded-xl">
-              <span class="w-3 h-3 rounded-full dot-reserved shrink-0"></span>
-              <span class="text-xs font-semibold text-slate-700">Reserved</span>
-            </div>
-            <div class="flex items-center gap-2.5 py-1.5 px-2.5 bg-slate-50 rounded-xl">
-              <span class="w-3 h-3 rounded-full dot-maintenance shrink-0"></span>
-              <span class="text-xs font-semibold text-slate-700">Maintenance</span>
-            </div>
-            <div class="flex items-center gap-2.5 py-1.5 px-2.5 bg-slate-50 rounded-xl">
-              <span class="w-3 h-3 rounded-full dot-unavailable shrink-0"></span>
-              <span class="text-xs font-semibold text-slate-700">Not Available</span>
+          </div>
+
+          <!-- Legend -->
+          <div class="mb-2">
+            <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2.5">Legend</h2>
+            <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-1 gap-1.5">
+              <div class="flex items-center gap-2 py-1.5 px-2 bg-slate-50 rounded-xl">
+                <span class="w-2.5 h-2.5 rounded-full dot-occupied shrink-0"></span>
+                <span class="text-xs font-semibold text-slate-700">Occupied</span>
+              </div>
+              <div class="flex items-center gap-2 py-1.5 px-2 bg-slate-50 rounded-xl">
+                <span class="w-2.5 h-2.5 rounded-full dot-reserved shrink-0"></span>
+                <span class="text-xs font-semibold text-slate-700">Reserved</span>
+              </div>
+              <div class="flex items-center gap-2 py-1.5 px-2 bg-slate-50 rounded-xl">
+                <span class="w-2.5 h-2.5 rounded-full dot-maintenance shrink-0"></span>
+                <span class="text-xs font-semibold text-slate-700">Maintenance</span>
+              </div>
+              <div class="flex items-center gap-2 py-1.5 px-2 bg-slate-50 rounded-xl">
+                <span class="w-2.5 h-2.5 rounded-full dot-unavailable shrink-0"></span>
+                <span class="text-xs font-semibold text-slate-700">Not Available</span>
+              </div>
             </div>
           </div>
         </div>
       </aside>
 
-      <!-- TIMELINE CALENDAR -->
-      <div class="flex-1 bg-white border border-slate-100/80 rounded-2xl shadow-lg overflow-hidden">
-        <div class="timeline-wrapper" id="timelineWrapper">
-          <table class="timeline-table" id="timelineTable">
-            <thead id="timelineHead"></thead>
-            <tbody id="timelineBody"></tbody>
-          </table>
+      <!-- ── CALENDAR VIEW CONTAINER (Supports Month & Timeline View) ── -->
+      <div class="flex-1 bg-white border border-slate-100/80 rounded-2xl shadow-lg overflow-hidden flex flex-col min-w-0">
+        
+        <!-- View Switcher & Title bar for calendar content -->
+        <div class="px-4 py-3 border-b border-slate-100 flex flex-wrap items-center justify-between gap-2.5 bg-slate-50/60">
+          <!-- View Switcher Tabs -->
+          <div class="inline-flex p-1 bg-slate-200/80 rounded-xl text-xs font-semibold" id="viewSwitcher">
+            <button type="button" id="btnViewMonth" onclick="switchCalendarView('month')" class="btn-press px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 text-slate-900 bg-white shadow-xs font-bold">
+              <svg class="w-3.5 h-3.5 text-slate-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+              <span>Month View</span>
+            </button>
+            <button type="button" id="btnViewTimeline" onclick="switchCalendarView('timeline')" class="btn-press px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 text-slate-600 hover:text-slate-900 font-semibold">
+              <svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg>
+              <span>Timeline View</span>
+            </button>
+          </div>
+
+          <div class="text-xs text-slate-500 font-medium" id="viewModeHint">
+            <span class="hidden sm:inline">Tap any date below to inspect and manage room bookings</span>
+          </div>
         </div>
+
+        <!-- 1. MONTH CALENDAR CONTAINER (100% width, no horizontal scroll, fits all mobile screens) -->
+        <div id="monthViewContainer" class="p-3 sm:p-5 flex flex-col gap-4">
+          <!-- 7-Column Month Calendar Grid -->
+          <div class="bg-slate-50/70 border border-slate-200/70 rounded-2xl p-2.5 sm:p-4">
+            <!-- Day-of-week headers -->
+            <div class="grid grid-cols-7 gap-1 mb-1.5 text-center text-[10px] sm:text-xs font-bold text-slate-500 uppercase tracking-wider">
+              <span class="py-1 text-rose-500">Sun</span>
+              <span class="py-1">Mon</span>
+              <span class="py-1">Tue</span>
+              <span class="py-1">Wed</span>
+              <span class="py-1">Thu</span>
+              <span class="py-1">Fri</span>
+              <span class="py-1 text-rose-500">Sat</span>
+            </div>
+            <!-- Days Cells Grid (fits 100% width, no horizontal scroll) -->
+            <div class="grid grid-cols-7 gap-1 sm:gap-1.5" id="monthGridCells">
+              <!-- Injected by renderMonthView() -->
+            </div>
+          </div>
+
+          <!-- Selected Day Detail Schedule Panel -->
+          <div id="selectedDayPanel" class="bg-white border border-slate-200/80 rounded-2xl p-4 sm:p-5 shadow-xs flex flex-col gap-3">
+            <div class="flex flex-wrap items-center justify-between gap-2.5 pb-3 border-b border-slate-100">
+              <div>
+                <div class="flex items-center gap-2">
+                  <h3 class="text-base sm:text-lg font-bold text-slate-900" id="selectedDateTitle">Date Schedule</h3>
+                  <span id="selectedDateBadge" class="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-slate-900 text-white"></span>
+                </div>
+                <p class="text-xs text-slate-400 mt-0.5" id="selectedDateSummary">Loading room status...</p>
+              </div>
+              <button type="button" onclick="openBlockForSelectedDate()" class="btn-press px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all shadow-xs">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                <span>+ Block This Date</span>
+              </button>
+            </div>
+
+            <!-- Room Cards Container -->
+            <div class="space-y-2.5" id="selectedDayRoomList">
+              <!-- Injected by renderSelectedDaySchedule() -->
+            </div>
+          </div>
+        </div>
+
+        <!-- 2. TIMELINE CALENDAR CONTAINER (Matrix table with smooth horizontal scroll) -->
+        <div id="timelineViewContainer" class="hidden flex-1 overflow-hidden">
+          <div class="timeline-wrapper" id="timelineWrapper">
+            <table class="timeline-table" id="timelineTable">
+              <thead id="timelineHead"></thead>
+              <tbody id="timelineBody"></tbody>
+            </table>
+          </div>
+        </div>
+
       </div>
 
     </div>

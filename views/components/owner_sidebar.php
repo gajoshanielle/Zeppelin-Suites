@@ -134,11 +134,20 @@ function toggleCollapse() {
   if (sb) sb.classList.toggle('collapsed', window.sidebarCollapsed);
   if (mw) mw.classList.toggle('sidebar-collapsed', window.sidebarCollapsed);
 }
-function openMobileSidebar() {
+function toggleMobileSidebar() {
   var sb = document.getElementById('sidebar');
   var ov = document.getElementById('overlay');
-  if (sb) sb.classList.add('open');
-  if (ov) ov.classList.add('show');
+  if (!sb) return;
+  if (sb.classList.contains('open')) {
+    sb.classList.remove('open');
+    if (ov) ov.classList.remove('show');
+  } else {
+    sb.classList.add('open');
+    if (ov) ov.classList.add('show');
+  }
+}
+function openMobileSidebar() {
+  toggleMobileSidebar();
 }
 function closeMobileSidebar() {
   var sb = document.getElementById('sidebar');

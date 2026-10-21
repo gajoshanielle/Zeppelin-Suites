@@ -11,7 +11,8 @@ if (!function_exists('e')) {
     }
 }
 
-$baseUrl = rtrim((string) env('APP_URL', '/Zeppelin-Suites'), '/');
+$baseUrl = $baseUrl ?? rtrim((string) env('APP_URL', '/Zeppelin-Suites'), '/');
+$activeTab = $activeTab ?? 'logs';
 $initials = strtoupper(substr((string) ($userSession['full_name'] ?? 'Admin'), 0, 1));
 $csrfToken = Csrf::token();
 ?>
@@ -58,7 +59,11 @@ $csrfToken = Csrf::token();
     .sidebar.collapsed .nav-label, .sidebar.collapsed .nav-badge, .sidebar.collapsed .notice-section { display: none; }
     .sidebar.collapsed .sidebar-link { justify-content: center; padding-left: 0; padding-right: 0; }
     .sidebar.collapsed .collapse-icon { transform: rotate(180deg); }
+    .collapse-icon { transition: transform 0.3s ease; }
     .sidebar.collapsed .sidebar-link:hover::after { content: attr(data-tooltip); position: absolute; left: calc(100% + 10px); top: 50%; transform: translateY(-50%); background: #0f172a; color: #fff; font-size: 12px; padding: 5px 10px; border-radius: 8px; white-space: nowrap; z-index: 999; box-shadow: 0 4px 16px rgba(0,0,0,0.18); pointer-events: none; }
+    .btn-press { transition: all 0.15s ease; }
+    .btn-press:active { transform: scale(0.95); }
+    .glass-header { background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); }
     .stat-card { transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease; }
     .stat-card:hover { transform: translateY(-2px); box-shadow: 0 12px 24px -8px rgba(0,0,0,0.08); }
     ::-webkit-scrollbar { width: 5px; height: 5px; }
@@ -581,25 +586,7 @@ function closeClearModal() {
   const modal = document.getElementById('clearLogModal');
   if (!modal) return;
   modal.classList.remove('open');
-  setTimeout(() => modal.classList.add('hidden'), 200);
 }
-
-// Mobile sidebar controls
-function openMobileSidebar() {
-  document.getElementById('sidebar')?.classList.add('open');
-  document.getElementById('overlay')?.classList.add('show');
-}
-function closeMobileSidebar() {
-  document.getElementById('sidebar')?.classList.remove('open');
-  document.getElementById('overlay')?.classList.remove('show');
-}
-function toggleProfile(e) {
-  e.stopPropagation();
-  document.getElementById('profileDropdown')?.classList.toggle('hidden');
-}
-document.addEventListener('click', () => {
-  document.getElementById('profileDropdown')?.classList.add('hidden');
-});
 </script>
 
 </body>

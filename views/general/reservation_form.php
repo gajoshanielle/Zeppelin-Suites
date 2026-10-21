@@ -243,9 +243,8 @@ $signing_min = !$is_lease ? date('Y-m-d', strtotime('+3 days')) : date('Y-m-d');
 
     <div class="grid grid-cols-1 lg:grid-cols-[minmax(0,720px)_360px] gap-9 items-start">
 
-      <!-- LEFT CONTENT: STATUS BANNER & FORM CARD -->
-      <div class="space-y-8">
-
+      <!-- STATUS BANNER WRAPPER -->
+      <div class="lg:col-start-1 lg:row-start-1">
         <!-- STATUS BANNER -->
         <div
           class="status-banner rounded-xl border border-amber-200 bg-amber-50/80 shadow-sm px-5 sm:px-7 py-4 sm:py-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 sm:gap-5"
@@ -300,9 +299,145 @@ $signing_min = !$is_lease ? date('Y-m-d', strtotime('+3 days')) : date('Y-m-d');
             </p>
           </div>
         </div>
+      </div><!-- /status banner wrapper -->
 
-        <!-- FORM CARD: REDESIGNED FILLOUT FORM -->
-        <div class="bg-white rounded-xl border border-slate-200 shadow-soft overflow-hidden" id="formCard">
+      <!-- RIGHT SIDEBAR: On smaller screens, placed on top of form card so guidelines are read before submitting -->
+      <aside class="lg:col-start-2 lg:row-start-1 lg:row-end-3 space-y-6 lg:sticky lg:top-6">
+
+        <div class="bg-white rounded-xl border border-slate-200 shadow-soft p-7">
+          <div class="flex items-center gap-3 mb-6">
+            <div class="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-900">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M9 5h6M9 3h6a2 2 0 012 2v1h1a2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V8a2 2 0 012-2h1V5a2 2 0 012-2z" />
+              </svg>
+            </div>
+            <h3 class="text-xl font-bold uppercase tracking-wide text-slate-900">Reservation Guidelines</h3>
+          </div>
+
+          <p class="text-base leading-8 text-slate-800 mb-6">
+            A condominium unit may be reserved for thirty days by presenting a Reservation Fee per unit, and the
+            following documents:
+          </p>
+
+          <div class="space-y-5 mb-7">
+            <div class="flex gap-4 items-start">
+              <div class="w-14 h-14 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 shrink-0">
+                <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M10 6H5a2 2 0 00-2 2v8a2 2 0 002 2h5m4-12h5a2 2 0 012 2v8a2 2 0 01-2 2h-5M8 11h2m-2 4h2m5-4h1m-1 4h1" />
+                </svg>
+              </div>
+              <div>
+                <p class="font-bold text-slate-900">Photocopy of two (2) valid IDs</p>
+                <p class="text-sm text-slate-600 mt-1">i.e. passport, driver's license</p>
+              </div>
+            </div>
+
+            <div class="flex gap-4 items-start">
+              <div class="w-14 h-14 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 shrink-0">
+                <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 3h7l5 5v13H7V3z" />
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 3v6h5M10 14h6M10 18h6" />
+                </svg>
+              </div>
+              <div>
+                <p class="font-bold text-slate-900">Tax Identification Number</p>
+                <p class="text-sm text-slate-600 mt-1">(TIN)</p>
+              </div>
+            </div>
+
+            <div class="flex gap-4 items-start">
+              <div class="w-14 h-14 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 shrink-0">
+                <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L9.75 16.902 6 18l1.098-3.75L18.55 2.799" />
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M19 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h6" />
+                </svg>
+              </div>
+              <div>
+                <p class="font-bold text-slate-900">Reservation Agreement</p>
+                <p class="text-sm text-slate-600 mt-1">signed by buyer / tenant</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="rounded-xl border border-blue-200 bg-blue-50/80 p-5">
+            <div class="flex items-center gap-3 mb-4">
+              <div
+                class="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-sm">i
+              </div>
+              <p class="text-blue-700 font-bold uppercase tracking-wide">Important</p>
+            </div>
+            <p class="text-sm leading-7 text-slate-800">
+              Please submit the fee and the specified documents within <span class="font-bold">thirty (30) days</span>;
+              otherwise your reservation may be cancelled and the fee may be forfeited.
+            </p>
+            <p class="text-sm leading-7 text-slate-800 mt-4">
+              For assistance and clarification, please contact our Sales Department.
+            </p>
+          </div>
+
+          <div class="rounded-xl border border-blue-200 bg-blue-50/80 p-5 mt-5">
+            <div class="flex items-center gap-3 mb-3">
+              <div
+                class="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-sm">!
+              </div>
+              <p class="text-blue-700 font-bold uppercase tracking-wide">Please Note</p>
+            </div>
+            <p class="text-sm leading-relaxed text-slate-800">
+              Submitting this form reserves your unit. We will notify you when your agreement is ready to sign.
+              Afterwards, meet with the owner or representative to submit your signed agreement and valid IDs.
+            </p>
+          </div>
+        </div>
+
+        <!-- Need Help Card (Desktop: displayed in sidebar) -->
+        <div class="hidden lg:block bg-white rounded-xl border border-slate-200 shadow-soft p-7">
+          <div class="flex items-center gap-3 mb-4">
+            <div class="w-8 h-8 rounded-full bg-slate-900 text-white flex items-center justify-center">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M8.228 9c.549-1.165 1.91-2 3.522-2 2.071 0 3.75 1.343 3.75 3 0 1.318-1.06 2.438-2.534 2.84-.815.222-1.216.81-1.216 1.41V15m0 4h.01" />
+              </svg>
+            </div>
+            <h3 class="text-lg font-bold uppercase tracking-wide">Need Help?</h3>
+          </div>
+
+          <p class="text-sm text-slate-600 mb-5 ml-11">Our Sales Team is here to assist you.</p>
+
+          <div class="space-y-4 text-sm text-slate-800">
+            <div class="flex items-center gap-4">
+              <svg class="w-5 h-5 text-slate-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M3 5a2 2 0 012-2h2l2 5-2 1c1 2 3 4 5 5l1-2 5 2v2a2 2 0 01-2 2h-1C8.373 18 3 12.627 3 6V5z" />
+              </svg>
+              <span>+63 917 123 4567</span>
+            </div>
+
+            <div class="flex items-center gap-4">
+              <svg class="w-5 h-5 text-slate-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M3 8l9 6 9-6M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+              </svg>
+              <span>sales@zeppelinsuites.com</span>
+            </div>
+
+            <div class="flex items-center gap-4">
+              <svg class="w-5 h-5 text-slate-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M12 8v4l3 2m6-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span>Mon – Sat&nbsp;&nbsp; | &nbsp;&nbsp;9:00 AM – 6:00 PM</span>
+            </div>
+          </div>
+        </div>
+
+      </aside>
+
+      <!-- FORM CARD -->
+      <div class="lg:col-start-1 lg:row-start-2 bg-white rounded-xl border border-slate-200 shadow-soft overflow-hidden" id="formCard">
 
           <!-- Form Card Header -->
           <div class="form-card-header px-7 py-6 text-white">
@@ -431,12 +566,14 @@ $signing_min = !$is_lease ? date('Y-m-d', strtotime('+3 days')) : date('Y-m-d');
                 </div>
 
                 <!-- Active Lease Period indicator -->
-                <div class="mt-3.5 pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between text-xs gap-2">
+                <div
+                  class="mt-3.5 pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between text-xs gap-2">
                   <span class="text-slate-500 font-medium flex items-center gap-1.5">
                     <span class="w-2 h-2 rounded-full bg-amber-400 inline-block"></span>
                     Existing Active Lease:
                   </span>
-                  <span class="font-bold text-slate-900 font-mono" id="dispUnitLeasePeriod"><?= htmlspecialchars($selectedUnitData['current_lease_period'] ?? 'No active lease') ?></span>
+                  <span class="font-bold text-slate-900 font-mono"
+                    id="dispUnitLeasePeriod"><?= htmlspecialchars($selectedUnitData['current_lease_period'] ?? 'No active lease') ?></span>
                 </div>
               </div>
 
@@ -551,13 +688,15 @@ $signing_min = !$is_lease ? date('Y-m-d', strtotime('+3 days')) : date('Y-m-d');
                       <input type="date" id="moveInDate" name="move_in_date" min="<?= $move_in_min ?>"
                         max="<?= $move_in_max ?>" required
                         class="w-full px-3.5 py-2 bg-white border border-slate-200 rounded-lg text-xs text-slate-800 focus:outline-none focus:border-slate-900"
-                        oninput="handleMoveInChange(this.value)"
-                        onchange="handleMoveInChange(this.value)">
-                      <p class="text-[11px] font-semibold text-emerald-700 mt-1.5 flex items-center gap-1.5" id="dispEarliestMoveInWrap">
+                        oninput="handleMoveInChange(this.value)" onchange="handleMoveInChange(this.value)">
+                      <p class="text-[11px] font-semibold text-emerald-700 mt-1.5 flex items-center gap-1.5"
+                        id="dispEarliestMoveInWrap">
                         <span class="w-2 h-2 rounded-full bg-emerald-500 inline-block shrink-0"></span>
-                        Earliest available move-in: <span class="font-bold font-mono" id="dispEarliestMoveInDate"><?= htmlspecialchars($move_in_min_formatted) ?></span>
+                        Earliest available move-in: <span class="font-bold font-mono"
+                          id="dispEarliestMoveInDate"><?= htmlspecialchars($move_in_min_formatted) ?></span>
                       </p>
-                      <p class="text-[10px] text-slate-400 mt-0.5">Requires building admin clearance and prior tenant turnover.</p>
+                      <p class="text-[10px] text-slate-400 mt-0.5">Requires building admin clearance and prior tenant
+                        turnover.</p>
                     </div>
                     <div>
                       <label class="block text-xs font-semibold text-slate-600 mb-1">Move-out Date</label>
@@ -566,12 +705,16 @@ $signing_min = !$is_lease ? date('Y-m-d', strtotime('+3 days')) : date('Y-m-d');
                         class="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-600 font-mono focus:outline-none">
                     </div>
 
-                    <div id="dateConflictAlert" class="hidden sm:col-span-2 p-3 bg-red-50 border border-red-200 rounded-lg text-xs text-red-700 flex items-start gap-2.5">
-                      <svg class="w-4 h-4 text-red-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                    <div id="dateConflictAlert"
+                      class="hidden sm:col-span-2 p-3 bg-red-50 border border-red-200 rounded-lg text-xs text-red-700 flex items-start gap-2.5">
+                      <svg class="w-4 h-4 text-red-500 shrink-0 mt-0.5" fill="none" stroke="currentColor"
+                        viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                       </svg>
                       <div>
-                        <p class="font-bold text-red-800" id="dateConflictTitle">Dates Conflict With Existing Reservation</p>
+                        <p class="font-bold text-red-800" id="dateConflictTitle">Dates Conflict With Existing Reservation
+                        </p>
                         <p class="text-[11px] text-red-600 mt-0.5 font-medium" id="dateConflictMessage"></p>
                       </div>
                     </div>
@@ -594,7 +737,8 @@ $signing_min = !$is_lease ? date('Y-m-d', strtotime('+3 days')) : date('Y-m-d');
                         </svg>
                         <h3 class="font-bold text-slate-900 text-sm uppercase tracking-wide">RESERVATION FEE</h3>
                       </div>
-                      <p class="text-xs text-slate-500 mt-1">Please note that the reservation fee will be added to your downpayment.</p>
+                      <p class="text-xs text-slate-500 mt-1">Please note that the reservation fee will be added to your
+                        downpayment.</p>
                     </div>
 
                     <!-- Payment Options Tabs -->
@@ -723,8 +867,8 @@ $signing_min = !$is_lease ? date('Y-m-d', strtotime('+3 days')) : date('Y-m-d');
                     </div>
                     <div>
                       <p class="text-[10px] text-slate-500 mb-0.5">Required Amount</p>
-                      <p class="text-base font-bold text-slate-900 font-mono"
-                        id="dpAmount">₱<?= number_format($price_basis * 0.35, 2) ?></p>
+                      <p class="text-base font-bold text-slate-900 font-mono" id="dpAmount">
+                        ₱<?= number_format($price_basis * 0.35, 2) ?></p>
                     </div>
                   </div>
 
@@ -894,102 +1038,9 @@ $signing_min = !$is_lease ? date('Y-m-d', strtotime('+3 days')) : date('Y-m-d');
           </div>
 
         </div><!-- /form card -->
-      </div><!-- /left content -->
 
-      <!-- 2. RIGHT SIDEBAR -->
-      <aside class="space-y-6 lg:sticky lg:top-6">
-
-        <div class="bg-white rounded-xl border border-slate-200 shadow-soft p-7">
-          <div class="flex items-center gap-3 mb-6">
-            <div class="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-900">
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                  d="M9 5h6M9 3h6a2 2 0 012 2v1h1a2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V8a2 2 0 012-2h1V5a2 2 0 012-2z" />
-              </svg>
-            </div>
-            <h3 class="text-xl font-bold uppercase tracking-wide text-slate-900">Reservation Guidelines</h3>
-          </div>
-
-          <p class="text-base leading-8 text-slate-800 mb-6">
-            A condominium unit may be reserved for thirty days by presenting a Reservation Fee per unit, and the
-            following documents:
-          </p>
-
-          <div class="space-y-5 mb-7">
-            <div class="flex gap-4 items-start">
-              <div class="w-14 h-14 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 shrink-0">
-                <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                    d="M10 6H5a2 2 0 00-2 2v8a2 2 0 002 2h5m4-12h5a2 2 0 012 2v8a2 2 0 01-2 2h-5M8 11h2m-2 4h2m5-4h1m-1 4h1" />
-                </svg>
-              </div>
-              <div>
-                <p class="font-bold text-slate-900">Photocopy of two (2) valid IDs</p>
-                <p class="text-sm text-slate-600 mt-1">i.e. passport, driver's license</p>
-              </div>
-            </div>
-
-            <div class="flex gap-4 items-start">
-              <div class="w-14 h-14 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 shrink-0">
-                <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 3h7l5 5v13H7V3z" />
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 3v6h5M10 14h6M10 18h6" />
-                </svg>
-              </div>
-              <div>
-                <p class="font-bold text-slate-900">Tax Identification Number</p>
-                <p class="text-sm text-slate-600 mt-1">(TIN)</p>
-              </div>
-            </div>
-
-            <div class="flex gap-4 items-start">
-              <div class="w-14 h-14 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 shrink-0">
-                <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                    d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L9.75 16.902 6 18l1.098-3.75L18.55 2.799" />
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                    d="M19 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h6" />
-                </svg>
-              </div>
-              <div>
-                <p class="font-bold text-slate-900">Reservation Agreement</p>
-                <p class="text-sm text-slate-600 mt-1">signed by buyer / tenant</p>
-              </div>
-            </div>
-          </div>
-
-          <div class="rounded-xl border border-blue-200 bg-blue-50/80 p-5">
-            <div class="flex items-center gap-3 mb-4">
-              <div
-                class="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-sm">i
-              </div>
-              <p class="text-blue-700 font-bold uppercase tracking-wide">Important</p>
-            </div>
-            <p class="text-sm leading-7 text-slate-800">
-              Please submit the fee and the specified documents within <span class="font-bold">thirty (30) days</span>;
-              otherwise your reservation may be cancelled and the fee may be forfeited.
-            </p>
-            <p class="text-sm leading-7 text-slate-800 mt-4">
-              For assistance and clarification, please contact our Sales Department.
-            </p>
-          </div>
-
-          <div class="rounded-xl border border-blue-200 bg-blue-50/80 p-5 mt-5">
-            <div class="flex items-center gap-3 mb-3">
-              <div
-                class="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-sm">!
-              </div>
-              <p class="text-blue-700 font-bold uppercase tracking-wide">Please Note</p>
-            </div>
-            <p class="text-sm leading-relaxed text-slate-800">
-              Submitting this form reserves your unit. We will notify you when your agreement is ready to sign.
-              Afterwards, meet with the owner or representative to submit your signed agreement and valid IDs.
-            </p>
-          </div>
-        </div>
-
-        <!-- Need Help Card -->
-        <div class="bg-white rounded-xl border border-slate-200 shadow-soft p-7">
+        <!-- Need Help Card (Mobile only: displayed under form card) -->
+        <div class="block lg:hidden bg-white rounded-xl border border-slate-200 shadow-soft p-7">
           <div class="flex items-center gap-3 mb-4">
             <div class="w-8 h-8 rounded-full bg-slate-900 text-white flex items-center justify-center">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1028,8 +1079,7 @@ $signing_min = !$is_lease ? date('Y-m-d', strtotime('+3 days')) : date('Y-m-d');
             </div>
           </div>
         </div>
-
-      </aside>
+      
     </div>
   </main>
 
