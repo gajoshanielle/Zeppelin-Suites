@@ -69,14 +69,18 @@ if (!empty($res['payment_proof'])) {
     $proofRaw = trim((string) $res['payment_proof']);
     $proofUrl = (str_starts_with($proofRaw, 'http://') || str_starts_with($proofRaw, 'https://'))
         ? $proofRaw
-        : '../' . ltrim($proofRaw, '/');
+        : $baseUrl . '/' . ltrim($proofRaw, '/');
 }
 
-$cancellationRequestedBy = 'Unit Owner';
-if (($res['cancellation_requested_by_role'] ?? '') === 'client') {
-    $cancellationRequestedBy = 'Client';
-} elseif (!empty($res['cancellation_requested_by_name'])) {
-    $cancellationRequestedBy = $res['cancellation_requested_by_name'];
+$cancellationRole = strtolower(trim((string)($res['cancellation_requested_by_role'] ?? '')));
+$hasOwnerRequester = !empty($res['cancellation_requested_by']);
+
+if ($cancellationRole === 'client' || !$hasOwnerRequester) {
+    $clientName = trim((string)($res['client_name'] ?? ''));
+    $cancellationRequestedBy = $clientName !== '' ? "Client ({$clientName})" : "Client";
+} else {
+    $ownerName = trim((string)($res['cancellation_requested_by_name'] ?? $res['owner_name'] ?? ''));
+    $cancellationRequestedBy = $ownerName !== '' ? "Unit Owner ({$ownerName})" : "Unit Owner";
 }
 
 $paymentStatusLower = strtolower($res['payment_status'] ?? 'pending review');
@@ -264,7 +268,7 @@ $isInHousePayment = strtolower((string)$paymentMethod) === 'in-house';
                   $displayResStatus = 'Reserved';
                   $resBadgeClass = 'bg-emerald-100 text-emerald-700';
                   $dotClass = 'bg-emerald-500';
-              } elseif ($pStatus === 'verified' || in_array($rStatus, ['pending', 'requirements pending', 'in progress', 'under review', 'pending review'], true)) {
+              } elseif ($pStatus === 'verified' || in_array($rStatus, ['pending', 'requirements pending', 'in progress', 'under review', 'pending review', 'submitted', 'reservation form pending'], true)) {
                   $displayResStatus = 'Pending';
                   $resBadgeClass = 'bg-amber-100 text-amber-700';
                   $dotClass = 'bg-amber-500';
@@ -273,7 +277,7 @@ $isInHousePayment = strtolower((string)$paymentMethod) === 'in-house';
                   $resBadgeClass = 'bg-red-100 text-red-700';
                   $dotClass = 'bg-red-500';
               } else {
-                  $displayResStatus = 'Submitted';
+                  $displayResStatus = 'Pending';
                   $resBadgeClass = 'bg-amber-100 text-amber-700';
                   $dotClass = 'bg-amber-500';
               }
@@ -526,6 +530,7 @@ $isInHousePayment = strtolower((string)$paymentMethod) === 'in-house';
                 <button 
                   type="button"
                   id="btnApproveCancellation"
+                  onclick="openApproveCancellationModal()"
                   class="btn-press w-full bg-red-600 hover:bg-red-700 text-white text-sm font-bold px-4 py-3 rounded-xl transition-all shadow-sm active:scale-98 flex items-center justify-center gap-2">
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
                   <span>Approve Cancellation &amp; Release Unit</span>
@@ -623,10 +628,10 @@ $isInHousePayment = strtolower((string)$paymentMethod) === 'in-house';
 
                 <div class="mt-4 pt-3 border-t border-slate-200/60">
                   <?php if (!empty($proofUrl)): ?>
-                    <a href="<?= e($proofUrl) ?>" target="_blank" rel="noopener noreferrer" class="btn-press inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm">
+                    <button type="button" onclick="openProofModal('<?= e($proofUrl) ?>', 'Uploaded Proof of Payment')" class="btn-press inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer">
                       <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
                       View Uploaded Proof
-                    </a>
+                    </button>
                   <?php else: ?>
                     <span class="text-xs text-slate-400 italic">No document file on record</span>
                   <?php endif; ?>
@@ -982,7 +987,7 @@ $isInHousePayment = strtolower((string)$paymentMethod) === 'in-house';
                 <tr class="bg-slate-50 border-b border-slate-200">
                   <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Document</th>
                   <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Status</th>
-                  <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Direct Upload / Link</th>
+                  <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Action</th>
                 </tr>
               </thead>
               <tbody id="documentsTableBody" class="divide-y divide-slate-100">
@@ -1001,7 +1006,7 @@ $isInHousePayment = strtolower((string)$paymentMethod) === 'in-house';
           </button>
 
           <?php 
-            $isHandedOver = in_array($resStatusLower, ['handover', 'moved in', 'active'], true);
+            $isHandedOver = in_array($resStatusLower, ['handover', 'moved in', 'active', 'completed', 'handed over'], true);
             if (!$isHandedOver && $resStatusLower !== 'cancelled' && $resStatusLower !== 'rejected'): 
           ?>
             <button 
@@ -1010,13 +1015,13 @@ $isInHousePayment = strtolower((string)$paymentMethod) === 'in-house';
               onclick="openHandoverModal()"
               class="mt-3 w-full bg-emerald-600 hover:bg-emerald-700 active:scale-98 text-white text-sm font-bold px-4 py-3 rounded-xl transition-all shadow-sm flex items-center justify-center gap-2">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-              Complete Unit Handover &amp; Move In Tenant
+              <?= $isResale ? 'Complete Ownership Transfer &amp; Handover' : 'Complete Unit Handover &amp; Move In Tenant' ?>
             </button>
           <?php elseif ($isHandedOver): ?>
             <div class="mt-4 rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-3 text-center">
               <p class="text-xs font-bold text-emerald-800 uppercase tracking-wide flex items-center justify-center gap-1.5">
                 <svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-                Unit Handover Completed — Tenant Moved In
+                <?= $isResale ? 'Ownership Transferred — Unit Handed Over to Owner' : 'Unit Handover Completed — Tenant Moved In' ?>
               </p>
             </div>
           <?php endif; ?>
@@ -1026,6 +1031,72 @@ $isInHousePayment = strtolower((string)$paymentMethod) === 'in-house';
     </div>
   </div>
 </main>
+</div>
+
+<!-- UPLOADED PAYMENT PROOF & DOCUMENT PREVIEW MODAL -->
+<div id="paymentProofModal" class="fixed inset-0 z-[80] hidden items-center justify-center bg-slate-950/70 backdrop-blur-xs p-3 sm:p-6" onclick="if(event.target===this) closeProofModal()">
+  <div class="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[92vh] flex flex-col overflow-hidden border border-slate-200" onclick="event.stopPropagation()">
+    <!-- Header -->
+    <div class="flex items-center justify-between px-5 py-3.5 border-b border-slate-200/80 bg-slate-50/90">
+      <div class="flex items-center gap-3 min-w-0">
+        <div class="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 border border-blue-100">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+          </svg>
+        </div>
+        <div class="min-w-0">
+          <h3 class="text-sm font-bold text-slate-900 truncate" id="proofModalTitle">Uploaded Proof of Payment</h3>
+          <p class="text-xs text-slate-500 truncate" id="proofModalSubtitle">Reservation #<?= e($res['reservation_id']) ?> &bull; <?= e($res['client_name']) ?></p>
+        </div>
+      </div>
+      <div class="flex items-center gap-1.5 shrink-0 ml-3">
+        <a id="proofModalNewTab" href="#" target="_blank" rel="noopener noreferrer" class="p-2 rounded-xl text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors" title="Open in new tab">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+        </a>
+        <button type="button" onclick="closeProofModal()" class="w-8 h-8 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 text-slate-400 hover:text-slate-700 flex items-center justify-center transition-colors" title="Close (Esc)">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Body / Preview Area -->
+    <div class="p-3 sm:p-5 overflow-y-auto flex-1 flex items-center justify-center bg-slate-900/5 min-h-[320px] max-h-[calc(92vh-130px)]">
+      <!-- Loading indicator -->
+      <div id="proofModalLoading" class="flex flex-col items-center justify-center py-12 text-slate-400">
+        <svg class="animate-spin h-8 w-8 text-blue-600 mb-3" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+        </svg>
+        <span class="text-xs font-medium text-slate-500">Loading document preview...</span>
+      </div>
+
+      <!-- Image container -->
+      <div id="proofModalImgContainer" class="hidden max-h-[70vh] flex items-center justify-center overflow-auto rounded-xl border border-slate-200/80 bg-white p-2 shadow-inner">
+        <img id="proofModalImage" src="" alt="Uploaded Document Preview" class="max-h-[66vh] w-auto max-w-full object-contain rounded-lg transition-opacity duration-200">
+      </div>
+
+      <!-- PDF / Document Iframe -->
+      <iframe id="proofModalIframe" src="" class="hidden w-full h-[68vh] rounded-xl border border-slate-200 bg-white shadow-sm" title="Document Preview"></iframe>
+    </div>
+
+    <!-- Footer -->
+    <div class="flex items-center justify-between px-5 py-3 border-t border-slate-200/80 bg-slate-50 text-xs">
+      <div class="flex items-center gap-2 min-w-0 pr-3">
+        <span class="w-2 h-2 rounded-full bg-blue-500 shrink-0"></span>
+        <span id="proofModalFilename" class="text-slate-600 font-mono text-[11px] truncate">proof_document</span>
+      </div>
+      <div class="flex items-center gap-2 shrink-0">
+        <a id="proofModalDownload" href="#" download class="btn-press px-3.5 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 font-semibold inline-flex items-center gap-1.5 transition-colors shadow-xs">
+          <svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+          <span>Download</span>
+        </a>
+        <button type="button" onclick="closeProofModal()" class="btn-press px-4 py-1.5 bg-slate-900 hover:bg-slate-800 text-white font-semibold rounded-xl transition-colors shadow-xs">
+          Close
+        </button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- VERIFY PAYMENT CONFIRMATION MODAL -->
@@ -1117,8 +1188,8 @@ $isInHousePayment = strtolower((string)$paymentMethod) === 'in-house';
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
         </div>
         <div>
-          <h2 class="text-base font-bold">Unit Handover & Move In</h2>
-          <p class="text-xs text-emerald-100">Activate tenant account and occupy unit</p>
+          <h2 class="text-base font-bold"><?= $isResale ? 'Unit Handover &amp; Ownership Transfer' : 'Unit Handover &amp; Move In' ?></h2>
+          <p class="text-xs text-emerald-100"><?= $isResale ? 'Transfer unit ownership and create unit owner account' : 'Activate tenant account and occupy unit' ?></p>
         </div>
       </div>
       <button type="button" onclick="closeHandoverModal()" class="p-1.5 rounded-lg hover:bg-white/10 text-white/80 hover:text-white transition-colors">
@@ -1142,11 +1213,21 @@ $isInHousePayment = strtolower((string)$paymentMethod) === 'in-house';
           <span class="text-xs text-slate-500 font-medium">Assigned Unit:</span>
           <span class="font-bold text-emerald-700"><?= e($unitDisplay) ?></span>
         </div>
+        <?php if ($isResale): ?>
+          <div class="flex items-center justify-between pt-1 border-t border-slate-200/60">
+            <span class="text-xs text-slate-500 font-medium">Handover Type:</span>
+            <span class="px-2 py-0.5 rounded-full text-[11px] font-bold bg-blue-50 text-blue-700 border border-blue-200">Unit Resale Purchase</span>
+          </div>
+        <?php endif; ?>
       </div>
 
       <div class="rounded-xl bg-emerald-50/80 border border-emerald-200 p-4 text-xs text-emerald-900 leading-relaxed">
         <p class="text-emerald-800">
-          The client will be provided an account to be an official tenant under Zeppelin Suites (visible in <a href="<?= htmlspecialchars($baseUrl) ?>/admin/residents" target="_blank" class="underline font-bold text-emerald-950 hover:text-emerald-700">Residents</a>). Once the client logs in for the first time, their account will be activated. Default password: <code class="bg-emerald-100 font-mono font-bold text-emerald-950 px-1.5 py-0.5 rounded text-[11px]">tenantzepellinsuites</code>. They can change their password at any time.
+          <?php if ($isResale): ?>
+            The client will be registered as an official <strong>Unit Owner</strong> under Zeppelin Suites. Ownership will be officially transferred in the property records, and the unit will be set to <strong>Ready for Occupancy</strong> (unlisted from resale). Default password: <code class="bg-emerald-100 font-mono font-bold text-emerald-950 px-1.5 py-0.5 rounded text-[11px]">tenantzepellinsuites</code>.
+          <?php else: ?>
+            The client will be provided an account to be an official tenant under Zeppelin Suites (visible in <a href="<?= htmlspecialchars($baseUrl) ?>/admin/residents" target="_blank" class="underline font-bold text-emerald-950 hover:text-emerald-700">Residents</a>). Once the client logs in for the first time, their account will be activated. Default password: <code class="bg-emerald-100 font-mono font-bold text-emerald-950 px-1.5 py-0.5 rounded text-[11px]">tenantzepellinsuites</code>. They can change their password at any time.
+          <?php endif; ?>
         </p>
       </div>
 
@@ -1156,7 +1237,7 @@ $isInHousePayment = strtolower((string)$paymentMethod) === 'in-house';
         </button>
         <button type="submit" id="btnConfirmHandover" class="btn-press px-5 py-2 text-sm font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-md flex items-center gap-2">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
-          <span>Complete Handover</span>
+          <span><?= $isResale ? 'Complete Ownership Transfer' : 'Complete Handover' ?></span>
         </button>
       </div>
     </form>
@@ -1165,7 +1246,195 @@ $isInHousePayment = strtolower((string)$paymentMethod) === 'in-house';
 
 <script>
   const currentReservationId = <?= json_encode((int)$res['reservation_id']) ?>;
-  const currentReservationStatus = <?= json_encode($res['reservation_status'] ?? '') ?>;
+  let currentReservationStatus = <?= json_encode($res['reservation_status'] ?? '') ?>;
+
+  // --- Proof & Document Preview Modal ---
+  function openProofModal(url, title = 'Uploaded Proof of Payment') {
+    const modal = document.getElementById('paymentProofModal');
+    if (!modal) return;
+
+    if (!url) {
+      console.warn('No URL provided for proof modal preview.');
+      return;
+    }
+
+    const titleEl = document.getElementById('proofModalTitle');
+    if (titleEl) titleEl.textContent = title;
+
+    const downloadLink = document.getElementById('proofModalDownload');
+    if (downloadLink) {
+      downloadLink.href = url;
+      const cleanName = url.split('/').pop().split('?')[0] || 'document';
+      downloadLink.setAttribute('download', cleanName);
+    }
+
+    const newTabLink = document.getElementById('proofModalNewTab');
+    if (newTabLink) newTabLink.href = url;
+
+    const filenameEl = document.getElementById('proofModalFilename');
+    if (filenameEl) {
+      const cleanName = decodeURIComponent(url.split('/').pop().split('?')[0] || 'document');
+      filenameEl.textContent = cleanName;
+    }
+
+    const isPdf = /\.pdf($|\?)/i.test(url);
+    const imgEl = document.getElementById('proofModalImage');
+    const iframeEl = document.getElementById('proofModalIframe');
+    const imgContainer = document.getElementById('proofModalImgContainer');
+    const loadingEl = document.getElementById('proofModalLoading');
+
+    if (loadingEl) {
+      loadingEl.innerHTML = `
+        <svg class="animate-spin h-8 w-8 text-blue-600 mb-3" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+        </svg>
+        <span class="text-xs font-medium text-slate-500">Loading document preview...</span>
+      `;
+      loadingEl.classList.remove('hidden');
+    }
+
+    if (isPdf) {
+      if (imgContainer) imgContainer.classList.add('hidden');
+      if (imgEl) imgEl.src = '';
+      if (iframeEl) {
+        iframeEl.classList.remove('hidden');
+        iframeEl.onload = function() {
+          if (loadingEl) loadingEl.classList.add('hidden');
+        };
+        iframeEl.src = url;
+      }
+    } else {
+      if (iframeEl) {
+        iframeEl.classList.add('hidden');
+        iframeEl.src = '';
+      }
+      if (imgContainer) imgContainer.classList.remove('hidden');
+      if (imgEl) {
+        imgEl.classList.add('opacity-0');
+        imgEl.onload = function() {
+          if (loadingEl) loadingEl.classList.add('hidden');
+          imgEl.classList.remove('opacity-0');
+        };
+        imgEl.onerror = function() {
+          if (loadingEl) {
+            loadingEl.innerHTML = '<span class="text-xs text-red-500 font-medium">Unable to preview image directly. You can use Download or Open in New Tab.</span>';
+            loadingEl.classList.remove('hidden');
+          }
+        };
+        imgEl.src = url;
+      }
+    }
+
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+    document.body.classList.add('overflow-hidden');
+  }
+
+  function closeProofModal() {
+    const modal = document.getElementById('paymentProofModal');
+    if (!modal) return;
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+    document.body.classList.remove('overflow-hidden');
+
+    const iframeEl = document.getElementById('proofModalIframe');
+    if (iframeEl) iframeEl.src = '';
+    const imgEl = document.getElementById('proofModalImage');
+    if (imgEl) imgEl.src = '';
+  }
+
+  // --- Admin Modal Helpers ---
+  let _adminStatusAction = null;
+  function showAdminStatusModal(isSuccess, title, message, onCloseOrReload = null) {
+    _adminStatusAction = onCloseOrReload;
+    const modal = document.getElementById('adminStatusModal');
+    const icon = document.getElementById('adminStatusIcon');
+    const t = document.getElementById('adminStatusTitle');
+    const m = document.getElementById('adminStatusMessage');
+    const btn = document.getElementById('adminStatusBtn');
+    if (t) t.textContent = title || (isSuccess ? 'Success' : 'Notice');
+    if (m) m.textContent = message || '';
+    if (icon) {
+      if (isSuccess) {
+        icon.className = 'w-14 h-14 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto mb-4 border border-emerald-100';
+        icon.innerHTML = '<svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>';
+      } else {
+        icon.className = 'w-14 h-14 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center mx-auto mb-4 border border-rose-100';
+        icon.innerHTML = '<svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>';
+      }
+    }
+    if (btn) btn.textContent = isSuccess ? 'Continue' : 'Dismiss';
+    if (modal) {
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+  }
+
+  function closeAdminStatusModal() {
+    const modal = document.getElementById('adminStatusModal');
+    if (modal && !modal.classList.contains('hidden')) {
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+      if (_adminStatusAction) {
+        const action = _adminStatusAction;
+        _adminStatusAction = null;
+        if (action === true) {
+          window.location.reload();
+        } else if (typeof action === 'function') {
+          action();
+        } else if (typeof action === 'string') {
+          window.location.href = action;
+        }
+      }
+    }
+  }
+
+  let _adminConfirmCallback = null;
+  function showAdminConfirmModal(title, message, confirmBtnText, isDanger, onConfirm) {
+    _adminConfirmCallback = onConfirm;
+    const modal = document.getElementById('adminConfirmModal');
+    const t = document.getElementById('adminConfirmTitle');
+    const m = document.getElementById('adminConfirmMessage');
+    const btn = document.getElementById('adminConfirmSubmitBtn');
+    if (t) t.textContent = title || 'Confirmation';
+    if (m) m.textContent = message || 'Are you sure you want to proceed?';
+    if (btn) {
+      btn.textContent = confirmBtnText || 'Confirm';
+      btn.className = isDanger
+        ? 'px-5 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-xl shadow-sm cursor-pointer'
+        : 'px-5 py-2 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-xl shadow-sm cursor-pointer';
+      btn.onclick = function() {
+        closeAdminConfirmModal();
+        if (typeof _adminConfirmCallback === 'function') {
+          _adminConfirmCallback();
+        }
+      };
+    }
+    modal?.classList.remove('hidden');
+    modal?.classList.add('flex');
+  }
+
+  function closeAdminConfirmModal() {
+    const modal = document.getElementById('adminConfirmModal');
+    modal?.classList.add('hidden');
+    modal?.classList.remove('flex');
+    _adminConfirmCallback = null;
+  }
+
+  window.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+      const proofModal = document.getElementById('paymentProofModal');
+      if (proofModal && !proofModal.classList.contains('hidden')) {
+        closeProofModal();
+        return;
+      }
+      closeAdminStatusModal();
+      closeAdminConfirmModal();
+      closeApproveCancellationModal();
+      closeRejectCancellationModal();
+    }
+  });
 
   // --- Payment Confirmation Modals ---
   function openPaymentConfirmModal(action) {
@@ -1201,7 +1470,7 @@ $isInHousePayment = strtolower((string)$paymentMethod) === 'in-house';
     if (action === 'reject') {
       remarks = document.getElementById('rejectPaymentRemarks')?.value.trim() || '';
       if (remarks === '') {
-        alert('Please enter a reason for rejecting the payment.');
+        showAdminStatusModal(false, 'Reason Required', 'Please enter a reason for rejecting the payment.');
         return;
       }
       closePaymentConfirmModal('rejectPaymentModal');
@@ -1218,14 +1487,11 @@ $isInHousePayment = strtolower((string)$paymentMethod) === 'in-house';
     })
     .then(response => response.json())
     .then(data => {
-      alert(data.message);
-      if (data.success) {
-        window.location.reload();
-      }
+      showAdminStatusModal(data.success, data.success ? 'Payment Updated' : 'Action Failed', data.message, data.success ? () => window.location.reload() : null);
     })
     .catch(error => {
       console.error(error);
-      alert('Something went wrong while updating payment status.');
+      showAdminStatusModal(false, 'Error', 'Something went wrong while updating payment status.');
     });
   }
 
@@ -1263,14 +1529,11 @@ $isInHousePayment = strtolower((string)$paymentMethod) === 'in-house';
     })
     .then(response => response.json())
     .then(data => {
-      alert(data.message);
-      if (data.success) {
-        window.location.reload();
-      }
+      showAdminStatusModal(data.success, data.success ? 'Payment Completed' : 'Action Failed', data.message, data.success ? () => window.location.reload() : null);
     })
     .catch(error => {
       console.error(error);
-      alert('Something went wrong while completing in-house payment.');
+      showAdminStatusModal(false, 'Error', 'Something went wrong while completing in-house payment.');
     });
   }
 
@@ -1292,7 +1555,7 @@ $isInHousePayment = strtolower((string)$paymentMethod) === 'in-house';
 
 
   function updateRequirementDecisionUI(reservationStatus) {
-    const status = (reservationStatus || '').toLowerCase();
+    const status = (reservationStatus || '').toLowerCase().trim();
     const display = document.getElementById('requirementDecisionDisplay');
     const label = document.getElementById('requirementDecisionLabel');
     const text = document.getElementById('requirementDecisionText');
@@ -1300,6 +1563,11 @@ $isInHousePayment = strtolower((string)$paymentMethod) === 'in-house';
     if (!display || !label || !text) return;
 
     display.className = 'hidden mb-5 rounded-xl border px-4 py-3';
+
+    if (['handover', 'moved in', 'active', 'completed', 'handed over'].includes(status)) {
+      display.classList.add('hidden');
+      return;
+    }
 
     if (status === 'requirements completed') {
       display.classList.remove('hidden');
@@ -1332,8 +1600,8 @@ $isInHousePayment = strtolower((string)$paymentMethod) === 'in-house';
     const btn = document.getElementById('btnOfficiallyBooked');
     if (!btn) return;
 
-    const status = (reservationStatus || '').toLowerCase();
-    if (status === 'reserved') {
+    const status = (reservationStatus || '').toLowerCase().trim();
+    if (['reserved', 'handover', 'moved in', 'active', 'completed', 'handed over', 'cancelled', 'rejected'].includes(status)) {
       btn.classList.add('hidden');
       return;
     }
@@ -1388,10 +1656,10 @@ $isInHousePayment = strtolower((string)$paymentMethod) === 'in-house';
       if (isComplete) {
         actionCell = `
           <div class="flex items-center gap-2">
-            <a href="${escapeHtmlAttr(doc.document_link)}" target="_blank" rel="noopener noreferrer" class="btn-press inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 transition-all shadow-xs">
-              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+            <button type="button" onclick="openProofModal('${escapeHtmlAttr(doc.document_link)}', '${escapeHtmlAttr(doc.document_name)}')" class="btn-press inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 transition-all shadow-xs cursor-pointer">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
               <span>View</span>
-            </a>
+            </button>
             <button type="button" onclick="triggerDirectUpload(${doc.document_id})" class="btn-press inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold rounded-lg bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 transition-all">
               <svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
               <span>Replace</span>
@@ -1405,9 +1673,9 @@ $isInHousePayment = strtolower((string)$paymentMethod) === 'in-house';
       } else {
         actionCell = `
           <div class="flex items-center gap-2">
-            <button type="button" onclick="triggerDirectUpload(${doc.document_id})" id="btnUploadDoc_${doc.document_id}" class="btn-press inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-slate-900 text-white hover:bg-slate-800 transition-all shadow-sm">
-              <svg class="w-3.5 h-3.5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
-              <span>Direct Upload</span>
+            <button type="button" onclick="triggerDirectUpload(${doc.document_id})" id="btnUploadDoc_${doc.document_id}" class="btn-press inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition-all shadow-xs cursor-pointer">
+              <svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+              <span>Upload</span>
             </button>
             <input type="file" id="fileInputDoc_${doc.document_id}" accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx" class="hidden" onchange="executeDirectUpload(event, ${doc.document_id})">
           </div>
@@ -1442,7 +1710,7 @@ $isInHousePayment = strtolower((string)$paymentMethod) === 'in-house';
     const btn = document.getElementById(`btnUploadDoc_${documentId}`);
     if (btn) {
       btn.disabled = true;
-      btn.innerHTML = `<svg class="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg><span>Uploading...</span>`;
+      btn.innerHTML = `<svg class="w-3.5 h-3.5 animate-spin text-slate-600" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg><span>Uploading...</span>`;
     }
 
     const formData = new FormData();
@@ -1457,84 +1725,113 @@ $isInHousePayment = strtolower((string)$paymentMethod) === 'in-house';
     .then(r => r.json())
     .then(data => {
       if (data.success) {
+        if (data.reservation_status) {
+          currentReservationStatus = data.reservation_status;
+          updateRequirementDecisionUI(currentReservationStatus);
+        }
         loadDocuments(currentReservationId);
       } else {
-        alert(data.message || 'Upload failed.');
+        showAdminStatusModal(false, 'Upload Failed', data.message || 'Upload failed.');
         if (btn) {
           btn.disabled = false;
-          btn.innerHTML = `<svg class="w-3.5 h-3.5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg><span>Direct Upload</span>`;
+          btn.innerHTML = `<svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg><span>Upload</span>`;
         }
       }
     })
     .catch(err => {
       console.error(err);
-      alert('Upload error occurred.');
+      showAdminStatusModal(false, 'Upload Error', 'Upload error occurred.');
       if (btn) {
         btn.disabled = false;
-        btn.innerHTML = `<svg class="w-3.5 h-3.5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg><span>Direct Upload</span>`;
+        btn.innerHTML = `<svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg><span>Upload</span>`;
       }
     });
   }
 
   function removeDirectDocument(documentId) {
-    if (!confirm('Are you sure you want to remove this document?')) return;
+    showAdminConfirmModal(
+      'Remove Document',
+      'Are you sure you want to remove this document?',
+      'Remove',
+      true,
+      () => {
+        const formData = new FormData();
+        formData.append('reservation_id', currentReservationId);
+        formData.append('document_id', documentId);
 
-    const formData = new FormData();
-    formData.append('reservation_id', currentReservationId);
-    formData.append('document_id', documentId);
-
-    fetch('<?= htmlspecialchars($baseUrl) ?>/admin/reservations/delete-document', {
-      method: 'POST',
-      body: formData
-    })
-    .then(r => r.json())
-    .then(data => {
-      if (data.success) {
-        loadDocuments(currentReservationId);
-      } else {
-        alert(data.message || 'Failed to remove document.');
+        fetch('<?= htmlspecialchars($baseUrl) ?>/admin/reservations/delete-document', {
+          method: 'POST',
+          body: formData
+        })
+        .then(r => r.json())
+        .then(data => {
+          if (data.success) {
+            if (data.reservation_status) {
+              currentReservationStatus = data.reservation_status;
+              updateRequirementDecisionUI(currentReservationStatus);
+            }
+            loadDocuments(currentReservationId);
+            showAdminStatusModal(true, 'Document Removed', data.message || 'Document removed successfully.');
+          } else {
+            showAdminStatusModal(false, 'Remove Failed', data.message || 'Failed to remove document.');
+          }
+        })
+        .catch(err => {
+          console.error(err);
+          showAdminStatusModal(false, 'Error', 'An error occurred while removing the document.');
+        });
       }
-    })
-    .catch(err => {
-      console.error(err);
-      alert('An error occurred while removing the document.');
-    });
+    );
   }
 
   function markOfficiallyBooked() {
-    if (!confirm('Mark this reservation as officially booked? This will set the unit status to Reserved.')) {
-      return;
-    }
+    showAdminConfirmModal(
+      'Mark as Officially Booked',
+      'Mark this reservation as officially booked? This will set the unit status to Reserved.',
+      'Mark as Booked',
+      false,
+      () => {
+        const formData = new FormData();
+        formData.append('reservation_id', currentReservationId);
 
-    const formData = new FormData();
-    formData.append('reservation_id', currentReservationId);
-
-    fetch('<?= htmlspecialchars($baseUrl) ?>/admin/reservations/officially-book', {
-      method: 'POST',
-      body: formData
-    })
-    .then(response => response.json())
-    .then(data => {
-      alert(data.message);
-      if (data.success) {
-        window.location.reload();
+        fetch('<?= htmlspecialchars($baseUrl) ?>/admin/reservations/officially-book', {
+          method: 'POST',
+          body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+          if (data.success) {
+            showAdminStatusModal(true, 'Reservation Booked', data.message, () => window.location.reload());
+          } else {
+            showAdminStatusModal(false, 'Booking Failed', data.message || 'Failed to officially book reservation.');
+          }
+        })
+        .catch(error => {
+          console.error(error);
+          showAdminStatusModal(false, 'Error', 'Something went wrong while officially booking this reservation.');
+        });
       }
-    })
-    .catch(error => {
-      console.error(error);
-      alert('Something went wrong while officially booking this reservation.');
-    });
+    );
   }
 
   document.getElementById('btnOfficiallyBooked')?.addEventListener('click', markOfficiallyBooked);
 
   // --- Cancellation Approval ---
-  function approveCancellationRequest() {
-    const btn = document.getElementById('btnApproveCancellation');
+  function openApproveCancellationModal() {
+    const modal = document.getElementById('approveCancellationModal');
+    modal?.classList.remove('hidden');
+    modal?.classList.add('flex');
+  }
+
+  function closeApproveCancellationModal() {
+    const modal = document.getElementById('approveCancellationModal');
+    modal?.classList.add('hidden');
+    modal?.classList.remove('flex');
+  }
+
+  function submitApproveCancellation() {
+    const btn = document.getElementById('btnConfirmApproveCancellation');
     const reason = document.getElementById('cancel_reason_display')?.textContent.trim();
-    if (!confirm('Approve this cancellation request? This will cancel the reservation, release the unit back to availability, and send an email update to the client.')) {
-      return;
-    }
 
     if (btn) {
       btn.disabled = true;
@@ -1551,25 +1848,31 @@ $isInHousePayment = strtolower((string)$paymentMethod) === 'in-house';
     })
     .then(response => response.json())
     .then(data => {
-      alert(data.message);
-      if (data.success) {
-        window.location.href = '<?= htmlspecialchars($baseUrl) ?>/admin/reservations';
-      } else if (btn) {
+      closeApproveCancellationModal();
+      if (btn) {
         btn.disabled = false;
-        btn.textContent = 'Approve Cancellation & Release Unit';
+        btn.textContent = 'Confirm Approval';
+      }
+      if (data.success) {
+        showAdminStatusModal(true, 'Cancellation Approved', data.message, () => {
+          window.location.href = '<?= htmlspecialchars($baseUrl) ?>/admin/reservations';
+        });
+      } else {
+        showAdminStatusModal(false, 'Approval Failed', data.message || 'Unable to approve cancellation.');
       }
     })
     .catch(error => {
       console.error(error);
-      alert('Something went wrong while approving cancellation.');
+      closeApproveCancellationModal();
       if (btn) {
         btn.disabled = false;
-        btn.textContent = 'Approve Cancellation & Release Unit';
+        btn.textContent = 'Confirm Approval';
       }
+      showAdminStatusModal(false, 'Error', 'Something went wrong while approving cancellation.');
     });
   }
 
-  document.getElementById('btnApproveCancellation')?.addEventListener('click', approveCancellationRequest);
+  document.getElementById('btnApproveCancellation')?.addEventListener('click', openApproveCancellationModal);
 
   // --- Cancellation Rejection ---
   function openRejectCancellationModal() {
@@ -1600,21 +1903,25 @@ $isInHousePayment = strtolower((string)$paymentMethod) === 'in-house';
     })
     .then(response => response.json())
     .then(data => {
-      alert(data.message);
-      if (data.success) {
-        window.location.reload();
-      } else if (btn) {
-        btn.disabled = false;
-        btn.textContent = 'Confirm Rejection';
-      }
-    })
-    .catch(error => {
-      console.error(error);
-      alert('Something went wrong while rejecting the cancellation request.');
+      closeRejectCancellationModal();
       if (btn) {
         btn.disabled = false;
         btn.textContent = 'Confirm Rejection';
       }
+      if (data.success) {
+        showAdminStatusModal(true, 'Cancellation Rejected', data.message, () => window.location.reload());
+      } else {
+        showAdminStatusModal(false, 'Action Failed', data.message || 'Unable to reject cancellation request.');
+      }
+    })
+    .catch(error => {
+      console.error(error);
+      closeRejectCancellationModal();
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = 'Confirm Rejection';
+      }
+      showAdminStatusModal(false, 'Error', 'Something went wrong while rejecting the cancellation request.');
     });
   }
 
@@ -1670,17 +1977,18 @@ $isInHousePayment = strtolower((string)$paymentMethod) === 'in-house';
 
       if (data.success) {
         closeHandoverModal();
-        alert('✓ Handover Successful!\n\n' + data.message + '\n\nTenant Account Summary:\n• Email: ' + data.tenant.email + '\n• Initial Password: ' + data.tenant.password + '\n\nThe login credentials have been dispatched to the tenant.');
-        window.location.reload();
+        const roleLabel = (data.tenant && data.tenant.role === 'unit owner') ? 'Unit Owner' : 'Tenant';
+        const handoverMsg = (data.message || 'Handover completed successfully.') + '\n\n' + roleLabel + ' Account Summary:\n• Email: ' + (data.tenant?.email || '-') + '\n• Initial Password: ' + (data.tenant?.password || '-') + '\n\nThe login credentials have been dispatched via email.';
+        showAdminStatusModal(true, 'Handover Successful', handoverMsg, () => window.location.reload());
       } else {
-        alert('Error: ' + (data.message || 'Unable to process handover.'));
+        showAdminStatusModal(false, 'Handover Failed', data.message || 'Unable to process handover.');
       }
     })
     .catch(err => {
       btn.disabled = false;
       btn.innerHTML = originalText;
       console.error(err);
-      alert('Network error while processing handover. Please try again.');
+      showAdminStatusModal(false, 'Network Error', 'Network error while processing handover. Please try again.');
     });
   }
 
@@ -1770,16 +2078,18 @@ $isInHousePayment = strtolower((string)$paymentMethod) === 'in-house';
         body: formData
       });
       const data = await res.json();
+      closeSigningModal();
       if (data.success) {
-        window.location.reload();
+        showAdminStatusModal(true, 'Status Updated', data.message || 'Lease signing status updated successfully.', () => window.location.reload());
       } else {
-        alert(data.message || 'Failed to update lease signing status.');
+        showAdminStatusModal(false, 'Action Failed', data.message || 'Failed to update lease signing status.');
         btn.disabled = false;
         btn.textContent = 'Confirm';
       }
     } catch (err) {
       console.error(err);
-      alert('Network error while updating lease signing.');
+      closeSigningModal();
+      showAdminStatusModal(false, 'Error', 'Network error while updating lease signing.');
       btn.disabled = false;
       btn.textContent = 'Confirm';
     }
@@ -1857,15 +2167,41 @@ $isInHousePayment = strtolower((string)$paymentMethod) === 'in-house';
   </div>
 </div>
 
+<!-- Approve Cancellation Modal -->
+<div id="approveCancellationModal" class="fixed inset-0 z-[70] hidden items-center justify-center bg-black/50 px-4" onclick="if(event.target===this)closeApproveCancellationModal()">
+  <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden border border-slate-100" onclick="event.stopPropagation()">
+    <div class="bg-slate-900 px-6 py-4 flex items-center justify-between">
+      <h3 class="text-base font-bold text-white flex items-center gap-2">
+        <svg class="w-5 h-5 text-rose-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+        Approve Cancellation Request
+      </h3>
+      <button type="button" onclick="closeApproveCancellationModal()" class="p-1 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white cursor-pointer">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+
+    <div class="p-6">
+      <p class="text-xs sm:text-sm text-slate-700 leading-relaxed">
+        Are you sure you want to approve this cancellation request? This will mark the reservation as cancelled, immediately release the unit back to availability, and dispatch an email update to the client.
+      </p>
+    </div>
+
+    <div class="flex items-center justify-end gap-2.5 px-6 py-4 border-t border-slate-100 bg-slate-50">
+      <button type="button" onclick="closeApproveCancellationModal()" class="px-4 py-2 border border-slate-200 hover:bg-slate-100 rounded-xl text-xs font-semibold text-slate-700 cursor-pointer">Cancel</button>
+      <button type="button" id="btnConfirmApproveCancellation" onclick="submitApproveCancellation()" class="px-5 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-xl shadow-sm cursor-pointer">Confirm Approval</button>
+    </div>
+  </div>
+</div>
+
 <!-- Reject Cancellation Modal -->
-<div id="rejectCancellationModal" class="fixed inset-0 z-[70] hidden items-center justify-center bg-black/50 px-4">
-  <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden border border-slate-100">
+<div id="rejectCancellationModal" class="fixed inset-0 z-[70] hidden items-center justify-center bg-black/50 px-4" onclick="if(event.target===this)closeRejectCancellationModal()">
+  <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden border border-slate-100" onclick="event.stopPropagation()">
     <div class="bg-slate-900 px-6 py-4 flex items-center justify-between">
       <h3 class="text-base font-bold text-white flex items-center gap-2">
         <svg class="w-5 h-5 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
         Reject Cancellation Request
       </h3>
-      <button type="button" onclick="closeRejectCancellationModal()" class="p-1 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white">
+      <button type="button" onclick="closeRejectCancellationModal()" class="p-1 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white cursor-pointer">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
       </button>
     </div>
@@ -1877,9 +2213,45 @@ $isInHousePayment = strtolower((string)$paymentMethod) === 'in-house';
     </div>
 
     <div class="flex items-center justify-end gap-2.5 px-6 py-4 border-t border-slate-100 bg-slate-50">
-      <button type="button" onclick="closeRejectCancellationModal()" class="px-4 py-2 border border-slate-200 hover:bg-slate-100 rounded-xl text-xs font-semibold text-slate-700">Cancel</button>
-      <button type="button" id="btnConfirmRejectCancellation" onclick="submitRejectCancellation()" class="px-5 py-2 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-xl shadow-sm">Confirm Rejection</button>
+      <button type="button" onclick="closeRejectCancellationModal()" class="px-4 py-2 border border-slate-200 hover:bg-slate-100 rounded-xl text-xs font-semibold text-slate-700 cursor-pointer">Cancel</button>
+      <button type="button" id="btnConfirmRejectCancellation" onclick="submitRejectCancellation()" class="px-5 py-2 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-xl shadow-sm cursor-pointer">Confirm Rejection</button>
     </div>
+  </div>
+</div>
+
+<!-- Admin Confirmation Modal -->
+<div id="adminConfirmModal" class="fixed inset-0 z-[80] hidden items-center justify-center bg-black/50 px-4" onclick="if(event.target===this)closeAdminConfirmModal()">
+  <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden border border-slate-100" onclick="event.stopPropagation()">
+    <div class="bg-slate-900 px-6 py-4 flex items-center justify-between">
+      <h3 class="text-base font-bold text-white flex items-center gap-2" id="adminConfirmTitle">Confirmation</h3>
+      <button type="button" onclick="closeAdminConfirmModal()" class="p-1 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white cursor-pointer">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+
+    <div class="p-6">
+      <p class="text-xs sm:text-sm text-slate-700 leading-relaxed" id="adminConfirmMessage"></p>
+    </div>
+
+    <div class="flex items-center justify-end gap-2.5 px-6 py-4 border-t border-slate-100 bg-slate-50">
+      <button type="button" onclick="closeAdminConfirmModal()" class="px-4 py-2 border border-slate-200 hover:bg-slate-100 rounded-xl text-xs font-semibold text-slate-700 cursor-pointer">Cancel</button>
+      <button type="button" id="adminConfirmSubmitBtn" class="px-5 py-2 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-xl shadow-sm cursor-pointer">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<!-- Admin Status Notification Modal -->
+<div id="adminStatusModal"
+  class="fixed inset-0 z-[100] bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 hidden"
+  onclick="if(event.target===this)closeAdminStatusModal()">
+  <div class="bg-white rounded-3xl shadow-2xl border border-slate-100 p-6 sm:p-7 max-w-sm w-full text-center" onclick="event.stopPropagation()">
+    <div id="adminStatusIcon" class="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4 border"></div>
+    <h3 class="text-base sm:text-lg font-bold text-slate-900 mb-1" id="adminStatusTitle">Notification</h3>
+    <p class="text-xs text-slate-500 mb-6 leading-relaxed whitespace-pre-line" id="adminStatusMessage"></p>
+    <button type="button" id="adminStatusBtn" onclick="closeAdminStatusModal()"
+      class="btn-press w-full py-2.5 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold transition-all shadow-sm active:scale-95 cursor-pointer">
+      Continue
+    </button>
   </div>
 </div>
 

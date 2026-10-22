@@ -48,7 +48,7 @@ class Unit extends Model {
                       WHERE r.unit_id = u.unit_id
                         AND LOWER(r.reservation_status) NOT IN ('cancelled', 'rejected')
                         AND (
-                            (LOWER(r.transaction_type) = 'unit resale' AND LOWER(r.reservation_status) IN ('reserved', 'handover'))
+                            (LOWER(r.transaction_type) LIKE '%resale%' AND LOWER(r.reservation_status) = 'reserved')
                             OR (r.move_out_date IS NOT NULL AND r.move_out_date >= CURDATE())
                             OR (LOWER(r.reservation_status) = 'reserved' AND (r.move_in_date IS NULL OR r.move_in_date >= CURDATE()))
                         )

@@ -45,17 +45,17 @@ if (!function_exists('badge')) {
         $text = trim($value);
         $status = strtolower($text);
 
-        if (in_array($status, ['verified', 'reserved', 'requirements completed', 'active', 'officially booked'], true)) {
+        if ($status === 'officially booked') {
+            return "<span class='text-xs font-semibold px-2.5 py-1 rounded-full bg-purple-50 text-purple-700 border border-purple-200'>Officially Booked</span>";
+        }
+
+        if (in_array($status, ['verified', 'reserved', 'requirements completed', 'active'], true)) {
             $label = ($status === 'verified') ? 'Verified' : 'Reserved';
             return "<span class='text-xs font-semibold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200'>" . e($label) . "</span>";
         }
 
-        if (in_array($status, ['pending review', 'under review', 'requirements pending', 'requested', 'flagged for review', 'pending', 'in progress'], true)) {
+        if (in_array($status, ['pending review', 'under review', 'requirements pending', 'requested', 'flagged for review', 'pending', 'in progress', 'reservation form pending', 'submitted'], true)) {
             return "<span class='text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200'>Pending</span>";
-        }
-
-        if ($status === 'submitted') {
-            return "<span class='text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200'>Submitted</span>";
         }
 
         if (in_array($status, ['rejected', 'cancelled', 'declined'], true)) {
@@ -128,7 +128,7 @@ if (!function_exists('badge')) {
   <?php 
   $navSearchId = 'searchInput';
   $navSearchPlaceholder = 'Search reservations...';
-  $navSearchHandler = 'onkeyup="filterSearch()"';
+  $navSearchHandler = 'oninput="filterSearch(this.value)" onkeyup="filterSearch(this.value)"';
   include dirname(__DIR__) . '/components/admin_navbar.php'; 
   ?>
 
@@ -142,10 +142,33 @@ if (!function_exists('badge')) {
           <p class="text-xs text-slate-400 mt-0.5">Manage reservations, payment verifications, and tenant handover workflows.</p>
         </div>
         <div class="flex items-center gap-2">
-          <a href="<?= htmlspecialchars($baseUrl) ?>/admin/inquiries"
-            class="btn-press bg-slate-900 hover:bg-slate-700 active:scale-95 text-white text-sm font-semibold px-4 py-2 rounded-full transition-all">
-            View Inquiries
-          </a>
+          <div class="flex bg-slate-100 rounded-full p-1 gap-0.5 text-xs font-semibold overflow-x-auto max-w-full">
+            <button type="button"
+              class="res-filter-btn active px-3.5 py-1.5 rounded-full bg-white text-slate-900 shadow-sm active:scale-95 transition-all cursor-pointer font-semibold whitespace-nowrap"
+              data-filter="pending" onclick="setReservationFilter('pending')">
+              Pending
+            </button>
+            <button type="button"
+              class="res-filter-btn px-3.5 py-1.5 rounded-full text-slate-500 hover:text-slate-900 hover:bg-white/60 active:scale-95 transition-all cursor-pointer font-semibold whitespace-nowrap"
+              data-filter="reserved" onclick="setReservationFilter('reserved')">
+              Reserved
+            </button>
+            <button type="button"
+              class="res-filter-btn px-3.5 py-1.5 rounded-full text-slate-500 hover:text-slate-900 hover:bg-white/60 active:scale-95 transition-all cursor-pointer font-semibold whitespace-nowrap"
+              data-filter="officially booked" onclick="setReservationFilter('officially booked')">
+              Officially Booked
+            </button>
+            <button type="button"
+              class="res-filter-btn px-3.5 py-1.5 rounded-full text-slate-500 hover:text-slate-900 hover:bg-white/60 active:scale-95 transition-all cursor-pointer font-semibold whitespace-nowrap"
+              data-filter="cancelled" onclick="setReservationFilter('cancelled')">
+              Cancelled
+            </button>
+            <button type="button"
+              class="res-filter-btn px-3.5 py-1.5 rounded-full text-slate-500 hover:text-slate-900 hover:bg-white/60 active:scale-95 transition-all cursor-pointer font-semibold whitespace-nowrap"
+              data-filter="all" onclick="setReservationFilter('all')">
+              All
+            </button>
+          </div>
         </div>
       </div>
 
@@ -184,7 +207,23 @@ if (!function_exists('badge')) {
 
                   $submittedDate = format_date_only($row['created_at'] ?? null);
                   $resStatus = strtolower(trim((string)($row['reservation_status'] ?? '')));
+                  $pStatus = strtolower(trim((string)($row['payment_status'] ?? '')));
+                  $hasOfficiallyBooked = !empty($row['officially_booked_at']) || in_array($resStatus, ['officially booked', 'handover', 'moved in', 'active', 'completed'], true);
                   $isMovedIn = in_array($resStatus, ['handover', 'moved in', 'active', 'completed'], true);
+
+                  if (in_array($resStatus, ['rejected', 'cancelled'], true) || strtolower((string)($row['reservation_status'] ?? '')) === 'cancelled') {
+                      $resDisplay = 'Cancelled';
+                      $filterCategory = 'cancelled';
+                  } elseif ($hasOfficiallyBooked) {
+                      $resDisplay = 'Officially Booked';
+                      $filterCategory = 'officially booked';
+                  } elseif (in_array($resStatus, ['submitted', 'pending review', 'pending', 'under review', 'in progress', 'reservation form pending'], true) || $pStatus === 'pending review') {
+                      $resDisplay = 'Pending';
+                      $filterCategory = 'pending';
+                  } else {
+                      $resDisplay = 'Reserved';
+                      $filterCategory = 'reserved';
+                  }
 
                   $timelineData = [
                       'reservation_id'          => (int)$row['reservation_id'],
@@ -210,6 +249,8 @@ if (!function_exists('badge')) {
                   ?>
                   <tr class="res-row cursor-pointer hover:bg-slate-50 transition-colors"
                       data-timeline="<?= $timelineJson ?>"
+                      data-filter-status="<?= e($filterCategory) ?>"
+                      data-search="<?= e(strtolower($reservationId . ' ' . ($row['client_name'] ?? '') . ' ' . ($row['client_email'] ?? '') . ' ' . $unitDisplay . ' ' . ($row['transaction_type'] ?? '') . ' ' . $resDisplay)) ?>"
                       onclick="openActivityTimelineModal(this)">
 
                     <td class="px-5 py-3.5 font-semibold text-slate-700 whitespace-nowrap align-middle" style="font-family:'DM Mono',monospace">
@@ -239,19 +280,6 @@ if (!function_exists('badge')) {
 
                     <td class="px-4 py-3.5 whitespace-nowrap align-middle">
                       <div class="flex items-center gap-2">
-                        <?php
-                          $pStatus = strtolower(trim((string)($row['payment_status'] ?? '')));
-                          $rStatus = strtolower(trim((string)($row['reservation_status'] ?? 'submitted')));
-                          if (in_array($rStatus, ['reserved', 'requirements completed', 'officially booked', 'active', 'handover', 'moved in'], true)) {
-                              $resDisplay = 'Reserved';
-                          } elseif ($pStatus === 'verified' || in_array($rStatus, ['pending', 'requirements pending', 'in progress', 'under review'], true)) {
-                              $resDisplay = 'Pending';
-                          } elseif (in_array($rStatus, ['rejected', 'cancelled'], true)) {
-                              $resDisplay = ucwords($rStatus);
-                          } else {
-                              $resDisplay = 'Submitted';
-                          }
-                        ?>
                         <?= badge($resDisplay) ?>
                         <?php if (strtolower((string)($row['reservation_status'] ?? '')) === 'cancellation requested'): ?>
                           <a href="<?= htmlspecialchars($baseUrl) ?>/admin/reservations/view?reservation_id=<?= e($row['reservation_id']) ?>"
@@ -269,17 +297,32 @@ if (!function_exists('badge')) {
                     </td>
                   </tr>
                 <?php endforeach; ?>
+                <tr id="resNoMatchRow" class="hidden">
+                  <td colspan="8" class="px-4 py-12 text-center text-sm text-slate-400">
+                    <div class="flex flex-col items-center justify-center gap-2">
+                      <div class="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-400">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      </div>
+                      <p class="text-sm font-semibold text-slate-700">No reservations match your filter</p>
+                      <p class="text-xs text-slate-400">Try selecting a different status filter or clearing your search.</p>
+                    </div>
+                  </td>
+                </tr>
               <?php endif; ?>
             </tbody>
           </table>
         </div>
 
-        <!-- Footer / Count -->
-        <div class="flex items-center justify-between px-5 py-3.5 border-t border-slate-100 flex-wrap gap-3">
-          <p class="text-xs text-slate-500">
-            Total of <span class="font-semibold text-slate-700"><?= count($reservations) ?></span> reservations
+        <!-- Table Pagination & Count Footer -->
+        <div class="flex items-center justify-between px-5 py-3.5 border-t border-slate-100 flex-wrap gap-3" id="resPaginationContainer">
+          <p class="text-xs text-slate-500" id="resPaginationInfo">
+            Showing <span class="font-semibold text-slate-700" id="resShowingStart">0</span>–<span class="font-semibold text-slate-700" id="resShowingEnd">0</span> of <span class="font-semibold text-slate-700" id="resTotalCount"><?= count($reservations) ?></span> reservations
           </p>
-          <p class="text-xs text-slate-400">Click any reservation row to view its live activity timeline.</p>
+          <div class="flex items-center gap-1" id="resPaginationControls">
+            <!-- Dynamically populated by JS -->
+          </div>
         </div>
       </div>
     </div>
@@ -447,8 +490,9 @@ function submitHandover(e) {
 
     if (data.success) {
       closeHandoverModal();
+      const roleLabel = (data.tenant && data.tenant.role === 'unit owner') ? 'Unit Owner' : 'Tenant';
       showStatusModal(true, 'Handover Successful!',
-        data.message + ' Tenant credentials (Email: ' + data.tenant.email + ') dispatched via email.',
+        data.message + ' ' + roleLabel + ' credentials (Email: ' + data.tenant.email + ') dispatched via email.',
         true);
     } else {
       showStatusModal(false, 'Handover Failed', data.message || 'Unable to process handover.');
@@ -771,6 +815,133 @@ function closeStatusModal() {
     if (!modal.classList.contains('open')) modal.classList.add('hidden');
     if (_resShouldReload) window.location.reload();
   }, 250);
+}
+
+// --- Dynamic Filter, Search, and Pagination Logic ---
+let currentReservationFilter = 'pending';
+let currentSearchQuery = '';
+let currentResPage = 1;
+const reservationPageSize = 10;
+
+function setReservationFilter(filter) {
+  currentReservationFilter = (filter || 'pending').toLowerCase().trim();
+  currentResPage = 1;
+  document.querySelectorAll('.res-filter-btn').forEach(btn => {
+    const isActive = (btn.dataset.filter || '').toLowerCase() === currentReservationFilter;
+    if (isActive) {
+      btn.className = 'res-filter-btn active px-3.5 py-1.5 rounded-full bg-white text-slate-900 shadow-sm active:scale-95 transition-all cursor-pointer font-semibold whitespace-nowrap';
+    } else {
+      btn.className = 'res-filter-btn px-3.5 py-1.5 rounded-full text-slate-500 hover:text-slate-900 hover:bg-white/60 active:scale-95 transition-all cursor-pointer font-semibold whitespace-nowrap';
+    }
+  });
+  applyReservationFilters();
+}
+
+function filterSearch(val) {
+  currentSearchQuery = (val || '').toLowerCase().trim();
+  currentResPage = 1;
+  applyReservationFilters();
+}
+
+function applyReservationFilters() {
+  const rows = Array.from(document.querySelectorAll('#resBody tr.res-row'));
+  const noMatchRow = document.getElementById('resNoMatchRow');
+
+  const matchingRows = rows.filter(row => {
+    const rowStatus = (row.dataset.filterStatus || '').toLowerCase();
+    const searchData = (row.dataset.search || row.textContent || '').toLowerCase();
+
+    const matchesFilter = (currentReservationFilter === 'all') 
+      || (rowStatus === currentReservationFilter)
+      || (currentReservationFilter === 'pending' && (rowStatus === 'pending' || rowStatus === 'reservation form pending' || rowStatus === 'submitted'));
+    const matchesSearch = !currentSearchQuery || searchData.includes(currentSearchQuery);
+
+    return matchesFilter && matchesSearch;
+  });
+
+  const totalMatching = matchingRows.length;
+  const totalPages = Math.ceil(totalMatching / reservationPageSize) || 1;
+  if (currentResPage > totalPages) currentResPage = totalPages;
+  if (currentResPage < 1) currentResPage = 1;
+
+  const startIndex = (currentResPage - 1) * reservationPageSize;
+  const endIndex = Math.min(startIndex + reservationPageSize, totalMatching);
+
+  rows.forEach(row => {
+    row.style.display = 'none';
+  });
+
+  matchingRows.slice(startIndex, endIndex).forEach(row => {
+    row.style.display = '';
+  });
+
+  if (noMatchRow) {
+    noMatchRow.classList.toggle('hidden', totalMatching > 0 || rows.length === 0);
+  }
+
+  const showingStartEl = document.getElementById('resShowingStart');
+  const showingEndEl = document.getElementById('resShowingEnd');
+  const totalCountEl = document.getElementById('resTotalCount');
+
+  if (showingStartEl && showingEndEl && totalCountEl) {
+    showingStartEl.textContent = totalMatching === 0 ? '0' : (startIndex + 1);
+    showingEndEl.textContent = endIndex;
+    totalCountEl.textContent = totalMatching;
+  }
+
+  renderReservationPagination(totalPages, totalMatching);
+}
+
+function goToPage(page) {
+  currentResPage = page;
+  applyReservationFilters();
+}
+
+function renderReservationPagination(totalPages, totalMatching) {
+  const container = document.getElementById('resPaginationControls');
+  if (!container) return;
+
+  if (totalMatching === 0 || totalPages <= 1) {
+    container.innerHTML = `<span class="px-2 py-1 text-xs font-semibold text-slate-400">1 / 1</span>`;
+    return;
+  }
+
+  let html = '';
+  const prevDisabled = currentResPage <= 1;
+  html += `
+    <button type="button" onclick="goToPage(${currentResPage - 1})" 
+      class="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 transition-all active:scale-95 ${prevDisabled ? 'opacity-30 cursor-not-allowed text-slate-300' : 'text-slate-500 hover:bg-slate-50 cursor-pointer'}" 
+      ${prevDisabled ? 'disabled' : ''} title="Previous">
+      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+    </button>
+  `;
+
+  for (let p = 1; p <= totalPages; p++) {
+    const isCurrent = p === currentResPage;
+    html += `
+      <button type="button" onclick="goToPage(${p})" 
+        class="w-8 h-8 flex items-center justify-center rounded-lg text-xs font-semibold transition-all active:scale-95 cursor-pointer ${isCurrent ? 'bg-slate-900 text-white shadow-xs' : 'border border-slate-200 text-slate-600 hover:bg-slate-50'}">
+        ${p}
+      </button>
+    `;
+  }
+
+  const nextDisabled = currentResPage >= totalPages;
+  html += `
+    <button type="button" onclick="goToPage(${currentResPage + 1})" 
+      class="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 transition-all active:scale-95 ${nextDisabled ? 'opacity-30 cursor-not-allowed text-slate-300' : 'text-slate-500 hover:bg-slate-50 cursor-pointer'}" 
+      ${nextDisabled ? 'disabled' : ''} title="Next">
+      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+    </button>
+  `;
+
+  container.innerHTML = html;
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', applyReservationFilters);
+} else {
+  applyReservationFilters();
 }
 </script>
 

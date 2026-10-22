@@ -137,20 +137,23 @@ $pendingRequests = count(array_filter($maintenance, fn($item) => strtolower($ite
     <div class="max-w-screen-2xl mx-auto space-y-6">
 
       <!-- Alert feedback -->
-      <?php if (!empty($_SESSION['success_message'])): ?>
+      <?php 
+        $activeSuccess = $successMessage ?? ($_SESSION['success_message'] ?? null);
+        $activeError = $errorMessage ?? ($_SESSION['error_message'] ?? null);
+        unset($_SESSION['success_message'], $_SESSION['error_message']);
+      ?>
+      <?php if (!empty($activeSuccess)): ?>
         <div class="flex items-center gap-3 p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm rounded-2xl shadow-xs">
           <svg class="w-5 h-5 text-emerald-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-          <p class="font-medium"><?= e($_SESSION['success_message']) ?></p>
+          <div class="font-medium text-emerald-950"><?= $activeSuccess ?></div>
         </div>
-        <?php unset($_SESSION['success_message']); ?>
       <?php endif; ?>
 
-      <?php if (!empty($_SESSION['error_message'])): ?>
+      <?php if (!empty($activeError)): ?>
         <div class="flex items-center gap-3 p-4 bg-red-50 border border-red-200 text-red-800 text-sm rounded-2xl shadow-xs">
           <svg class="w-5 h-5 text-red-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-          <p class="font-medium"><?= e($_SESSION['error_message']) ?></p>
+          <p class="font-medium"><?= e($activeError) ?></p>
         </div>
-        <?php unset($_SESSION['error_message']); ?>
       <?php endif; ?>
 
       <!-- Breadcrumb + Actions -->
@@ -163,7 +166,25 @@ $pendingRequests = count(array_filter($maintenance, fn($item) => strtolower($ite
           <svg class="w-3.5 h-3.5 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
           <span class="text-slate-900 font-semibold"><?= e($resident['full_name']) ?></span>
         </div>
-        <div class="flex items-center gap-2">
+        <div class="flex items-center gap-2 flex-wrap">
+          <?php if (!empty($isSuperAdmin)): ?>
+            <!-- Secret Admin: Visit Account -->
+            <form action="<?= htmlspecialchars($baseUrl) ?>/admin/residents/impersonate" method="POST" class="inline">
+              <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken ?? (class_exists('Csrf') ? Csrf::token() : '')) ?>">
+              <input type="hidden" name="user_id" value="<?= $user_id ?>">
+              <button type="submit" class="btn-press flex items-center gap-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-sm font-semibold px-4 py-2 rounded-full transition-all active:scale-95 shadow-xs" title="Open resident portal as this user">
+                <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                Visit Account
+              </button>
+            </form>
+
+            <!-- Secret Admin: Reset Password to Temporary -->
+            <button type="button" onclick="openResetPasswordModal()" class="btn-press flex items-center gap-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-sm font-semibold px-4 py-2 rounded-full transition-all active:scale-95 shadow-xs" title="Generate random temporary password and email resident">
+              <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/></svg>
+              Reset Password
+            </button>
+          <?php endif; ?>
+
           <button type="button" onclick="openEditModal()" class="btn-press flex items-center gap-2 bg-slate-900 hover:bg-slate-700 active:scale-95 text-white text-sm font-semibold px-4 py-2 rounded-full transition-all">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
             Edit Profile
@@ -387,6 +408,7 @@ $pendingRequests = count(array_filter($maintenance, fn($item) => strtolower($ite
       <button type="button" onclick="closeEditModal()" class="btn-press w-9 h-9 rounded-full hover:bg-slate-100 text-slate-500 flex items-center justify-center">✕</button>
     </div>
     <form method="POST" action="<?= htmlspecialchars($baseUrl) ?>/admin/residents/profile-action" class="p-6 space-y-4">
+      <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken ?? (class_exists('Csrf') ? Csrf::token() : '')) ?>">
       <input type="hidden" name="user_id" value="<?= $user_id ?>">
       <input type="hidden" name="action" value="update_profile">
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -469,6 +491,7 @@ $pendingRequests = count(array_filter($maintenance, fn($item) => strtolower($ite
       </div>
 
       <form method="POST" action="<?= htmlspecialchars($baseUrl) ?>/admin/residents/profile-action">
+        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken ?? (class_exists('Csrf') ? Csrf::token() : '')) ?>">
         <input type="hidden" name="user_id" value="<?= $user_id ?>">
         <input type="hidden" name="action" value="toggle_status">
         <input type="hidden" name="resident_status" value="<?= $resident['resident_status'] === 'Active' ? 'Inactive' : 'Active' ?>">
@@ -485,6 +508,53 @@ $pendingRequests = count(array_filter($maintenance, fn($item) => strtolower($ite
     </div>
   </div>
 </div>
+
+<?php if (!empty($isSuperAdmin)): ?>
+<!-- RESET PASSWORD MODAL (Superadmin Exclusive) -->
+<div id="resetPasswordModal" class="fixed inset-0 z-50 hidden bg-slate-900/60 backdrop-blur-xs items-center justify-center p-4">
+  <div class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100">
+    <div class="flex items-center gap-3.5 mb-4">
+      <div class="w-11 h-11 rounded-2xl bg-rose-50 flex items-center justify-center border border-rose-100 shrink-0 text-rose-600">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+      </div>
+      <div>
+        <h3 class="text-base font-bold text-slate-900">Reset Resident Password</h3>
+        <span class="inline-block text-[11px] font-semibold text-rose-700 uppercase tracking-wider">Secret Admin Power</span>
+      </div>
+    </div>
+    
+    <p class="text-sm text-slate-600 leading-relaxed mb-4">
+      Are you sure you want to reset the password for <strong class="text-slate-900"><?= e($resident['full_name']) ?></strong>?
+    </p>
+
+    <div class="p-4 bg-amber-50 border border-amber-200/80 rounded-2xl text-xs text-amber-900 space-y-1.5 mb-5">
+      <div class="flex items-center gap-1.5 font-bold text-amber-900">
+        <svg class="w-4 h-4 text-amber-700 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        <span>Automatic Action:</span>
+      </div>
+      <ul class="list-disc list-inside space-y-1 text-amber-800">
+        <li>A secure random temporary password will be generated.</li>
+        <li>An email notification will be dispatched to <strong><?= e($resident['email']) ?></strong>.</li>
+        <li>The temporary password will also be displayed to you on this page.</li>
+      </ul>
+    </div>
+
+    <form method="POST" action="<?= htmlspecialchars($baseUrl) ?>/admin/residents/reset-password">
+      <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken ?? (class_exists('Csrf') ? Csrf::token() : '')) ?>">
+      <input type="hidden" name="user_id" value="<?= $user_id ?>">
+      
+      <div class="flex items-center justify-end gap-2.5">
+        <button type="button" onclick="closeResetPasswordModal()" class="btn-press px-4 py-2.5 text-xs font-semibold border border-slate-200 rounded-full text-slate-600 hover:bg-slate-50">
+          Cancel
+        </button>
+        <button type="submit" class="btn-press px-5 py-2.5 text-xs font-semibold rounded-full text-white bg-rose-600 hover:bg-rose-700 shadow-sm shadow-rose-600/20 active:scale-95">
+          Yes, Generate & Reset Password
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+<?php endif; ?>
 
 <script>
   function setProfileTab(tab, btn) {
@@ -522,10 +592,26 @@ $pendingRequests = count(array_filter($maintenance, fn($item) => strtolower($ite
     }
   }
 
+  function openResetPasswordModal() {
+    const m = document.getElementById('resetPasswordModal');
+    if (m) {
+      m.classList.remove('hidden');
+      m.classList.add('flex');
+    }
+  }
+  function closeResetPasswordModal() {
+    const m = document.getElementById('resetPasswordModal');
+    if (m) {
+      m.classList.add('hidden');
+      m.classList.remove('flex');
+    }
+  }
+
   document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') {
       closeStatusModal();
       closeEditModal();
+      closeResetPasswordModal();
     }
   });
 

@@ -5,6 +5,7 @@ require_once __DIR__ . '/../core/Controller.php';
 require_once __DIR__ . '/../core/Middleware.php';
 require_once __DIR__ . '/../models/Resident.php';
 require_once __DIR__ . '/../models/Analytics.php';
+require_once __DIR__ . '/../models/User.php';
 
 /**
  * Zeppelin Suites - Resident Controller
@@ -31,17 +32,20 @@ class ResidentController extends Controller {
 
         $residents = $this->residentModel->getAll($search, $role, $status);
         $baseUrl = rtrim((string)env('APP_URL', '/Zeppelin-Suites'), '/');
+        $isSuperAdmin = Middleware::isSuperAdmin();
 
         // Live AJAX search requests return only rendered table rows
         if ($isAjax) {
             header('Content-Type: text/html; charset=UTF-8');
             if (empty($residents)) {
-                echo '<tr><td colspan="7" class="px-4 py-10 text-center text-slate-500 text-sm">No residents found.</td></tr>';
+                $colspan = $isSuperAdmin ? 7 : 6;
+                echo '<tr><td colspan="' . $colspan . '" class="px-4 py-10 text-center text-slate-500 text-sm">No residents found.</td></tr>';
             } else {
                 foreach ($residents as $resident) {
                     $this->render('admin/residents_rows', [
-                        'resident' => $resident,
-                        'baseUrl'  => $baseUrl,
+                        'resident'     => $resident,
+                        'baseUrl'      => $baseUrl,
+                        'isSuperAdmin' => $isSuperAdmin,
                     ]);
                 }
             }
@@ -65,6 +69,7 @@ class ResidentController extends Controller {
             'statusFilter'   => $status,
             'successMessage' => $successMessage,
             'errorMessage'   => $errorMessage,
+            'isSuperAdmin'   => $isSuperAdmin,
         ]);
     }
 
@@ -162,6 +167,10 @@ class ResidentController extends Controller {
         $analyticsModel = new Analytics();
         $pendingCounts = $analyticsModel->getPendingCounts();
 
+        $successMessage = $this->getFlash('success_message') ?? ($_SESSION['success_message'] ?? null);
+        $errorMessage = $this->getFlash('error_message') ?? ($_SESSION['error_message'] ?? null);
+        unset($_SESSION['success_message'], $_SESSION['error_message']);
+
         $this->render('admin/view_resident', [
             'pageTitle'           => 'Zeppelin Suites - View Resident #' . $userId,
             'activeTab'           => 'residents',
@@ -172,6 +181,9 @@ class ResidentController extends Controller {
             'user_id'             => $userId,
             'pendingInquiries'    => $pendingCounts['pending_inquiries'],
             'pendingReservations' => $pendingCounts['pending_reservations'],
+            'isSuperAdmin'        => Middleware::isSuperAdmin(),
+            'successMessage'      => $successMessage,
+            'errorMessage'        => $errorMessage,
         ]);
     }
 
@@ -181,6 +193,10 @@ class ResidentController extends Controller {
     public function profileAction(): void {
         Middleware::requireRole(['admin']);
         $baseUrl = rtrim((string)env('APP_URL', '/Zeppelin-Suites'), '/');
+
+        if ($this->isPost()) {
+            $this->validateCsrf();
+        }
 
         $userId = (int)($this->getPost('user_id', 0) ?: $this->getQuery('id', 0));
         if ($userId <= 0) {
@@ -207,6 +223,165 @@ class ResidentController extends Controller {
             }
         }
 
+        $this->redirect("{$baseUrl}/admin/residents/view?id={$userId}");
+    }
+
+    /**
+     * Secret Admin Impersonation ("Visit Account").
+     * Allows visiting the resident's portal directly with seamless return capability.
+     */
+    public function impersonate(): void {
+        Middleware::requireRole(['admin', 'superadmin']);
+        $baseUrl = rtrim((string)env('APP_URL', '/Zeppelin-Suites'), '/');
+
+        if (!Middleware::isSuperAdmin()) {
+            $this->setFlash('error_message', 'Access denied. Only the secret administrator can impersonate resident accounts.');
+            $this->redirect("{$baseUrl}/admin/residents");
+            return;
+        }
+
+        if ($this->isPost()) {
+            $this->validateCsrf();
+        }
+
+        $userId = (int)($this->getPost('user_id', 0) ?: $this->getQuery('id', 0));
+        if ($userId <= 0) {
+            $this->redirect("{$baseUrl}/admin/residents");
+            return;
+        }
+
+        $resident = $this->residentModel->findById($userId);
+        if (!$resident) {
+            $this->setFlash('error_message', 'Resident account not found.');
+            $this->redirect("{$baseUrl}/admin/residents");
+            return;
+        }
+
+        $targetRole = strtolower(trim((string)$resident['user_role']));
+        if (!in_array($targetRole, ['unit owner', 'tenant'], true)) {
+            $this->setFlash('error_message', 'Impersonation is only permitted for Unit Owners and Tenants.');
+            $this->redirect("{$baseUrl}/admin/residents/view?id={$userId}");
+            return;
+        }
+
+        // Preserve original admin session data
+        if (empty($_SESSION['impersonator_admin_id'])) {
+            $_SESSION['impersonator_admin_id'] = (int)$_SESSION['user_id'];
+            $_SESSION['impersonator_role'] = (string)($_SESSION['role'] ?? 'superadmin');
+            $_SESSION['impersonator_name'] = (string)($_SESSION['full_name'] ?? 'Secret Admin');
+            $_SESSION['is_impersonating'] = true;
+        }
+
+        // Switch active user session to target resident
+        $_SESSION['user_id'] = (int)$resident['user_id'];
+        $_SESSION['email'] = (string)$resident['email'];
+        $_SESSION['role'] = $targetRole;
+        $_SESSION['full_name'] = (string)$resident['full_name'];
+        $_SESSION['initial'] = strtoupper(substr(trim((string)$resident['full_name'] ?: 'R'), 0, 1));
+
+        Logger::info("Secret Admin #{$_SESSION['impersonator_admin_id']} started impersonating resident #{$userId} ({$resident['full_name']} - {$targetRole})");
+
+        if ($targetRole === 'unit owner') {
+            $this->redirect("{$baseUrl}/owner/overview");
+        } else {
+            $this->redirect("{$baseUrl}/tenant/home");
+        }
+    }
+
+    /**
+     * Exit impersonation mode and safely restore the original Secret Admin session.
+     */
+    public function exitImpersonation(): void {
+        $baseUrl = rtrim((string)env('APP_URL', '/Zeppelin-Suites'), '/');
+
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
+
+        $impersonatorId = (int)($_SESSION['impersonator_admin_id'] ?? 0);
+        if ($impersonatorId <= 0) {
+            $this->redirect("{$baseUrl}/admin/residents");
+            return;
+        }
+
+        $userModel = new User();
+        $adminUser = $userModel->findById($impersonatorId);
+
+        // Clear impersonation state
+        unset($_SESSION['impersonator_admin_id'], $_SESSION['impersonator_role'], $_SESSION['impersonator_name'], $_SESSION['is_impersonating']);
+
+        if ($adminUser) {
+            $_SESSION['user_id'] = (int)$adminUser['user_id'];
+            $_SESSION['email'] = (string)$adminUser['email'];
+            $_SESSION['role'] = (string)$adminUser['user_role'];
+            $displayInfo = $userModel->getUserDisplayInfo($impersonatorId, (string)$adminUser['user_role']);
+            $_SESSION['full_name'] = $displayInfo['full_name'];
+            $_SESSION['initial'] = $displayInfo['initial'];
+        }
+
+        Logger::info("Secret Admin #{$impersonatorId} exited impersonation and returned to Admin Residents.");
+
+        $this->setFlash('success_message', 'Exited impersonation mode. You are now back in the Admin Portal.');
+        $this->redirect("{$baseUrl}/admin/residents");
+    }
+
+    /**
+     * Secret Admin random temporary password reset with email notification.
+     */
+    public function resetPassword(): void {
+        Middleware::requireRole(['admin', 'superadmin']);
+        $baseUrl = rtrim((string)env('APP_URL', '/Zeppelin-Suites'), '/');
+
+        if (!Middleware::isSuperAdmin()) {
+            $this->setFlash('error_message', 'Access denied. Only the secret administrator can reset resident passwords.');
+            $this->redirect("{$baseUrl}/admin/residents");
+            return;
+        }
+
+        $this->validateCsrf();
+
+        $userId = (int)($this->getPost('user_id', 0) ?: $this->getQuery('id', 0));
+        if ($userId <= 0) {
+            $this->redirect("{$baseUrl}/admin/residents");
+            return;
+        }
+
+        $resident = $this->residentModel->findById($userId);
+        if (!$resident) {
+            $this->setFlash('error_message', 'Resident account not found.');
+            $this->redirect("{$baseUrl}/admin/residents");
+            return;
+        }
+
+        // Generate cryptographically secure temporary password
+        $tempPassword = User::generateTemporaryPassword();
+        $userModel = new User();
+        $success = $userModel->adminResetPassword($userId, $tempPassword);
+
+        if (!$success) {
+            $this->setFlash('error_message', 'Failed to reset password in the database. Please try again.');
+            $this->redirect("{$baseUrl}/admin/residents/view?id={$userId}");
+            return;
+        }
+
+        // Dispatch automated notification email
+        require_once __DIR__ . '/../config/owner_notifications.php';
+        $email = (string)($resident['email'] ?? '');
+        $fullName = (string)($resident['full_name'] ?? 'Resident');
+
+        $mailSent = notifyResidentOfPasswordReset($email, $fullName, $tempPassword);
+
+        Logger::info("Secret Admin #{$_SESSION['user_id']} reset password for resident #{$userId} ({$email}). Mail delivered: " . ($mailSent ? 'YES' : 'NO'));
+
+        $safeFullName = htmlspecialchars($fullName, ENT_QUOTES, 'UTF-8');
+        $msg = "Password for {$safeFullName} was successfully reset. Temporary password: <span class='font-mono font-bold select-all bg-emerald-100 text-emerald-900 px-2 py-0.5 rounded'>{$tempPassword}</span>";
+        if ($mailSent) {
+            $msg .= " — A notification email with these credentials was sent to {$email}.";
+        } else {
+            $msg .= " — (Note: SMTP credentials not active; please share the temporary password with the resident manually.)";
+        }
+
+        $this->setFlash('success_message', $msg);
         $this->redirect("{$baseUrl}/admin/residents/view?id={$userId}");
     }
 }

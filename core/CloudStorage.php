@@ -121,37 +121,6 @@ class CloudStorage {
     }
 
     /**
-     * 4. Upload Maintenance Request Photo
-     * Folder: maintenances/
-     */
-    public static function uploadMaintenancePhoto(string $tmpPath, string $origName, int $ticketId): ?string {
-        $ext = strtolower(pathinfo($origName, PATHINFO_EXTENSION)) ?: 'jpg';
-        $filename = "maint_{$ticketId}_" . time() . '_' . bin2hex(random_bytes(4)) . ".{$ext}";
-        $storagePath = "maintenances/{$filename}";
-        return self::uploadFile($tmpPath, $storagePath);
-    }
-
-    /**
-     * 5. Upload Unit Showcase Photo
-     * Folder: units/
-     */
-    public static function uploadUnitPhoto(string $tmpPath, string $origName, string $unitNumber): ?string {
-        $ext = strtolower(pathinfo($origName, PATHINFO_EXTENSION)) ?: 'jpg';
-        $filename = "unit_{$unitNumber}_" . time() . '_' . bin2hex(random_bytes(4)) . ".{$ext}";
-        $storagePath = "units/{$filename}";
-        return self::uploadFile($tmpPath, $storagePath);
-    }
-
-    /**
-     * 6. Upload Database Backup Snapshot
-     * Folder: backups/
-     */
-    public static function uploadBackup(string $sqlContent, string $backupFilename): ?string {
-        $storagePath = "backups/{$backupFilename}";
-        return self::uploadRaw($sqlContent, $storagePath, 'application/sql');
-    }
-
-    /**
      * Delete an object from Supabase by full public URL or relative path.
      */
     public static function deleteObject(string $urlOrPath): bool {

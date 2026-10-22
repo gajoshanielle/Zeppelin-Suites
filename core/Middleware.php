@@ -14,10 +14,12 @@ class Middleware {
     }
 
     /**
-     * Guard that ensures the request contains a valid CSRF token.
+     * Start session safely if not already active and headers not sent.
      */
-    public static function csrf(): void {
-        Csrf::check();
+    private static function startSessionIfNeeded(): void {
+        if (session_status() === PHP_SESSION_NONE && !headers_sent()) {
+            @session_start();
+        }
     }
 
     /**
@@ -27,16 +29,18 @@ class Middleware {
      * @return array User identity data from session
      */
     public static function requireRole(array $allowedRoles): array {
-        if (session_status() === PHP_SESSION_NONE) {
-            session_start();
-        }
+        self::startSessionIfNeeded();
 
         $userId = $_SESSION['user_id'] ?? null;
         $role = self::normalizeRole((string)($_SESSION['role'] ?? ''));
 
         $normalizedAllowed = array_map([self::class, 'normalizeRole'], $allowedRoles);
 
-        if (!$userId || (!empty($normalizedAllowed) && !in_array($role, $normalizedAllowed, true))) {
+        // Superadmin automatically inherits all 'admin' role permissions
+        $hasAccess = in_array($role, $normalizedAllowed, true)
+            || ($role === 'superadmin' && in_array('admin', $normalizedAllowed, true));
+
+        if (!$userId || (!empty($normalizedAllowed) && !$hasAccess)) {
             // If AJAX request, return 401 Unauthorized JSON
             $isAjax = (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest')
                 || (strpos($_SERVER['HTTP_ACCEPT'] ?? '', 'application/json') !== false);
@@ -68,12 +72,30 @@ class Middleware {
     }
 
     /**
+     * Determine if current active user or background impersonator is a superadmin.
+     */
+    public static function isSuperAdmin(): bool {
+        self::startSessionIfNeeded();
+        $role = self::normalizeRole((string)($_SESSION['role'] ?? ''));
+        if (!empty($_SESSION['is_impersonating']) && !empty($_SESSION['impersonator_role'])) {
+            return self::normalizeRole((string)$_SESSION['impersonator_role']) === 'superadmin';
+        }
+        return $role === 'superadmin';
+    }
+
+    /**
+     * Determine if currently actively impersonating another user.
+     */
+    public static function isImpersonating(): bool {
+        self::startSessionIfNeeded();
+        return !empty($_SESSION['is_impersonating']) && !empty($_SESSION['impersonator_admin_id']);
+    }
+
+    /**
      * Guard that ensures only guests (unauthenticated visitors) can access the route (e.g. login page).
      */
     public static function requireGuest(): void {
-        if (session_status() === PHP_SESSION_NONE) {
-            session_start();
-        }
+        self::startSessionIfNeeded();
 
         if (!empty($_SESSION['user_id'])) {
             $role = self::normalizeRole((string)($_SESSION['role'] ?? ''));
@@ -90,6 +112,7 @@ class Middleware {
         $baseUrl = rtrim((string)env('APP_URL', '/Zeppelin-Suites'), '/');
         
         switch (self::normalizeRole($role)) {
+            case 'superadmin':
             case 'admin':
                 return "{$baseUrl}/admin/home";
             case 'unit owner':

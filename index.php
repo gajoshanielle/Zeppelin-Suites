@@ -192,14 +192,6 @@ $router->post('/admin/inquiries/send-approval', [InquiryController::class, 'send
 $router->post('/admin/inquiries/cancel-approval', [InquiryController::class, 'cancelApproval'], ['admin']);
 $router->post('/admin/inquiries/assign-unit', [InquiryController::class, 'assignUnit'], ['admin']);
 
-// Legacy API aliases for inquiry unit approval
-$router->get('/ActionsAP/checkAvailableUnits.php', [InquiryController::class, 'checkUnits'], ['admin']);
-$router->post('/ActionsAP/sendApprovalRequests.php', [InquiryController::class, 'sendApproval'], ['admin']);
-$router->post('/ActionsAP/cancelApprovalRequest.php', [InquiryController::class, 'cancelApproval'], ['admin']);
-$router->get('/adminPages/ActionsAP/checkAvailableUnits.php', [InquiryController::class, 'checkUnits'], ['admin']);
-$router->post('/adminPages/ActionsAP/sendApprovalRequests.php', [InquiryController::class, 'sendApproval'], ['admin']);
-$router->post('/adminPages/ActionsAP/cancelApprovalRequest.php', [InquiryController::class, 'cancelApproval'], ['admin']);
-
 $router->get('/admin/reservations', [ReservationController::class, 'index'], ['admin']);
 $router->get('/admin/reservations/view', [ReservationController::class, 'show'], ['admin']);
 $router->get('/admin/reservations/documents', [ReservationController::class, 'getDocuments'], ['admin']);
@@ -216,26 +208,17 @@ $router->post('/admin/reservations/lease-signing', [ReservationController::class
 $router->post('/admin/reservations/payment', [ReservationController::class, 'updatePaymentStatus'], ['admin']);
 $router->post('/admin/reservations/update-payment', [ReservationController::class, 'updatePaymentStatus'], ['admin']);
 
-// Legacy API aliases for reservation workflow
-$router->post('/adminPages/ActionsAP/completeLeaseSigning.php', [ReservationController::class, 'updateLeaseSigning'], ['admin']);
-$router->post('/ActionsAP/completeLeaseSigning.php', [ReservationController::class, 'updateLeaseSigning'], ['admin']);
-$router->post('/adminPages/ActionsAP/updatePaymentStatus.php', [ReservationController::class, 'updatePaymentStatus'], ['admin']);
-$router->post('/ActionsAP/updatePaymentStatus.php', [ReservationController::class, 'updatePaymentStatus'], ['admin']);
-$router->get('/adminPages/ActionsAP/getReservationDocuments.php', [ReservationController::class, 'getDocuments'], ['admin']);
-$router->get('/ActionsAP/getReservationDocuments.php', [ReservationController::class, 'getDocuments'], ['admin']);
-$router->post('/adminPages/ActionsAP/updateReservationDocuments.php', [ReservationController::class, 'saveDocuments'], ['admin']);
-$router->post('/ActionsAP/updateReservationDocuments.php', [ReservationController::class, 'saveDocuments'], ['admin']);
-$router->post('/adminPages/ActionsAP/markOfficiallyBooked.php', [ReservationController::class, 'markOfficiallyBooked'], ['admin']);
-$router->post('/ActionsAP/markOfficiallyBooked.php', [ReservationController::class, 'markOfficiallyBooked'], ['admin']);
-$router->post('/adminPages/ActionsAP/cancelReservation.php', [ReservationController::class, 'cancelReservation'], ['admin']);
-$router->post('/ActionsAP/cancelReservation.php', [ReservationController::class, 'cancelReservation'], ['admin']);
-
 $router->get('/admin/residents', [ResidentController::class, 'index'], ['admin']);
 $router->get('/admin/residents/view', [ResidentController::class, 'show'], ['admin']);
 $router->post('/admin/residents', [ResidentController::class, 'store'], ['admin']);
 $router->post('/admin/residents/update', [ResidentController::class, 'update'], ['admin']);
 $router->post('/admin/residents/toggle-status', [ResidentController::class, 'toggleStatus'], ['admin']);
 $router->post('/admin/residents/profile-action', [ResidentController::class, 'profileAction'], ['admin']);
+$router->post('/admin/residents/impersonate', [ResidentController::class, 'impersonate'], ['admin', 'superadmin']);
+$router->get('/admin/residents/impersonate', [ResidentController::class, 'impersonate'], ['admin', 'superadmin']);
+$router->get('/admin/residents/exit-impersonation', [ResidentController::class, 'exitImpersonation']);
+$router->post('/admin/residents/exit-impersonation', [ResidentController::class, 'exitImpersonation']);
+$router->post('/admin/residents/reset-password', [ResidentController::class, 'resetPassword'], ['admin', 'superadmin']);
 
 $router->get('/admin/units', [UnitController::class, 'index'], ['admin']);
 $router->get('/admin/units/view', [UnitController::class, 'show'], ['admin']);
@@ -269,47 +252,27 @@ $router->get('/owner/overview', [UnitOwnerController::class, 'overview'], ['unit
 $router->get('/owner/units', [UnitOwnerController::class, 'units'], ['unit owner']);
 $router->get('/owner/units/view', [UnitOwnerController::class, 'showUnit'], ['unit owner']);
 $router->post('/owner/units/update', [UnitOwnerController::class, 'updateUnit'], ['unit owner']);
-$router->post('/unitOwnerPages/ActionsUOP/updateUnitDetails.php', [UnitOwnerController::class, 'updateUnit'], ['unit owner']);
-$router->post('/ActionsUOP/updateUnitDetails.php', [UnitOwnerController::class, 'updateUnit'], ['unit owner']);
 $router->get('/owner/inquiries', [UnitOwnerController::class, 'inquiries'], ['unit owner']);
 $router->post('/owner/inquiries/respond', [UnitOwnerController::class, 'respondApproval'], ['unit owner']);
-$router->post('/unitOwnerPages/ActionsUOP/respondApprovalRequest.php', [UnitOwnerController::class, 'respondApproval'], ['unit owner']);
-$router->post('/ActionsUOP/respondApprovalRequest.php', [UnitOwnerController::class, 'respondApproval'], ['unit owner']);
 $router->get('/owner/reservations', [UnitOwnerController::class, 'reservations'], ['unit owner']);
 $router->get('/owner/reservations/view', [UnitOwnerController::class, 'showReservation'], ['unit owner']);
 $router->get('/owner/reservations/documents', [UnitOwnerController::class, 'getDocuments'], ['unit owner']);
 $router->post('/owner/reservations/documents', [UnitOwnerController::class, 'saveDocuments'], ['unit owner']);
+$router->post('/owner/reservations/upload-document', [UnitOwnerController::class, 'uploadDocument'], ['unit owner']);
+$router->post('/owner/reservations/delete-document', [UnitOwnerController::class, 'deleteDocument'], ['unit owner']);
 $router->post('/owner/reservations/request-cancellation', [UnitOwnerController::class, 'requestCancellation'], ['unit owner']);
 $router->post('/owner/reservations/withdraw-cancellation', [UnitOwnerController::class, 'withdrawCancellation'], ['unit owner']);
-$router->post('/unitOwnerPages/ActionsUOP/withdrawCancellation.php', [UnitOwnerController::class, 'withdrawCancellation'], ['unit owner']);
-$router->post('/ActionsUOP/withdrawCancellation.php', [UnitOwnerController::class, 'withdrawCancellation'], ['unit owner']);
-$router->get('/unitOwnerPages/ActionsUOP/getOwnerReservationDocuments.php', [UnitOwnerController::class, 'getDocuments'], ['unit owner']);
-$router->post('/unitOwnerPages/ActionsUOP/updateOwnerReservationDocuments.php', [UnitOwnerController::class, 'saveDocuments'], ['unit owner']);
-$router->post('/unitOwnerPages/ActionsUOP/requestCancellation.php', [UnitOwnerController::class, 'requestCancellation'], ['unit owner']);
-$router->get('/ActionsUOP/getOwnerReservationDocuments.php', [UnitOwnerController::class, 'getDocuments'], ['unit owner']);
-$router->post('/ActionsUOP/updateOwnerReservationDocuments.php', [UnitOwnerController::class, 'saveDocuments'], ['unit owner']);
-$router->post('/ActionsUOP/requestCancellation.php', [UnitOwnerController::class, 'requestCancellation'], ['unit owner']);
 $router->post('/owner/reservations/confirm-signing-date', [UnitOwnerController::class, 'confirmSigningDate'], ['unit owner']);
 $router->post('/owner/reservations/lease-signing', [UnitOwnerController::class, 'updateLeaseSigning'], ['unit owner']);
-$router->post('/unitOwnerPages/ActionsUOP/completeOwnerLeaseSigning.php', [UnitOwnerController::class, 'updateLeaseSigning'], ['unit owner']);
-$router->post('/ActionsUOP/completeOwnerLeaseSigning.php', [UnitOwnerController::class, 'updateLeaseSigning'], ['unit owner']);
 $router->post('/owner/reservations/verify-payment', [UnitOwnerController::class, 'updatePaymentStatus'], ['unit owner']);
-$router->post('/unitOwnerPages/ActionsUOP/verifyOwnerPayment.php', [UnitOwnerController::class, 'updatePaymentStatus'], ['unit owner']);
-$router->post('/ActionsUOP/verifyOwnerPayment.php', [UnitOwnerController::class, 'updatePaymentStatus'], ['unit owner']);
 
 $router->get('/owner/booking-calendar', [UnitOwnerController::class, 'calendar'], ['unit owner']);
 $router->get('/owner/booking-calendar/data', [UnitOwnerController::class, 'calendarData'], ['unit owner']);
 $router->post('/owner/booking-calendar/block', [UnitOwnerController::class, 'saveBlockedDate'], ['unit owner']);
 $router->post('/owner/booking-calendar/unblock', [UnitOwnerController::class, 'deleteBlockedDate'], ['unit owner']);
-$router->post('/unitOwnerPages/ActionsUOP/saveOwnerBlockedDate.php', [UnitOwnerController::class, 'saveBlockedDate'], ['unit owner']);
-$router->post('/ActionsUOP/saveOwnerBlockedDate.php', [UnitOwnerController::class, 'saveBlockedDate'], ['unit owner']);
-$router->post('/unitOwnerPages/ActionsUOP/deleteOwnerBlockedDate.php', [UnitOwnerController::class, 'deleteBlockedDate'], ['unit owner']);
-$router->post('/ActionsUOP/deleteOwnerBlockedDate.php', [UnitOwnerController::class, 'deleteBlockedDate'], ['unit owner']);
 $router->get('/owner/tenants', [UnitOwnerController::class, 'tenants'], ['unit owner']);
 $router->get('/owner/maintenance', [UnitOwnerController::class, 'maintenance'], ['unit owner']);
 $router->post('/owner/maintenance', [UnitOwnerController::class, 'storeMaintenance'], ['unit owner']);
-$router->post('/unitOwnerPages/ActionsUOP/submitMaintenanceRequest.php', [UnitOwnerController::class, 'storeMaintenance'], ['unit owner']);
-$router->post('/ActionsUOP/submitMaintenanceRequest.php', [UnitOwnerController::class, 'storeMaintenance'], ['unit owner']);
 $router->get('/owner/account', [UnitOwnerController::class, 'account'], ['unit owner']);
 $router->post('/owner/account', [UnitOwnerController::class, 'account'], ['unit owner']);
 

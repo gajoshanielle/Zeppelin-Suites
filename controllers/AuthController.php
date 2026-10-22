@@ -69,6 +69,16 @@ class AuthController extends Controller {
             return;
         }
 
+        if (!Csrf::validate()) {
+            $csrfError = 'Security token expired or invalid. Please refresh the page and try again.';
+            if ($this->isAjax()) {
+                $this->json(['status' => 'error', 'message' => $csrfError], 403);
+            }
+            $this->setFlash('error_message', $csrfError);
+            $this->redirect($loginUrl);
+            return;
+        }
+
         $email = filter_var(trim((string)$this->getPost('email', '')), FILTER_SANITIZE_EMAIL);
         $password = (string)$this->getPost('password', '');
 
@@ -96,10 +106,15 @@ class AuthController extends Controller {
 
         $user = $result['user'];
 
-        // Automatically activate account on first login if resident status is Inactive
+        // Enforce resident deactivation check
         if (isset($user['resident_status']) && strtolower((string)$user['resident_status']) === 'inactive') {
-            $this->userModel->activateResidentStatus((int)$user['user_id']);
-            $user['resident_status'] = 'Active';
+            $inactiveMsg = 'Your account is currently inactive. Please contact the Zeppelin Suites administration for assistance.';
+            if ($this->isAjax()) {
+                $this->json(['status' => 'error', 'message' => $inactiveMsg], 403);
+            }
+            $this->setFlash('error_message', $inactiveMsg);
+            $this->redirect($loginUrl);
+            return;
         }
 
         // Securely initialize session
@@ -335,14 +350,40 @@ class AuthController extends Controller {
                 ],
             ];
 
+            require_once dirname(__DIR__) . '/config/owner_notifications.php';
+            $htmlBody = buildZeppelinEmailHtml([
+                'badgeText'       => 'Password Reset',
+                'badgeType'       => 'blue',
+                'recipientName'   => $name,
+                'greeting'        => "Dear " . htmlspecialchars($name, ENT_QUOTES, 'UTF-8') . ",",
+                'messageHtml'     => "We received a request to reset the password for your Zeppelin Suites account. Please use the 6-digit verification code below to complete your reset:",
+                'highlightBox'    => [
+                    'label'     => 'Verification Code',
+                    'value'     => $code,
+                    'type'      => 'blue',
+                    'monospace' => true,
+                ],
+                'reminders'       => [
+                    'title' => 'Security Notice',
+                    'items' => [
+                        'This verification code is valid for 10 minutes only.',
+                        'For security reasons, never share this code with anyone.',
+                        'If you did not request a password reset, you can safely ignore this email. Your password will remain unchanged.',
+                    ],
+                ],
+                'reassuranceText' => 'If you require further assistance, please contact the Zeppelin Suites administration office.',
+                'footerSubtext'   => 'This is an automated security verification notification.',
+            ]);
+
             $mail->setFrom(
                 defined('MAIL_FROM_EMAIL') ? MAIL_FROM_EMAIL : (string)env('MAIL_FROM_EMAIL', 'noreply@zeppelinsuites.com'),
                 defined('MAIL_FROM_NAME') ? MAIL_FROM_NAME : (string)env('MAIL_FROM_NAME', 'Zeppelin Suites')
             );
             $mail->addAddress($email, $name);
-            $mail->isHTML(false);
+            $mail->isHTML(true);
             $mail->Subject = $subject;
-            $mail->Body    = $body;
+            $mail->Body    = $htmlBody;
+            $mail->AltBody = $body;
 
             $mail->send();
             return true;

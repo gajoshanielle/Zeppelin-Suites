@@ -332,24 +332,33 @@ $downpaymentAmount = (float) ($res['required_amount'] ?? 0) > 0
                 <span
                   class="text-xs text-red-600 font-mono"><?= clean(format_datetime_text($res['cancellation_requested_at'] ?? '')) ?></span>
               </div>
+              <?php 
+                $isOwnerRequester = !empty($res['cancellation_requested_by']);
+              ?>
               <p class="text-xs text-red-700 mt-1 leading-relaxed">
-                Your cancellation request is pending review and approval by the Zeppelin Suites administration.
+                <?php if ($isOwnerRequester): ?>
+                  Your cancellation request is pending review and approval by the Zeppelin Suites administration.
+                <?php else: ?>
+                  A cancellation request was submitted by the client (<strong><?= clean($res['client_name'] ?? 'Client') ?></strong>) and is pending review and approval by the Zeppelin Suites administration.
+                <?php endif; ?>
               </p>
               <?php if (!empty($res['cancellation_reason'])): ?>
                 <p class="text-xs text-red-800 mt-2 bg-white/70 border border-red-100 rounded-lg p-2.5">
                   <strong>Reason:</strong> <?= clean($res['cancellation_reason']) ?>
                 </p>
               <?php endif; ?>
-              <div class="mt-3 pt-3 border-t border-red-200/60 flex items-center justify-between flex-wrap gap-2">
-                <span class="text-[11px] text-red-600">Changed your mind? You can withdraw your cancellation request.</span>
-                <button type="button" onclick="withdrawCancellationRequest()" id="btnWithdrawCancellation"
-                  class="btn-press px-4 py-2 text-xs font-bold text-red-700 bg-white border border-red-300 hover:bg-red-100 rounded-xl transition-all shadow-xs active:scale-95 inline-flex items-center gap-1.5">
-                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                  <span>Cancel Cancellation Request</span>
-                </button>
-              </div>
+              <?php if ($isOwnerRequester): ?>
+                <div class="mt-3 pt-3 border-t border-red-200/60 flex items-center justify-between flex-wrap gap-2">
+                  <span class="text-[11px] text-red-600">Changed your mind? You can withdraw your cancellation request.</span>
+                  <button type="button" onclick="withdrawCancellationRequest()" id="btnWithdrawCancellation"
+                    class="btn-press px-4 py-2 text-xs font-bold text-red-700 bg-white border border-red-300 hover:bg-red-100 rounded-xl transition-all shadow-xs active:scale-95 inline-flex items-center gap-1.5">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                    <span>Cancel Cancellation Request</span>
+                  </button>
+                </div>
+              <?php endif; ?>
             </div>
           </div>
         <?php endif; ?>
@@ -387,7 +396,7 @@ $downpaymentAmount = (float) ($res['required_amount'] ?? 0) > 0
                 $displayResStatus = 'Reserved';
                 $resBadgeClass = 'bg-emerald-100 text-emerald-700';
                 $dotClass = 'bg-emerald-500';
-              } elseif ($pStatus === 'verified' || in_array($rStatus, ['pending', 'requirements pending', 'in progress', 'under review', 'pending review'], true)) {
+              } elseif ($pStatus === 'verified' || in_array($rStatus, ['pending', 'requirements pending', 'in progress', 'under review', 'pending review', 'submitted', 'reservation form pending'], true)) {
                 $displayResStatus = 'Pending';
                 $resBadgeClass = 'bg-amber-100 text-amber-700';
                 $dotClass = 'bg-amber-500';
@@ -396,7 +405,7 @@ $downpaymentAmount = (float) ($res['required_amount'] ?? 0) > 0
                 $resBadgeClass = 'bg-red-100 text-red-700';
                 $dotClass = 'bg-red-500';
               } else {
-                $displayResStatus = 'Submitted';
+                $displayResStatus = 'Pending';
                 $resBadgeClass = 'bg-amber-100 text-amber-700';
                 $dotClass = 'bg-amber-500';
               }
@@ -660,8 +669,8 @@ $downpaymentAmount = (float) ($res['required_amount'] ?? 0) > 0
                     </div>
                     <div class="mt-4 pt-3 border-t border-slate-200/60 flex items-center justify-between gap-2">
                       <?php if (!empty($proofUrl)): ?>
-                        <a href="<?= clean($proofUrl) ?>" target="_blank" rel="noopener noreferrer"
-                          class="btn-press inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm">
+                        <button type="button" onclick="openProofModal('<?= clean($proofUrl) ?>', 'Uploaded Proof of Payment')"
+                          class="btn-press inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer">
                           <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                               d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -669,7 +678,7 @@ $downpaymentAmount = (float) ($res['required_amount'] ?? 0) > 0
                               d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                           </svg>
                           View Uploaded Proof
-                        </a>
+                        </button>
                       <?php else: ?>
                         <span class="text-xs text-slate-400 italic">No document file on record</span>
                       <?php endif; ?>
@@ -976,20 +985,15 @@ $downpaymentAmount = (float) ($res['required_amount'] ?? 0) > 0
                   </div>
                   <div>
                     <h2 class="text-sm font-bold text-slate-900 uppercase tracking-wider">Document Tracking</h2>
-                    <p class="text-xs text-slate-500">Track and update applicant requirement submissions</p>
+                    <p class="text-xs text-slate-500">Directly upload and manage applicant requirements</p>
                   </div>
                 </div>
-                <button type="button" id="btnEditDocuments"
-                  class="hidden btn-press text-xs font-semibold text-blue-600 border border-blue-200 bg-blue-50 hover:bg-blue-100 px-3.5 py-1.5 rounded-full active:scale-95 transition-all">
-                  Edit Documents
-                </button>
               </div>
 
               <input type="hidden" id="process_reservation_id" value="<?= clean($res['reservation_id']) ?>">
 
               <div id="requirementDecisionDisplay" class="hidden mb-5 rounded-xl border px-4 py-3">
-                <p class="text-xs font-bold uppercase tracking-wide mb-1" id="requirementDecisionLabel">Requirement
-                  Status</p>
+                <p class="text-xs font-bold uppercase tracking-wide mb-1" id="requirementDecisionLabel">Requirement Status</p>
                 <p class="text-sm font-semibold" id="requirementDecisionText">—</p>
               </div>
 
@@ -997,12 +1001,9 @@ $downpaymentAmount = (float) ($res['required_amount'] ?? 0) > 0
                 <table class="w-full text-sm">
                   <thead>
                     <tr class="bg-slate-50 border-b border-slate-200">
-                      <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">
-                        Document</th>
-                      <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">
-                        Status</th>
-                      <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Link
-                      </th>
+                      <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Document</th>
+                      <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Status</th>
+                      <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Action</th>
                     </tr>
                   </thead>
                   <tbody id="documentsTableBody" class="divide-y divide-slate-100">
@@ -1012,17 +1013,78 @@ $downpaymentAmount = (float) ($res['required_amount'] ?? 0) > 0
                   </tbody>
                 </table>
               </div>
-
-              <button type="button" id="btnSaveDocuments"
-                class="hidden mt-5 w-full bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold px-4 py-3 rounded-xl transition-all shadow-sm active:scale-98">
-                Save Documents
-              </button>
             </section>
           </div>
 
         </div>
       </div>
     </main>
+  </div>
+
+  <!-- UPLOADED PAYMENT PROOF & DOCUMENT PREVIEW MODAL -->
+  <div id="paymentProofModal" class="fixed inset-0 z-[80] hidden items-center justify-center bg-slate-950/70 backdrop-blur-xs p-3 sm:p-6" onclick="if(event.target===this) closeProofModal()">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[92vh] flex flex-col overflow-hidden border border-slate-200" onclick="event.stopPropagation()">
+      <!-- Header -->
+      <div class="flex items-center justify-between px-5 py-3.5 border-b border-slate-200/80 bg-slate-50/90">
+        <div class="flex items-center gap-3 min-w-0">
+          <div class="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 border border-blue-100">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+            </svg>
+          </div>
+          <div class="min-w-0">
+            <h3 class="text-sm font-bold text-slate-900 truncate" id="proofModalTitle">Uploaded Proof of Payment</h3>
+            <p class="text-xs text-slate-500 truncate" id="proofModalSubtitle">Reservation #<?= clean($res['reservation_id']) ?> &bull; <?= clean($res['client_name']) ?></p>
+          </div>
+        </div>
+        <div class="flex items-center gap-1.5 shrink-0 ml-3">
+          <a id="proofModalNewTab" href="#" target="_blank" rel="noopener noreferrer" class="p-2 rounded-xl text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors" title="Open in new tab">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+          </a>
+          <button type="button" onclick="closeProofModal()" class="w-8 h-8 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 text-slate-400 hover:text-slate-700 flex items-center justify-center transition-colors" title="Close (Esc)">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Body / Preview Area -->
+      <div class="p-3 sm:p-5 overflow-y-auto flex-1 flex items-center justify-center bg-slate-900/5 min-h-[320px] max-h-[calc(92vh-130px)]">
+        <!-- Loading indicator -->
+        <div id="proofModalLoading" class="flex flex-col items-center justify-center py-12 text-slate-400">
+          <svg class="animate-spin h-8 w-8 text-blue-600 mb-3" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+          </svg>
+          <span class="text-xs font-medium text-slate-500">Loading document preview...</span>
+        </div>
+
+        <!-- Image container -->
+        <div id="proofModalImgContainer" class="hidden max-h-[70vh] flex items-center justify-center overflow-auto rounded-xl border border-slate-200/80 bg-white p-2 shadow-inner">
+          <img id="proofModalImage" src="" alt="Uploaded Document Preview" class="max-h-[66vh] w-auto max-w-full object-contain rounded-lg transition-opacity duration-200">
+        </div>
+
+        <!-- PDF / Document Iframe -->
+        <iframe id="proofModalIframe" src="" class="hidden w-full h-[68vh] rounded-xl border border-slate-200 bg-white shadow-sm" title="Document Preview"></iframe>
+      </div>
+
+      <!-- Footer -->
+      <div class="flex items-center justify-between px-5 py-3 border-t border-slate-200/80 bg-slate-50 text-xs">
+        <div class="flex items-center gap-2 min-w-0 pr-3">
+          <span class="w-2 h-2 rounded-full bg-blue-500 shrink-0"></span>
+          <span id="proofModalFilename" class="text-slate-600 font-mono text-[11px] truncate">proof_document</span>
+        </div>
+        <div class="flex items-center gap-2 shrink-0">
+          <a id="proofModalDownload" href="#" download class="btn-press px-3.5 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 font-semibold inline-flex items-center gap-1.5 transition-colors shadow-xs">
+            <svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+            <span>Download</span>
+          </a>
+          <button type="button" onclick="closeProofModal()" class="btn-press px-4 py-1.5 bg-slate-900 hover:bg-slate-800 text-white font-semibold rounded-xl transition-colors shadow-xs">
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- OWNER CANCELLATION REQUEST MODAL -->
@@ -1151,9 +1213,15 @@ $downpaymentAmount = (float) ($res['required_amount'] ?? 0) > 0
 
   <script>
     const currentReservationId = <?= json_encode((int) ($res['reservation_id'] ?? 0)) ?>;
-    const currentReservationStatus = <?= json_encode($res['reservation_status'] ?? '') ?>;
-    const currentPaymentStatus = <?= json_encode($res['payment_status'] ?? '') ?>;
+    let currentReservationStatus = <?= json_encode($res['reservation_status'] ?? '') ?>;
+    let currentPaymentStatus = <?= json_encode($res['payment_status'] ?? '') ?>;
     const appBaseUrl = <?= json_encode($baseUrl) ?>;
+    const csrfToken = <?= json_encode(Csrf::token()) ?>;
+
+    function updateRequirementDecisionUI(status) {
+      if (status) currentReservationStatus = status;
+      updateRequirementSectionUI(currentPaymentStatus, currentReservationStatus);
+    }
 
     function switchReservationTab(tabName) {
       const tabs = ['lease', 'payment', 'lease-signing', 'documents'];
@@ -1186,6 +1254,111 @@ $downpaymentAmount = (float) ($res['required_amount'] ?? 0) > 0
         location.hash = '#' + tabName;
       }
     }
+
+    // --- Proof & Document Preview Modal ---
+    function openProofModal(url, title = 'Uploaded Proof of Payment') {
+      const modal = document.getElementById('paymentProofModal');
+      if (!modal) return;
+
+      if (!url) {
+        console.warn('No URL provided for proof modal preview.');
+        return;
+      }
+
+      const titleEl = document.getElementById('proofModalTitle');
+      if (titleEl) titleEl.textContent = title;
+
+      const downloadLink = document.getElementById('proofModalDownload');
+      if (downloadLink) {
+        downloadLink.href = url;
+        const cleanName = url.split('/').pop().split('?')[0] || 'document';
+        downloadLink.setAttribute('download', cleanName);
+      }
+
+      const newTabLink = document.getElementById('proofModalNewTab');
+      if (newTabLink) newTabLink.href = url;
+
+      const filenameEl = document.getElementById('proofModalFilename');
+      if (filenameEl) {
+        const cleanName = decodeURIComponent(url.split('/').pop().split('?')[0] || 'document');
+        filenameEl.textContent = cleanName;
+      }
+
+      const isPdf = /\.pdf($|\?)/i.test(url);
+      const imgEl = document.getElementById('proofModalImage');
+      const iframeEl = document.getElementById('proofModalIframe');
+      const imgContainer = document.getElementById('proofModalImgContainer');
+      const loadingEl = document.getElementById('proofModalLoading');
+
+      if (loadingEl) {
+        loadingEl.innerHTML = `
+          <svg class="animate-spin h-8 w-8 text-blue-600 mb-3" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+          </svg>
+          <span class="text-xs font-medium text-slate-500">Loading document preview...</span>
+        `;
+        loadingEl.classList.remove('hidden');
+      }
+
+      if (isPdf) {
+        if (imgContainer) imgContainer.classList.add('hidden');
+        if (imgEl) imgEl.src = '';
+        if (iframeEl) {
+          iframeEl.classList.remove('hidden');
+          iframeEl.onload = function() {
+            if (loadingEl) loadingEl.classList.add('hidden');
+          };
+          iframeEl.src = url;
+        }
+      } else {
+        if (iframeEl) {
+          iframeEl.classList.add('hidden');
+          iframeEl.src = '';
+        }
+        if (imgContainer) imgContainer.classList.remove('hidden');
+        if (imgEl) {
+          imgEl.classList.add('opacity-0');
+          imgEl.onload = function() {
+            if (loadingEl) loadingEl.classList.add('hidden');
+            imgEl.classList.remove('opacity-0');
+          };
+          imgEl.onerror = function() {
+            if (loadingEl) {
+              loadingEl.innerHTML = '<span class="text-xs text-red-500 font-medium">Unable to preview image directly. You can use Download or Open in New Tab.</span>';
+              loadingEl.classList.remove('hidden');
+            }
+          };
+          imgEl.src = url;
+        }
+      }
+
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+      document.body.classList.add('overflow-hidden');
+    }
+
+    function closeProofModal() {
+      const modal = document.getElementById('paymentProofModal');
+      if (!modal) return;
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+      document.body.classList.remove('overflow-hidden');
+
+      const iframeEl = document.getElementById('proofModalIframe');
+      if (iframeEl) iframeEl.src = '';
+      const imgEl = document.getElementById('proofModalImage');
+      if (imgEl) imgEl.src = '';
+    }
+
+    window.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') {
+        const modal = document.getElementById('paymentProofModal');
+        if (modal && !modal.classList.contains('hidden')) {
+          closeProofModal();
+        }
+      }
+    });
 
     function openPaymentConfirmModal(action) {
       if (action === 'verify') {
@@ -1225,6 +1398,7 @@ $downpaymentAmount = (float) ($res['required_amount'] ?? 0) > 0
       }
 
       const formData = new FormData();
+      formData.append('csrf_token', csrfToken);
       formData.append('reservation_id', currentReservationId);
       formData.append('action', action);
       formData.append('remarks', remarks);
@@ -1287,6 +1461,11 @@ $downpaymentAmount = (float) ($res['required_amount'] ?? 0) > 0
       editBtn.classList.add('hidden');
       saveBtn.classList.add('hidden');
 
+      if (['handover', 'moved in', 'active', 'completed', 'handed over'].includes(status)) {
+        display.classList.add('hidden');
+        return;
+      }
+
       if (status === 'requirements completed') {
         display.classList.remove('hidden');
         display.classList.add('bg-emerald-50', 'border-emerald-200');
@@ -1341,17 +1520,42 @@ $downpaymentAmount = (float) ($res['required_amount'] ?? 0) > 0
       }
 
       tbody.innerHTML = currentDocuments.map(doc => {
-        const hasLink = (doc.document_link && doc.document_link.trim().length > 0);
-        const statusBadge = hasLink
-          ? "<span class='doc-row-status inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200'>Complete</span>"
-          : "<span class='doc-row-status inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200'>Pending</span>";
+        const isComplete = (doc.status === 'complete' && doc.document_link && doc.document_link.trim().length > 0);
+        const statusBadge = isComplete
+          ? "<span class='inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200'><svg class='w-3 h-3 text-emerald-600' fill='none' stroke='currentColor' viewBox='0 0 24 24'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M5 13l4 4L19 7'/></svg>Complete</span>"
+          : "<span class='inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200'><span class='w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse'></span>Pending</span>";
 
-        if (!documentsEditMode) {
-          const linkCell = hasLink
-            ? `<a href="${escapeHtmlAttr(doc.document_link)}" target="_blank" rel="noopener noreferrer" class="btn-press text-xs font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-200 px-3 py-1.5 rounded-lg inline-flex items-center gap-1.5 transition-all"><span>View Document</span><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg></a>`
-            : "<span class='text-xs text-slate-400'>Pending upload</span>";
+        let actionCell = '';
+        if (isComplete) {
+          actionCell = `
+            <div class="flex items-center gap-2">
+              <button type="button" onclick="openProofModal('${escapeHtmlAttr(doc.document_link)}', '${escapeHtmlAttr(doc.document_name)}')" class="btn-press inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 transition-all shadow-xs cursor-pointer">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                <span>View</span>
+              </button>
+              <button type="button" onclick="triggerDirectUpload(${doc.document_id})" class="btn-press inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold rounded-lg bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 transition-all cursor-pointer">
+                <svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                <span>Replace</span>
+              </button>
+              <button type="button" onclick="removeDirectDocument(${doc.document_id})" class="btn-press p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-all cursor-pointer" title="Remove Document">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+              </button>
+              <input type="file" id="fileInputDoc_${doc.document_id}" accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx" class="hidden" onchange="executeDirectUpload(event, ${doc.document_id})">
+            </div>
+          `;
+        } else {
+          actionCell = `
+            <div class="flex items-center gap-2">
+              <button type="button" onclick="triggerDirectUpload(${doc.document_id})" id="btnUploadDoc_${doc.document_id}" class="btn-press inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition-all shadow-xs cursor-pointer">
+                <svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+                <span>Upload</span>
+              </button>
+              <input type="file" id="fileInputDoc_${doc.document_id}" accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx" class="hidden" onchange="executeDirectUpload(event, ${doc.document_id})">
+            </div>
+          `;
+        }
 
-          return `
+        return `
           <tr class="hover:bg-slate-50/70 transition-colors">
             <td class="px-4 py-3.5 font-medium text-slate-800 flex items-center gap-2">
               <div class="w-7 h-7 rounded-lg bg-slate-100 text-slate-500 flex items-center justify-center shrink-0">
@@ -1359,97 +1563,95 @@ $downpaymentAmount = (float) ($res['required_amount'] ?? 0) > 0
               </div>
               <span>${escapeHtml(doc.document_name)}</span>
             </td>
-            <td class="px-4 py-3.5 doc-status-cell">${statusBadge}</td>
-            <td class="px-4 py-3.5">${linkCell}</td>
+            <td class="px-4 py-3.5">${statusBadge}</td>
+            <td class="px-4 py-3.5">${actionCell}</td>
           </tr>
         `;
-        }
-
-        return `
-        <tr data-document-id="${doc.document_id}" class="hover:bg-slate-50/70 transition-colors">
-          <td class="px-4 py-3.5 font-medium text-slate-800">${escapeHtml(doc.document_name)}</td>
-          <td class="px-4 py-3.5 doc-status-cell">
-            ${statusBadge}
-          </td>
-          <td class="px-4 py-3.5">
-            <input type="url" class="doc-link-input w-full text-xs border border-slate-200 rounded-lg px-2.5 py-1.5 bg-white font-mono placeholder:font-sans placeholder:text-slate-400 focus:border-slate-900 focus:outline-none" placeholder="https://..." value="${escapeHtmlAttr(doc.document_link || '')}">
-          </td>
-        </tr>
-      `;
       }).join('');
-
-      if (documentsEditMode) {
-        // Reactive update of Status badge based on link typing
-        tbody.querySelectorAll('.doc-link-input').forEach(input => {
-          const updateRowBadge = () => {
-            const row = input.closest('tr');
-            const statusCell = row?.querySelector('.doc-status-cell');
-            if (!statusCell) return;
-            const val = input.value.trim();
-            if (val.length > 0) {
-              statusCell.innerHTML = "<span class='doc-row-status inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200'>Complete</span>";
-            } else {
-              statusCell.innerHTML = "<span class='doc-row-status inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200'>Pending</span>";
-            }
-          };
-
-          input.addEventListener('input', updateRowBadge);
-          input.addEventListener('change', updateRowBadge);
-        });
-      }
     }
 
-    document.getElementById('btnEditDocuments')?.addEventListener('click', function () {
-      documentsEditMode = true;
-      renderDocumentsTable();
-      document.getElementById('btnEditDocuments')?.classList.add('hidden');
-      document.getElementById('btnSaveDocuments')?.classList.remove('hidden');
-    });
-
-    function collectDocumentsPayload() {
-      const rows = document.querySelectorAll('#documentsTableBody tr[data-document-id]');
-      const payload = [];
-      rows.forEach(row => {
-        const linkVal = row.querySelector('.doc-link-input')?.value.trim() || '';
-        payload.push({
-          document_id: row.dataset.documentId,
-          status: (linkVal.length > 0) ? 'complete' : 'pending',
-          document_link: linkVal
-        });
-      });
-      return payload;
+    function triggerDirectUpload(documentId) {
+      const fileInput = document.getElementById(`fileInputDoc_${documentId}`);
+      if (fileInput) fileInput.click();
     }
 
-    function saveDocuments() {
-      const documents = collectDocumentsPayload();
-      if (!documents.length) {
-        showStatusModal(false, 'No Documents', 'No documents to save.');
-        return;
+    function executeDirectUpload(event, documentId) {
+      const input = event.target;
+      if (!input.files || !input.files[0]) return;
+      const file = input.files[0];
+      input.value = '';
+
+      const btn = document.getElementById(`btnUploadDoc_${documentId}`);
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = `<svg class="w-3.5 h-3.5 animate-spin text-slate-600" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg><span>Uploading...</span>`;
       }
 
       const formData = new FormData();
+      formData.append('csrf_token', csrfToken);
       formData.append('reservation_id', currentReservationId);
-      formData.append('documents', JSON.stringify(documents));
+      formData.append('document_id', documentId);
+      formData.append('document_file', file);
 
-      fetch(appBaseUrl + '/owner/reservations/documents', {
+      fetch(appBaseUrl + '/owner/reservations/upload-document', {
         method: 'POST',
         body: formData
       })
-        .then(response => response.json())
-        .then(data => {
-          if (data.success) {
-            showStatusModal(true, 'Documents Saved', data.message, true);
-          } else {
-            showStatusModal(false, 'Save Failed', data.message);
+      .then(r => r.json())
+      .then(data => {
+        if (data.success) {
+          if (data.reservation_status) {
+            currentReservationStatus = data.reservation_status;
+            updateRequirementDecisionUI(currentReservationStatus);
           }
-        })
-        .catch(error => {
-          console.error(error);
-          showStatusModal(false, 'Network Error', 'Something went wrong while saving document tracking.');
-        });
+          loadDocuments(currentReservationId);
+        } else {
+          showStatusModal(false, 'Upload Failed', data.message || 'Upload failed.');
+          if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = `<svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg><span>Upload</span>`;
+          }
+        }
+      })
+      .catch(err => {
+        console.error(err);
+        showStatusModal(false, 'Upload Error', err?.message || 'Upload error occurred.');
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = `<svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg><span>Upload</span>`;
+        }
+      });
     }
 
-    document.getElementById('btnSaveDocuments')?.addEventListener('click', saveDocuments);
+    function removeDirectDocument(documentId) {
+      if (!confirm('Are you sure you want to remove this document?')) return;
+
+      const formData = new FormData();
+      formData.append('csrf_token', csrfToken);
+      formData.append('reservation_id', currentReservationId);
+      formData.append('document_id', documentId);
+
+      fetch(appBaseUrl + '/owner/reservations/delete-document', {
+        method: 'POST',
+        body: formData
+      })
+      .then(r => r.json())
+      .then(data => {
+        if (data.success) {
+          if (data.reservation_status) {
+            currentReservationStatus = data.reservation_status;
+            updateRequirementDecisionUI(currentReservationStatus);
+          }
+          loadDocuments(currentReservationId);
+        } else {
+          showStatusModal(false, 'Remove Failed', data.message || 'Failed to remove document.');
+        }
+      })
+      .catch(err => {
+        console.error(err);
+        showStatusModal(false, 'Network Error', 'An error occurred while removing the document.');
+      });
+    }
 
     function openOwnerCancelRequestModal() {
       const reasonBox = document.getElementById('ownerCancelReason');
@@ -1473,6 +1675,7 @@ $downpaymentAmount = (float) ($res['required_amount'] ?? 0) > 0
       }
 
       const formData = new FormData();
+      formData.append('csrf_token', csrfToken);
       formData.append('reservation_id', currentReservationId);
       formData.append('reason', reason);
 
@@ -1508,6 +1711,7 @@ $downpaymentAmount = (float) ($res['required_amount'] ?? 0) > 0
       }
 
       const formData = new FormData();
+      formData.append('csrf_token', csrfToken);
       formData.append('reservation_id', currentReservationId);
 
       fetch(appBaseUrl + '/owner/reservations/withdraw-cancellation', {
@@ -1579,6 +1783,7 @@ $downpaymentAmount = (float) ($res['required_amount'] ?? 0) > 0
 
       try {
         const formData = new FormData();
+        formData.append('csrf_token', csrfToken);
         formData.append('reservation_id', currentReservationId);
         formData.append('confirmed_date', chosenDate);
 
@@ -1649,6 +1854,7 @@ $downpaymentAmount = (float) ($res['required_amount'] ?? 0) > 0
 
       try {
         const formData = new FormData();
+        formData.append('csrf_token', csrfToken);
         formData.append('reservation_id', reservationId);
         formData.append('action', action);
         formData.append('remarks', '');

@@ -27,6 +27,7 @@ $initials = $tenantInitials ?? strtoupper(substr(trim((string)($tenant['full_nam
 
 
 $additionalEmail = !empty($tenant['additional_email']) ? (string)$tenant['additional_email'] : '—';
+$profileTab = in_array($activeSubTab ?? 'profile', ['profile', 'documents', 'request', 'password'], true) ? ($activeSubTab ?? 'profile') : 'profile';
 
 $documents = $documents ?? [];
 $documentsCount = count($documents);
@@ -156,19 +157,20 @@ foreach ($maintenance ?? [] as $m) {
         <div class="space-y-6">
           <div class="bg-white rounded-2xl border border-slate-100 shadow-xs p-6 md:p-8">
             <div class="flex items-center gap-6 border-b border-slate-100 pb-3 overflow-x-auto">
-              <button type="button" onclick="setProfileTab('profile', this)" class="profile-tab active text-sm font-semibold pb-3 whitespace-nowrap">Profile</button>
-              <button type="button" onclick="setProfileTab('documents', this)" class="profile-tab text-sm font-semibold pb-3 flex items-center gap-2 whitespace-nowrap">
+              <button type="button" id="tabBtn-profile" onclick="setProfileTab('profile', this)" class="profile-tab <?= $profileTab === 'profile' ? 'active' : '' ?> text-sm font-semibold pb-3 whitespace-nowrap">Profile</button>
+              <button type="button" id="tabBtn-documents" onclick="setProfileTab('documents', this)" class="profile-tab <?= $profileTab === 'documents' ? 'active' : '' ?> text-sm font-semibold pb-3 flex items-center gap-2 whitespace-nowrap">
                 Documents
                 <span class="text-[11px] font-bold bg-slate-100 text-slate-700 px-2 py-0.5 rounded-full"><?= $documentsCount ?></span>
               </button>
-              <button type="button" onclick="setProfileTab('request', this)" class="profile-tab text-sm font-semibold pb-3 flex items-center gap-2 whitespace-nowrap">
+              <button type="button" id="tabBtn-request" onclick="setProfileTab('request', this)" class="profile-tab <?= $profileTab === 'request' ? 'active' : '' ?> text-sm font-semibold pb-3 flex items-center gap-2 whitespace-nowrap">
                 Maintenance
                 <span class="text-[11px] font-bold <?= $pendingRequests > 0 ? 'bg-amber-500 text-white' : 'bg-slate-100 text-slate-700' ?> px-2 py-0.5 rounded-full"><?= $requestsCount ?></span>
               </button>
+              <button type="button" id="tabBtn-password" onclick="setProfileTab('password', this)" class="profile-tab <?= $profileTab === 'password' ? 'active' : '' ?> text-sm font-semibold pb-3 whitespace-nowrap">Change Password</button>
             </div>
 
             <!-- TAB 1: Profile Details -->
-            <div id="tab-profile" class="pt-6 max-w-lg">
+            <div id="tab-profile" class="pt-6 max-w-lg <?= $profileTab === 'profile' ? '' : 'hidden' ?>">
               <h3 class="text-base font-bold text-slate-900 mb-6">Personal Information</h3>
               <dl class="space-y-4 text-sm">
                 <div class="flex items-center justify-between gap-6 py-1">
@@ -192,7 +194,7 @@ foreach ($maintenance ?? [] as $m) {
             </div>
 
             <!-- TAB 2: Documents (Showing Uploaded Requirement Documents & Agreements) -->
-            <div id="tab-documents" class="pt-6 hidden">
+            <div id="tab-documents" class="pt-6 <?= $profileTab === 'documents' ? '' : 'hidden' ?>">
               <div class="flex items-center justify-between mb-4">
                 <div>
                   <h3 class="text-sm font-bold text-slate-900">Reservation &amp; Lease Documents</h3>
@@ -268,7 +270,7 @@ foreach ($maintenance ?? [] as $m) {
 
 
             <!-- TAB 3: Maintenance Requests -->
-            <div id="tab-request" class="pt-6 hidden">
+            <div id="tab-request" class="pt-6 <?= $profileTab === 'request' ? '' : 'hidden' ?>">
               <div class="flex items-center justify-between mb-4">
                 <div>
                   <h3 class="text-sm font-bold text-slate-900">Your Maintenance History</h3>
@@ -325,33 +327,34 @@ foreach ($maintenance ?? [] as $m) {
               <?php endif; ?>
             </div>
 
+            <!-- TAB 4: Change Password -->
+            <div id="tab-password" class="pt-6 max-w-lg <?= $profileTab === 'password' ? '' : 'hidden' ?> space-y-5">
+              <div>
+                <h3 class="text-base font-bold text-slate-900">Change Password</h3>
+                <p class="text-xs text-slate-400 mt-1">Enter your current password and choose a new password with at least 8 characters.</p>
+              </div>
+              <form method="POST" action="<?= htmlspecialchars($baseUrl) ?>/tenant/account" class="space-y-4">
+                <input type="hidden" name="action" value="change_password">
+                <input type="hidden" name="csrf_token" value="<?= clean($passwordCsrfToken ?? '') ?>">
+                <div>
+                  <label for="tenantCurrentPassword" class="block text-xs font-bold text-slate-700 mb-1.5">Current Password</label>
+                  <input id="tenantCurrentPassword" type="password" name="current_password" required autocomplete="current-password" class="zep-input w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm">
+                </div>
+                <div>
+                  <label for="tenantNewPassword" class="block text-xs font-bold text-slate-700 mb-1.5">New Password</label>
+                  <input id="tenantNewPassword" type="password" name="new_password" required minlength="8" autocomplete="new-password" class="zep-input w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm">
+                </div>
+                <div>
+                  <label for="tenantConfirmPassword" class="block text-xs font-bold text-slate-700 mb-1.5">Confirm New Password</label>
+                  <input id="tenantConfirmPassword" type="password" name="confirm_password" required minlength="8" autocomplete="new-password" class="zep-input w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm">
+                </div>
+                <button type="submit" class="btn-press px-5 py-2.5 text-sm font-semibold bg-slate-900 text-white rounded-xl hover:bg-slate-800 shadow-md">Change Password</button>
+              </form>
+            </div>
+
           </div>
         </div>
       </div>
-
-      <section class="bg-white rounded-2xl border border-slate-100 shadow-xs p-6 md:p-8">
-        <div class="max-w-2xl">
-          <h2 class="text-base font-bold text-slate-900">Change Password</h2>
-          <p class="text-xs text-slate-400 mt-1 mb-5">Enter your current password and choose a new password with at least 8 characters.</p>
-          <form method="POST" action="<?= htmlspecialchars($baseUrl) ?>/tenant/account" class="space-y-4">
-            <input type="hidden" name="action" value="change_password">
-            <input type="hidden" name="csrf_token" value="<?= clean($passwordCsrfToken ?? '') ?>">
-            <div>
-              <label for="tenantCurrentPassword" class="block text-xs font-bold text-slate-700 mb-1.5">Current Password</label>
-              <input id="tenantCurrentPassword" type="password" name="current_password" required autocomplete="current-password" class="zep-input w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm">
-            </div>
-            <div>
-              <label for="tenantNewPassword" class="block text-xs font-bold text-slate-700 mb-1.5">New Password</label>
-              <input id="tenantNewPassword" type="password" name="new_password" required minlength="8" autocomplete="new-password" class="zep-input w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm">
-            </div>
-            <div>
-              <label for="tenantConfirmPassword" class="block text-xs font-bold text-slate-700 mb-1.5">Confirm New Password</label>
-              <input id="tenantConfirmPassword" type="password" name="confirm_password" required minlength="8" autocomplete="new-password" class="zep-input w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm">
-            </div>
-            <button type="submit" class="btn-press px-5 py-2.5 text-sm font-semibold bg-slate-900 text-white rounded-xl hover:bg-slate-800 shadow-md">Change Password</button>
-          </form>
-        </div>
-      </section>
 
     </div>
   </div>
@@ -368,6 +371,7 @@ foreach ($maintenance ?? [] as $m) {
     </div>
     <form method="POST" action="<?= htmlspecialchars($baseUrl) ?>/tenant/account" class="p-6 space-y-4">
       <input type="hidden" name="action" value="update_profile">
+      <input type="hidden" name="csrf_token" value="<?= clean($passwordCsrfToken ?? '') ?>">
       
       <div>
         <label class="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">Full Name</label>
@@ -397,15 +401,13 @@ foreach ($maintenance ?? [] as $m) {
 <script>
 function setProfileTab(tabName, btn) {
   document.querySelectorAll('.profile-tab').forEach(t => t.classList.remove('active'));
-  btn.classList.add('active');
+  const activeBtn = btn || document.getElementById('tabBtn-' + tabName);
+  if (activeBtn) activeBtn.classList.add('active');
 
-  document.getElementById('tab-profile').classList.add('hidden');
-  document.getElementById('tab-lease').classList.add('hidden');
-  document.getElementById('tab-request').classList.add('hidden');
-
-  if (tabName === 'profile') document.getElementById('tab-profile').classList.remove('hidden');
-  if (tabName === 'lease') document.getElementById('tab-lease').classList.remove('hidden');
-  if (tabName === 'request') document.getElementById('tab-request').classList.remove('hidden');
+  ['profile', 'documents', 'request', 'password'].forEach(t => {
+    const el = document.getElementById('tab-' + t);
+    if (el) el.classList.toggle('hidden', t !== tabName);
+  });
 }
 
 function openEditModal() {

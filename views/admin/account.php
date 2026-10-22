@@ -122,9 +122,9 @@ tailwind.config = {
             </div>
             <h2 class="text-lg font-bold text-slate-900"><?= e($admin['full_name']) ?></h2>
             <p class="text-xs text-slate-500 font-mono mt-0.5"><?= e($admin['email']) ?></p>
-            <div class="mt-3 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 text-slate-700 text-xs font-semibold">
-              <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
-              <?= e(ucfirst((string)($admin['user_role'] ?? 'Admin'))) ?>
+            <div class="mt-3 inline-flex items-center gap-1.5 px-3 py-1 rounded-full <?= strtolower((string)($admin['user_role'] ?? '')) === 'superadmin' ? 'bg-amber-100 text-amber-900 border border-amber-300' : 'bg-slate-100 text-slate-700' ?> text-xs font-semibold">
+              <span class="w-2 h-2 rounded-full <?= strtolower((string)($admin['user_role'] ?? '')) === 'superadmin' ? 'bg-amber-500' : 'bg-emerald-500' ?>"></span>
+              <?= e(strtolower((string)($admin['user_role'] ?? '')) === 'superadmin' ? 'Secret Administrator' : ucfirst((string)($admin['user_role'] ?? 'Admin'))) ?>
             </div>
 
             <div class="border-t border-slate-100 mt-6 pt-5 grid grid-cols-2 gap-4 text-left">

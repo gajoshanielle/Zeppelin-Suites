@@ -118,7 +118,8 @@ class Router {
 
         // Match against registered routes
         foreach ($this->routes as $route) {
-            if ($route['method'] !== 'ANY' && $route['method'] !== $method) {
+            $isMethodMatch = ($route['method'] === 'ANY' || $route['method'] === $method || ($method === 'HEAD' && $route['method'] === 'GET'));
+            if (!$isMethodMatch) {
                 continue;
             }
 
@@ -127,13 +128,14 @@ class Router {
                 $isAuthenticatedRoute = false;
 
                 // Execute route middlewares
+                $requiredRoles = [];
                 foreach ($route['middlewares'] as $middleware) {
                     if (is_callable($middleware)) {
                         $middleware();
                     } elseif (is_string($middleware)) {
                         // Check if role name or middleware method
-                        if (in_array(strtolower($middleware), ['admin', 'unit owner', 'tenant'], true)) {
-                            Middleware::requireRole([$middleware]);
+                        if (in_array(strtolower($middleware), ['admin', 'unit owner', 'tenant', 'superadmin'], true)) {
+                            $requiredRoles[] = $middleware;
                             $isAuthenticatedRoute = true;
                         } elseif ($middleware === 'guest') {
                             Middleware::requireGuest();
@@ -141,9 +143,14 @@ class Router {
                             Middleware::$middleware();
                         }
                     } elseif (is_array($middleware)) {
-                        Middleware::requireRole($middleware);
+                        $requiredRoles = array_merge($requiredRoles, $middleware);
                         $isAuthenticatedRoute = true;
                     }
+                }
+
+                // If any roles were specified, verify user has at least one of the allowed roles
+                if (!empty($requiredRoles)) {
+                    Middleware::requireRole(array_values(array_unique($requiredRoles)));
                 }
 
                 // Enforce CSRF token verification on authenticated state-changing POST requests

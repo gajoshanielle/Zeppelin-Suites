@@ -11,400 +11,490 @@ declare(strict_types=1);
  * @var string $activePage
  */
 
-$unitName = trim(($reservation['unit_type'] ?? '') . ' Unit ' . ($reservation['unit_number'] ?? ''));
+$unitTitle = trim(($reservation['unit_type'] ?? 'Unit') . (!empty($reservation['unit_number']) ? ' — Unit ' . $reservation['unit_number'] : ''));
+$isLease = stripos((string)($reservation['transaction_type'] ?? ''), 'resale') === false;
+$submittedDate = !empty($reservation['created_at']) ? date('M d, Y h:i A', strtotime((string)$reservation['created_at'])) : '—';
+$moveInFormatted = !empty($reservation['move_in_date']) ? date('M d, Y', strtotime((string)$reservation['move_in_date'])) : '—';
+$moveOutFormatted = !empty($reservation['move_out_date']) ? date('M d, Y', strtotime((string)$reservation['move_out_date'])) : '—';
+$signingFormatted = !empty($reservation['lease_signing_date'])
+    ? date('M d, Y', strtotime((string)$reservation['lease_signing_date']))
+    : (!empty($reservation['is_flexible_signing']) ? 'Flexible Schedule' : '—');
+
+$paymentProofUrl = '';
+if (!empty($reservation['payment_proof'])) {
+    $proof = (string)$reservation['payment_proof'];
+    $paymentProofUrl = (str_starts_with($proof, 'http://') || str_starts_with($proof, 'https://'))
+        ? $proof
+        : rtrim($baseUrl, '/') . '/' . ltrim($proof, '/');
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title><?= htmlspecialchars($pageTitle ?? 'Request Reservation Cancellation | Zeppelin Suites') ?></title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><?= htmlspecialchars($pageTitle ?? 'Cancel Reservation — Zeppelin Suites') ?></title>
 
+  <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
 
+  <!-- Google Font: DM Sans -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400..700;1,9..40,400..700&display=swap" rel="stylesheet">
 
   <style>
     * {
-      font-family: 'Inter', sans-serif;
-    }
-
-    .mono {
-      font-family: 'DM Mono', monospace;
-    }
-
-    .logo-bars span {
-      display: block;
-      width: 5px;
-      border-radius: 999px;
-      background: linear-gradient(to top, #facc15, #f8fafc);
-      opacity: 0.95;
-    }
-
-    .zep-input:focus {
-      outline: none;
-      border-color: #0f172a;
-      box-shadow: 0 0 0 4px rgba(15, 23, 42, 0.08);
-    }
-
-    .btn-press:active {
-      transform: scale(0.98);
+      font-family: 'DM Sans', sans-serif;
     }
   </style>
 </head>
+<body class="bg-slate-50 text-slate-900 min-h-screen flex flex-col">
 
-<body class="min-h-screen bg-slate-100 text-slate-900">
-
-  <!-- HERO HEADER -->
-  <header class="relative overflow-hidden bg-slate-950 border-b border-slate-800">
-    <div class="absolute inset-0 opacity-20 pointer-events-none">
-      <div class="absolute -top-24 -right-24 w-80 h-80 rounded-full bg-red-500 blur-3xl"></div>
-      <div class="absolute -bottom-24 -left-24 w-80 h-80 rounded-full bg-amber-400 blur-3xl"></div>
-    </div>
-
-    <div class="max-w-[1180px] mx-auto px-5 py-8 md:py-10 relative">
-      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
-
-        <div class="flex items-center gap-5">
-          <div class="w-[96px] h-[96px] rounded-3xl bg-white/10 border border-white/10 flex flex-col items-center justify-center shrink-0">
-            <div class="logo-bars flex items-end justify-center gap-1 h-11 mb-2">
-              <span style="height:18px"></span>
-              <span style="height:28px"></span>
-              <span style="height:38px"></span>
-              <span style="height:48px"></span>
-              <span style="height:34px"></span>
-              <span style="height:24px"></span>
-              <span style="height:16px"></span>
-            </div>
-
-            <div class="text-[9px] tracking-[0.28em] leading-tight text-slate-200 text-center font-semibold">
-              ZEPPELIN<br>SUITES
-            </div>
-          </div>
-
-          <div>
-            <p class="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-[0.25em] text-red-300 mb-2">
-              Cancellation Request
-            </p>
-
-            <h1 class="text-3xl md:text-4xl font-bold tracking-tight text-white">
-              Reservation Cancellation Form
-            </h1>
-
-            <p class="mt-3 text-sm md:text-base text-slate-300 max-w-2xl leading-relaxed">
-              Submit a cancellation request for admin review. This does not automatically cancel your reservation.
-            </p>
-          </div>
+  <!-- TOP HEADER / NAVBAR -->
+  <header class="bg-white border-b border-slate-200">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div class="flex items-center gap-4">
+        <a href="<?= htmlspecialchars($baseUrl) ?>/" class="inline-block shrink-0">
+          <img
+            src="<?= htmlspecialchars($baseUrl) ?>/images/condo_photos/zeppelin-logo.png"
+            alt="Zeppelin Suites"
+            class="h-10 sm:h-11 w-auto object-contain"
+            onerror="this.outerHTML='<span class=\'text-lg font-bold tracking-tight text-slate-900\'>ZEPPELIN SUITES</span>'"
+          >
+        </a>
+        <div class="h-6 w-px bg-slate-200 hidden sm:block"></div>
+        <div>
+          <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200">
+            Cancellation Request
+          </span>
+          <p class="text-xs text-slate-500 mt-0.5">Zeppelin Suites Reservation Management</p>
         </div>
+      </div>
 
-        <div class="bg-white/10 border border-white/10 rounded-2xl px-5 py-4 text-sm text-slate-200 max-w-sm">
-          <div class="flex items-start gap-3">
-            <div class="w-9 h-9 rounded-xl bg-red-400/10 text-red-300 flex items-center justify-center shrink-0">
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
-              </svg>
-            </div>
-
-            <div>
-              <p class="font-bold text-white">Admin Approval Required</p>
-              <p class="text-xs text-slate-300 mt-1 leading-relaxed">
-                Your request will be reviewed before any cancellation is applied.
-              </p>
-            </div>
-          </div>
-        </div>
-
+      <div class="flex items-center gap-3">
+        <a href="<?= htmlspecialchars($baseUrl) ?>/" class="text-xs font-medium text-slate-600 hover:text-slate-900 px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors">
+          Return to Home
+        </a>
       </div>
     </div>
   </header>
 
-  <!-- MAIN CONTENT -->
-  <main class="max-w-[1180px] mx-auto px-5 py-8 md:py-10">
-    <div class="grid grid-cols-1 lg:grid-cols-[1.5fr_0.8fr] gap-6">
+  <!-- MAIN CONTENT CONTAINER -->
+  <main class="max-w-6xl mx-auto px-4 sm:px-6 py-8 flex-1 w-full">
 
-      <!-- FORM CARD -->
-      <section class="bg-white border border-slate-200 rounded-3xl shadow-sm overflow-hidden">
-        <div class="px-6 md:px-8 py-6 border-b border-slate-100">
-          <p class="text-xs font-bold text-slate-400 uppercase tracking-[0.25em]">Cancellation Details</p>
-          <h2 class="text-2xl font-bold text-slate-900 mt-2">Request Cancellation</h2>
-          <p class="text-sm text-slate-500 mt-2">
-            Please review your reservation information and provide your reason for cancellation.
-          </p>
+    <!-- PAGE TITLE SECTION -->
+    <div class="mb-8">
+      <h1 class="text-2xl sm:text-3xl font-bold text-slate-950 tracking-tight">
+        Reservation Cancellation
+      </h1>
+      <p class="text-sm sm:text-base text-slate-600 mt-1 max-w-2xl">
+        Review your submitted reservation details and unit owner information below before confirming your cancellation request.
+      </p>
+    </div>
+
+    <!-- 2-COLUMN LAYOUT -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+
+      <!-- LEFT COLUMN: UNIT OWNER & SUBMITTED RESERVATION FORM (7 COLS) -->
+      <div class="lg:col-span-7 space-y-6">
+
+        <!-- 1. UNIT & UNIT OWNER INFORMATION CARD -->
+        <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+          <div class="flex items-center justify-between pb-4 border-b border-slate-100 mb-5">
+            <div class="flex items-center gap-3">
+              <div class="w-9 h-9 rounded-lg bg-slate-900 text-white flex items-center justify-center shrink-0">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                </svg>
+              </div>
+              <div>
+                <h2 class="text-base font-bold text-slate-900 leading-tight">Unit &amp; Unit Owner Information</h2>
+                <p class="text-xs text-slate-500">Property and owner contact details</p>
+              </div>
+            </div>
+            <span class="text-xs font-semibold px-2.5 py-1 rounded-md bg-slate-100 text-slate-700">
+              <?= htmlspecialchars($reservation['listing_type'] ?? ($isLease ? 'For Lease' : 'Resale')) ?>
+            </span>
+          </div>
+
+          <!-- Unit Overview -->
+          <div class="bg-slate-50 rounded-lg p-4 border border-slate-200/80 mb-5">
+            <p class="text-xs font-bold text-slate-500 uppercase tracking-wider">Reserved Unit</p>
+            <p class="text-lg font-bold text-slate-900 mt-0.5">
+              <?= htmlspecialchars($unitTitle) ?>
+            </p>
+            <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-3 pt-3 border-t border-slate-200/60 text-xs">
+              <div>
+                <span class="text-slate-500 block">Floor Number:</span>
+                <span class="font-semibold text-slate-800">Floor <?= htmlspecialchars((string)($reservation['floor_number'] ?? '—')) ?></span>
+              </div>
+              <div>
+                <span class="text-slate-500 block">Floor Area:</span>
+                <span class="font-semibold text-slate-800"><?= htmlspecialchars((string)($reservation['sqm'] ?? '—')) ?> sqm</span>
+              </div>
+              <div>
+                <span class="text-slate-500 block">Stay Category:</span>
+                <span class="font-semibold text-slate-800"><?= htmlspecialchars((string)($reservation['stay_category'] ?? 'Long term')) ?></span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Owner Details -->
+          <div>
+            <p class="text-xs font-bold text-slate-700 uppercase tracking-wider mb-3">Unit Owner Contact</p>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div class="p-3 bg-white rounded-lg border border-slate-200">
+                <span class="text-xs text-slate-500 block">Owner Name</span>
+                <span class="text-sm font-bold text-slate-900 block mt-0.5">
+                  <?= htmlspecialchars((string)($reservation['owner_name'] ?? 'Zeppelin Suites Administration')) ?>
+                </span>
+              </div>
+
+              <div class="p-3 bg-white rounded-lg border border-slate-200">
+                <span class="text-xs text-slate-500 block">Contact Number</span>
+                <span class="text-sm font-semibold text-slate-900 block mt-0.5">
+                  <?= htmlspecialchars((string)($reservation['owner_contact'] ?? '—')) ?>
+                </span>
+              </div>
+
+              <div class="p-3 bg-white rounded-lg border border-slate-200">
+                <span class="text-xs text-slate-500 block">Email Address</span>
+                <span class="text-sm font-semibold text-slate-900 block mt-0.5 truncate" title="<?= htmlspecialchars((string)($reservation['owner_email'] ?? '—')) ?>">
+                  <?= htmlspecialchars((string)($reservation['owner_email'] ?? '—')) ?>
+                </span>
+              </div>
+            </div>
+          </div>
         </div>
 
-        <div class="p-6 md:p-8 space-y-6">
-
-          <!-- RESERVATION SUMMARY -->
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div class="bg-slate-50 border border-slate-200 rounded-2xl p-5">
-              <p class="text-xs font-bold text-slate-400 uppercase tracking-wide">Reservation Unit</p>
-              <p class="text-lg font-bold text-slate-900 mt-1">
-                <?= htmlspecialchars($unitName) ?>
-              </p>
+        <!-- 2. SUBMITTED RESERVATION FORM DETAILS CARD -->
+        <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+          <div class="flex items-center justify-between pb-4 border-b border-slate-100 mb-5">
+            <div class="flex items-center gap-3">
+              <div class="w-9 h-9 rounded-lg bg-blue-600 text-white flex items-center justify-center shrink-0">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.5L19 9.5V19a2 2 0 01-2 2z" />
+                </svg>
+              </div>
+              <div>
+                <h2 class="text-base font-bold text-slate-900 leading-tight">Submitted Reservation Form</h2>
+                <p class="text-xs text-slate-500">Submitted on <?= htmlspecialchars($submittedDate) ?></p>
+              </div>
             </div>
-
-            <div class="bg-slate-50 border border-slate-200 rounded-2xl p-5">
-              <p class="text-xs font-bold text-slate-400 uppercase tracking-wide">Client Name</p>
-              <p class="text-lg font-bold text-slate-900 mt-1">
-                <?= htmlspecialchars((string)($reservation['client_name'] ?? '')) ?>
-              </p>
-            </div>
-
-            <div class="bg-slate-50 border border-slate-200 rounded-2xl p-5">
-              <p class="text-xs font-bold text-slate-400 uppercase tracking-wide">Payment Status</p>
-              <p class="text-sm font-bold text-emerald-700 mt-1">
-                <?= htmlspecialchars(ucwords((string)($reservation['payment_status'] ?? ''))) ?>
-              </p>
-            </div>
-
-            <div class="bg-slate-50 border border-slate-200 rounded-2xl p-5">
-              <p class="text-xs font-bold text-slate-400 uppercase tracking-wide">Reservation Status</p>
-              <p class="text-sm font-bold text-amber-700 mt-1">
-                <?= htmlspecialchars(ucwords((string)($reservation['reservation_status'] ?? ''))) ?>
-              </p>
-            </div>
+            <span class="text-xs font-semibold px-2.5 py-1 rounded-md bg-amber-50 text-amber-700 border border-amber-200">
+              <?= htmlspecialchars(ucwords((string)($reservation['reservation_status'] ?? 'Submitted'))) ?>
+            </span>
           </div>
 
-          <!-- POLICY NOTICE -->
-          <div class="rounded-2xl bg-amber-50 border border-amber-200 px-5 py-4">
-            <div class="flex items-start gap-3">
-              <svg class="w-5 h-5 text-amber-700 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+          <div class="space-y-5 text-sm">
+
+            <!-- Client Info Grid -->
+            <div>
+              <p class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Applicant Information</p>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-slate-50 p-3.5 rounded-lg border border-slate-200/70 text-xs sm:text-sm">
+                <div>
+                  <span class="text-slate-500 text-xs block">Applicant Name</span>
+                  <span class="font-bold text-slate-900"><?= htmlspecialchars((string)($reservation['client_name'] ?? '—')) ?></span>
+                </div>
+                <div>
+                  <span class="text-slate-500 text-xs block">Email Address</span>
+                  <span class="font-medium text-slate-900"><?= htmlspecialchars((string)($reservation['client_email'] ?? '—')) ?></span>
+                </div>
+                <div>
+                  <span class="text-slate-500 text-xs block">Contact Number</span>
+                  <span class="font-medium text-slate-900"><?= htmlspecialchars((string)($reservation['client_contact'] ?? '—')) ?></span>
+                </div>
+                <div>
+                  <span class="text-slate-500 text-xs block">Sex / Nationality</span>
+                  <span class="font-medium text-slate-900">
+                    <?= htmlspecialchars((string)($reservation['client_sex'] ?? '—')) ?> / <?= htmlspecialchars((string)($reservation['client_nationality'] ?? '—')) ?>
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Schedule & Terms -->
+            <div>
+              <p class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Reservation Terms &amp; Dates</p>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-slate-50 p-3.5 rounded-lg border border-slate-200/70 text-xs sm:text-sm">
+                <div>
+                  <span class="text-slate-500 text-xs block">Transaction Type</span>
+                  <span class="font-semibold text-slate-900"><?= htmlspecialchars((string)($reservation['transaction_type'] ?? 'Unit Lease')) ?></span>
+                </div>
+                <?php if ($isLease): ?>
+                  <div>
+                    <span class="text-slate-500 text-xs block">Lease Duration</span>
+                    <span class="font-semibold text-slate-900"><?= htmlspecialchars((string)($reservation['lease_duration'] ?? '1 year')) ?></span>
+                  </div>
+                  <div>
+                    <span class="text-slate-500 text-xs block">Move-in Date</span>
+                    <span class="font-semibold text-slate-900"><?= htmlspecialchars($moveInFormatted) ?></span>
+                  </div>
+                  <div>
+                    <span class="text-slate-500 text-xs block">Move-out Date</span>
+                    <span class="font-semibold text-slate-900"><?= htmlspecialchars($moveOutFormatted) ?></span>
+                  </div>
+                <?php endif; ?>
+                <div>
+                  <span class="text-slate-500 text-xs block">Agreement Signing Schedule</span>
+                  <span class="font-semibold text-slate-900"><?= htmlspecialchars($signingFormatted) ?></span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Financial & Payment Summary -->
+            <div>
+              <p class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Financial &amp; Payment Summary</p>
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-slate-50 p-3.5 rounded-lg border border-slate-200/70 text-xs sm:text-sm">
+                <div>
+                  <span class="text-slate-500 text-xs block"><?= $isLease ? 'Monthly Lease Rate' : 'Total Reselling Price' ?></span>
+                  <span class="font-bold text-slate-900">₱<?= number_format((float)($reservation['price_basis'] ?? 0), 2) ?></span>
+                </div>
+                <div>
+                  <span class="text-slate-500 text-xs block">Reservation Fee (35%)</span>
+                  <span class="font-bold text-blue-700">₱<?= number_format((float)($reservation['required_amount'] ?? 0), 2) ?></span>
+                </div>
+                <div>
+                  <span class="text-slate-500 text-xs block">Payment Method</span>
+                  <span class="font-semibold text-slate-900"><?= htmlspecialchars((string)($reservation['payment_method'] ?? 'In-House')) ?></span>
+                </div>
+                <div>
+                  <span class="text-slate-500 text-xs block">Payment Status</span>
+                  <span class="font-semibold text-emerald-700"><?= htmlspecialchars(ucwords((string)($reservation['payment_status'] ?? 'Pending Review'))) ?></span>
+                </div>
+                <?php if ($paymentProofUrl !== ''): ?>
+                  <div class="sm:col-span-2">
+                    <span class="text-slate-500 text-xs block">Proof of Payment</span>
+                    <a href="<?= htmlspecialchars($paymentProofUrl) ?>" target="_blank" rel="noopener noreferrer" class="text-xs font-semibold text-blue-600 hover:underline inline-flex items-center gap-1 mt-0.5">
+                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                      View Uploaded Proof
+                    </a>
+                  </div>
+                <?php endif; ?>
+              </div>
+            </div>
+
+            <!-- Client Remarks / Notes -->
+            <?php if (!empty($reservation['client_remarks'])): ?>
+              <div>
+                <p class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Submitted Remarks / Requests</p>
+                <div class="p-3 bg-slate-50 rounded-lg border border-slate-200/70 text-xs text-slate-700 leading-relaxed">
+                  <?= nl2br(htmlspecialchars((string)$reservation['client_remarks'])) ?>
+                </div>
+              </div>
+            <?php endif; ?>
+
+          </div>
+        </div>
+
+      </div>
+
+      <!-- RIGHT COLUMN: CANCELLATION REQUEST FORM & POLICIES (5 COLS) -->
+      <div class="lg:col-span-5 space-y-6">
+
+        <!-- CANCELLATION FORM CARD -->
+        <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+          <div class="flex items-center gap-3 pb-4 border-b border-slate-100 mb-5">
+            <div class="w-9 h-9 rounded-lg bg-rose-50 text-rose-600 border border-rose-200 flex items-center justify-center shrink-0">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
               </svg>
-
-              <p class="text-sm text-amber-800 leading-relaxed">
-                Submitting this form does not automatically cancel your reservation. 
-                This request will be reviewed by Zeppelin Suites administration. 
-                Reservation fees are <span class="font-bold">non-refundable once verified and processed</span>, according to the reservation policy.
-              </p>
+            </div>
+            <div>
+              <h2 class="text-base font-bold text-slate-900 leading-tight">Request Cancellation</h2>
+              <p class="text-xs text-slate-500">Provide your reason for administration review</p>
             </div>
           </div>
 
-          <!-- FORM -->
-          <form id="cancelRequestForm" action="<?= htmlspecialchars($baseUrl) ?>/cancel-reservation/submit" method="POST" class="space-y-5">
+          <!-- Policy Notice -->
+          <div class="rounded-lg bg-amber-50 border border-amber-200 p-4 mb-5 text-xs text-amber-800 leading-relaxed">
+            <div class="flex items-start gap-2.5">
+              <svg class="w-4 h-4 text-amber-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+              </svg>
+              <div>
+                <span class="font-bold block mb-0.5">Important Notice</span>
+                Submitting this form does not automatically cancel your reservation. It sends a request to administration.
+                Reservation fees are <span class="font-bold text-amber-900">non-refundable once verified and processed</span>.
+              </div>
+            </div>
+          </div>
+
+          <!-- Form -->
+          <form id="cancelRequestForm" action="<?= htmlspecialchars($baseUrl) ?>/cancel-reservation/submit" method="POST" class="space-y-4">
+            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(Csrf::token()) ?>">
             <input type="hidden" name="token" value="<?= htmlspecialchars($token) ?>">
 
             <div>
-              <label class="block text-sm font-bold text-slate-700 mb-2">
-                Reason for Cancellation <span class="text-red-500">*</span>
+              <label for="cancellationReason" class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                Reason for Cancellation <span class="text-rose-600">*</span>
               </label>
-
-              <textarea 
-                name="reason" 
-                rows="6" 
+              <textarea
+                id="cancellationReason"
+                name="reason"
+                rows="5"
                 required
-                placeholder="Please explain why you are requesting cancellation..."
-                class="zep-input w-full px-4 py-3 border border-slate-300 rounded-2xl text-sm text-slate-800 resize-none"></textarea>
-
-              <p class="text-xs text-slate-400 mt-2">
-                Be clear and specific. Admin will review this reason before approving or declining your request.
-              </p>
+                placeholder="Please describe why you would like to cancel this reservation..."
+                class="w-full px-3.5 py-2.5 rounded-lg border border-slate-300 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-900 resize-none"
+              ></textarea>
+              <p class="text-[11px] text-slate-400 mt-1">Please provide clear details to assist the administration review.</p>
             </div>
 
-            <label class="flex items-start gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 cursor-pointer">
-              <input 
-                type="checkbox" 
+            <!-- Acknowledgment Checkbox -->
+            <label class="flex items-start gap-2.5 p-3 rounded-lg border border-slate-200 bg-slate-50 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                id="policyCheck"
                 required
-                class="mt-1 w-4 h-4 rounded border-slate-300 accent-slate-900">
-
-              <span class="text-sm text-slate-700 leading-relaxed">
-                I understand that this is only a cancellation request and is subject to admin approval. 
-                I also understand that the reservation fee is 
-                <span class="font-bold text-red-700">non-refundable once verified and processed</span>.
+                class="mt-0.5 w-4 h-4 rounded border-slate-300 text-slate-900 focus:ring-slate-900"
+              >
+              <span class="text-xs text-slate-700 leading-relaxed">
+                I confirm that I wish to request cancellation of this reservation, and I understand that reservation fees are non-refundable once verified and processed.
               </span>
             </label>
 
-            <button 
-              type="button"
-              onclick="openConfirmCancelModal()"
-              class="btn-press w-full bg-red-600 hover:bg-red-700 text-white text-sm font-bold py-4 rounded-2xl tracking-wide transition-all shadow-md">
-              SUBMIT CANCELLATION REQUEST
-            </button>
+            <!-- Submit Button -->
+            <div class="pt-2 space-y-2">
+              <button
+                type="button"
+                onclick="openConfirmModal()"
+                class="w-full py-3 px-4 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-semibold text-sm transition-colors text-center"
+              >
+                Submit Cancellation Request
+              </button>
+
+              <a
+                href="<?= htmlspecialchars($baseUrl) ?>/"
+                class="block w-full py-2.5 px-4 rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 font-medium text-xs text-center transition-colors"
+              >
+                Keep Reservation &amp; Exit
+              </a>
+            </div>
           </form>
-
         </div>
-      </section>
 
-      <!-- SIDE PANEL -->
-      <aside class="space-y-5">
+        <!-- HOW CANCELLATION WORKS CARD -->
+        <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+          <h3 class="text-sm font-bold text-slate-900 mb-4">How the Cancellation Process Works</h3>
 
-        <section class="bg-white border border-slate-200 rounded-3xl shadow-sm p-6">
-          <div class="w-11 h-11 rounded-2xl bg-slate-900 text-white flex items-center justify-center mb-4">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.5L19 9.5V19a2 2 0 01-2 2z"/>
-            </svg>
+          <ol class="space-y-3.5 text-xs text-slate-600">
+            <li class="flex items-start gap-3">
+              <span class="w-5 h-5 rounded-full bg-slate-900 text-white flex items-center justify-center font-bold text-[10px] shrink-0 mt-0.5">1</span>
+              <div>
+                <span class="font-semibold text-slate-800 block">Submit Request</span>
+                Fill in your reason above and submit the form for administrative processing.
+              </div>
+            </li>
+            <li class="flex items-start gap-3">
+              <span class="w-5 h-5 rounded-full bg-slate-900 text-white flex items-center justify-center font-bold text-[10px] shrink-0 mt-0.5">2</span>
+              <div>
+                <span class="font-semibold text-slate-800 block">Administration Review</span>
+                Zeppelin Suites office verifies the reservation status, documents, and payments.
+              </div>
+            </li>
+            <li class="flex items-start gap-3">
+              <span class="w-5 h-5 rounded-full bg-slate-900 text-white flex items-center justify-center font-bold text-[10px] shrink-0 mt-0.5">3</span>
+              <div>
+                <span class="font-semibold text-slate-800 block">Email Notification</span>
+                You and the unit owner will receive formal email confirmation of the outcome.
+              </div>
+            </li>
+          </ol>
+        </div>
+
+        <!-- NEED HELP CARD -->
+        <div class="bg-slate-50 rounded-xl border border-slate-200 p-5 text-xs text-slate-600">
+          <p class="font-bold text-slate-900 mb-1">Need Assistance?</p>
+          <p class="mb-3">Our office is available Monday to Saturday, 9:00 AM – 6:00 PM.</p>
+          <div class="space-y-1.5 font-medium text-slate-800">
+            <p>Email: <a href="mailto:sales@zeppelinsuites.com" class="text-blue-600 hover:underline">sales@zeppelinsuites.com</a></p>
+            <p>Hotline: <span class="text-slate-900">+63 917 123 4567</span></p>
           </div>
+        </div>
 
-          <h3 class="text-lg font-bold text-slate-900">Cancellation Process</h3>
-
-          <div class="mt-5 space-y-4">
-            <div class="flex gap-3">
-              <div class="w-7 h-7 rounded-full bg-slate-900 text-white flex items-center justify-center text-xs font-bold shrink-0">1</div>
-              <p class="text-sm text-slate-600 leading-relaxed">
-                Client submits cancellation request with reason.
-              </p>
-            </div>
-
-            <div class="flex gap-3">
-              <div class="w-7 h-7 rounded-full bg-slate-900 text-white flex items-center justify-center text-xs font-bold shrink-0">2</div>
-              <p class="text-sm text-slate-600 leading-relaxed">
-                Admin reviews the request and reservation status.
-              </p>
-            </div>
-
-            <div class="flex gap-3">
-              <div class="w-7 h-7 rounded-full bg-slate-900 text-white flex items-center justify-center text-xs font-bold shrink-0">3</div>
-              <p class="text-sm text-slate-600 leading-relaxed">
-                If approved, the reservation is cancelled and the unit is released.
-              </p>
-            </div>
-          </div>
-        </section>
-
-        <section class="bg-red-50 border border-red-200 rounded-3xl p-6">
-          <h3 class="text-base font-bold text-red-800">Important Policy</h3>
-          <p class="text-sm text-red-700 leading-relaxed mt-3">
-            Reservation fees are non-refundable once verified and processed. 
-            Cancellation requests are reviewed by Zeppelin Suites administration and are not automatically approved.
-          </p>
-        </section>
-
-      </aside>
+      </div>
 
     </div>
+
   </main>
 
-  <!-- CONFIRM CANCELLATION REQUEST MODAL -->
-  <div id="confirmCancelModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50 px-4">
-    <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden">
-      <div class="bg-red-600 px-6 py-4">
-        <h2 class="text-lg font-bold text-white">Submit Cancellation Request?</h2>
-        <p class="text-sm text-red-50 mt-1">Please confirm before proceeding.</p>
-      </div>
+  <!-- FOOTER -->
+  <footer class="bg-white border-t border-slate-200 py-6 mt-12 text-center text-xs text-slate-500">
+    <div class="max-w-6xl mx-auto px-4">
+      <p>&copy; <?= date('Y') ?> Zeppelin Suites. All rights reserved.</p>
+    </div>
+  </footer>
 
+  <!-- SIMPLE CONFIRMATION MODAL (NO EXTRA ANIMATIONS) -->
+  <div id="confirmModal" class="fixed inset-0 z-50 hidden bg-slate-900/60 flex items-center justify-center p-4">
+    <div class="bg-white rounded-xl shadow-xl max-w-md w-full border border-slate-200 overflow-hidden">
       <div class="p-6">
-        <p class="text-sm text-slate-700 leading-relaxed">
-          Are you sure you want to submit this cancellation request?
-          This will be sent to Zeppelin Suites administration for review.
+        <div class="w-10 h-10 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center mb-4">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+          </svg>
+        </div>
+        <h3 class="text-base font-bold text-slate-900">Submit Cancellation Request?</h3>
+        <p class="text-xs text-slate-600 mt-2 leading-relaxed">
+          Are you sure you want to request cancellation for this reservation? This request will be submitted to Zeppelin Suites administration for review.
         </p>
-
-        <div class="mt-4 rounded-xl bg-amber-50 border border-amber-200 px-4 py-3">
-          <p class="text-xs text-amber-800 leading-relaxed">
-            Submitting this request does not automatically cancel your reservation.
-            Reservation fees are non-refundable once verified and processed.
-          </p>
+        <div class="mt-4 p-3 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-800">
+          Reservation fees are non-refundable once verified and processed.
         </div>
       </div>
-
-      <div class="flex items-center justify-end gap-3 px-6 py-4 border-t border-slate-100 bg-slate-50">
-        <button 
-          type="button" 
-          onclick="closeConfirmCancelModal()" 
-          class="px-5 py-2 text-sm font-semibold text-slate-600 border border-slate-200 rounded-xl hover:bg-slate-100">
-          Go Back
+      <div class="flex items-center justify-end gap-3 px-6 py-3.5 bg-slate-50 border-t border-slate-100">
+        <button
+          type="button"
+          onclick="closeConfirmModal()"
+          class="px-4 py-2 text-xs font-semibold text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors"
+        >
+          Cancel
         </button>
-
-        <button 
-          type="button" 
-          onclick="submitCancelRequestForm(event)" 
-          class="px-5 py-2 text-sm font-bold text-white bg-red-600 hover:bg-red-700 rounded-xl">
+        <button
+          type="button"
+          id="confirmSubmitBtn"
+          onclick="submitCancellationForm()"
+          class="px-4 py-2 text-xs font-semibold text-white bg-rose-600 hover:bg-rose-700 rounded-lg transition-colors"
+        >
           Yes, Submit Request
         </button>
       </div>
     </div>
   </div>
 
+  <!-- JAVASCRIPT LOGIC (SIMPLE SHOW/HIDE) -->
   <script>
-  function openConfirmCancelModal() {
-    const form = document.getElementById('cancelRequestForm');
-    const reason = form.querySelector('textarea[name="reason"]');
-    const checkbox = form.querySelector('input[type="checkbox"]');
+    function openConfirmModal() {
+      const reason = document.getElementById('cancellationReason');
+      const policy = document.getElementById('policyCheck');
 
-    if (!reason.value.trim()) {
-      reason.focus();
-      showStatusModal(false, 'Reason Required', 'Please enter your reason for cancellation.');
-      return;
-    }
-
-    if (!checkbox.checked) {
-      showStatusModal(false, 'Policy Acknowledgement Required', 'Please confirm that you understand the cancellation policy.');
-      return;
-    }
-
-    const modal = document.getElementById('confirmCancelModal');
-    modal.classList.remove('hidden');
-    modal.classList.add('flex');
-  }
-
-  function closeConfirmCancelModal() {
-    const modal = document.getElementById('confirmCancelModal');
-    modal.classList.add('hidden');
-    modal.classList.remove('flex');
-  }
-
-  function submitCancelRequestForm(event) {
-    const btn = event.currentTarget;
-    btn.disabled = true;
-    btn.textContent = 'Submitting...';
-
-    document.getElementById('cancelRequestForm').submit();
-  }
-
-  function showStatusModal(isSuccess, title, message) {
-    const modal = document.getElementById('cancelStatusModal');
-    const icon = document.getElementById('cancelStatusIcon');
-    const t = document.getElementById('cancelStatusTitle');
-    const m = document.getElementById('cancelStatusMessage');
-    if (t) t.textContent = title;
-    if (m) m.textContent = message;
-    if (icon) {
-      if (isSuccess) {
-        icon.className = 'w-14 h-14 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto mb-4 border border-emerald-100';
-        icon.innerHTML = '<svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>';
-      } else {
-        icon.className = 'w-14 h-14 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center mx-auto mb-4 border border-rose-100';
-        icon.innerHTML = '<svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>';
+      if (!reason.value.trim()) {
+        reason.focus();
+        alert('Please provide your reason for requesting cancellation.');
+        return;
       }
+
+      if (!policy.checked) {
+        policy.focus();
+        alert('Please check the confirmation box acknowledging the cancellation policy.');
+        return;
+      }
+
+      document.getElementById('confirmModal').classList.remove('hidden');
     }
-    if (modal) {
-      modal.classList.remove('hidden');
-      requestAnimationFrame(() => modal.classList.add('open'));
+
+    function closeConfirmModal() {
+      document.getElementById('confirmModal').classList.add('hidden');
     }
-  }
-  function closeCancelStatusModal() {
-    const modal = document.getElementById('cancelStatusModal');
-    if (!modal || !modal.classList.contains('open')) return;
-    modal.classList.remove('open');
-    setTimeout(() => { if (!modal.classList.contains('open')) modal.classList.add('hidden'); }, 250);
-  }
+
+    function submitCancellationForm() {
+      const btn = document.getElementById('confirmSubmitBtn');
+      btn.disabled = true;
+      btn.textContent = 'Submitting...';
+      document.getElementById('cancelRequestForm').submit();
+    }
   </script>
-
-  <!-- Cancel Status Modal -->
-  <div id="cancelStatusModal"
-    class="modal-backdrop fixed inset-0 z-[200] bg-slate-900/60 flex items-center justify-center p-4 hidden"
-    style="backdrop-filter: blur(3px);"
-    onclick="if(event.target===this)closeCancelStatusModal()">
-    <div class="modal-card bg-white rounded-3xl shadow-2xl border border-slate-100 p-6 sm:p-7 max-w-sm w-full text-center" onclick="event.stopPropagation()">
-      <div id="cancelStatusIcon" class="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4 border"></div>
-      <h3 class="text-base sm:text-lg font-bold text-slate-900 mb-1" id="cancelStatusTitle">Notice</h3>
-      <p class="text-xs text-slate-500 mb-6 leading-relaxed" id="cancelStatusMessage"></p>
-      <button type="button" onclick="closeCancelStatusModal()"
-        class="w-full py-2.5 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold transition-all shadow-sm">
-        Dismiss
-      </button>
-    </div>
-  </div>
-
-  <style>
-    .modal-backdrop { transition: opacity 0.2s ease; }
-    .modal-backdrop.open { opacity: 1; }
-    .modal-backdrop:not(.open) { opacity: 0; pointer-events: none; }
-    .modal-card { transition: transform 0.25s cubic-bezier(.34,1.56,.64,1), opacity 0.2s ease; }
-    .modal-backdrop:not(.open) .modal-card { transform: scale(0.92); opacity: 0; }
-    .modal-backdrop.open .modal-card { transform: scale(1); opacity: 1; }
-  </style>
 
 </body>
 </html>

@@ -278,18 +278,12 @@ class Tenant extends Model {
                 u.floor_number,
                 owner.full_name AS owner_name,
                 owner.email AS owner_email,
-                ? AS tenant_name
+                COALESCE(sub.full_name, ?) AS tenant_name
             FROM maintenance_table m
             INNER JOIN units_table u ON m.unit_id = u.unit_id
             LEFT JOIN users_table owner ON m.unit_owner_id = owner.user_id
-            WHERE EXISTS (
-                SELECT 1
-                FROM reservation_table r
-                INNER JOIN users_table tenant ON tenant.email = r.client_email
-                WHERE r.unit_id = m.unit_id
-                  AND tenant.user_id = ?
-                  AND LOWER(r.reservation_status) NOT IN ('cancelled', 'rejected')
-            )
+            LEFT JOIN users_table sub ON m.submitted_by_user_id = sub.user_id
+            WHERE m.submitted_by_user_id = ?
             ORDER BY m.submitted_at DESC
         ";
         return $this->fetchAll($sql, [$name, $tenantId]);

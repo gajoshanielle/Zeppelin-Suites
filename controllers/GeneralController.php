@@ -244,6 +244,11 @@ class GeneralController extends Controller {
             return;
         }
 
+        if (!Csrf::validate()) {
+            $this->renderError('Invalid Request', 'Your security session has expired or is invalid. Please refresh the page and try again.', 403);
+            return;
+        }
+
         $res = $this->reservationModel->submitPublicReservation($_POST, $_FILES);
         if ($res['success']) {
             $token = $res['token'];
@@ -304,6 +309,13 @@ class GeneralController extends Controller {
 
         if (!$this->isPost()) {
             $this->redirect("{$baseUrl}/");
+            return;
+        }
+
+        // Validate CSRF token
+        $submittedCsrf = (string)$this->getPost('csrf_token', '');
+        if (!Csrf::validate($submittedCsrf)) {
+            $this->renderError('Invalid Request', 'Your session has expired or the request failed CSRF verification. Please reload the page and try again.', 403);
             return;
         }
 

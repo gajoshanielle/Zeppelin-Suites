@@ -21,7 +21,7 @@ $initials = strtoupper(substr($owner['full_name'] ?? 'U', 0, 1));
 
 
 $additionalEmail = !empty($owner['additional_email']) ? $owner['additional_email'] : '—';
-$profileTab = in_array($activeSubTab ?? 'profile', ['profile', 'payment'], true) ? ($activeSubTab ?? 'profile') : 'profile';
+$profileTab = in_array($activeSubTab ?? 'profile', ['profile', 'payment', 'password'], true) ? ($activeSubTab ?? 'profile') : 'profile';
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -167,7 +167,7 @@ tailwind.config = {
         <!-- RIGHT COLUMN: Detailed Tabs -->
         <div class="space-y-6">
           <div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 md:p-8">
-            <div class="flex items-center gap-6 border-b border-slate-100 pb-3">
+            <div class="flex items-center gap-6 border-b border-slate-100 pb-3 overflow-x-auto">
               <button type="button" id="tabBtn-profile" onclick="setProfileTab('profile', this)" class="profile-tab <?= $profileTab === 'profile' ? 'active' : '' ?> text-sm font-semibold pb-3 whitespace-nowrap">Profile</button>
               <button type="button" id="tabBtn-payment" onclick="setProfileTab('payment', this)" class="profile-tab <?= $profileTab === 'payment' ? 'active' : '' ?> text-sm font-semibold pb-3 flex items-center gap-2 whitespace-nowrap">
                 Payment QR
@@ -179,6 +179,7 @@ tailwind.config = {
                   <span class="text-[11px] font-medium bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full">Not Set</span>
                 <?php endif; ?>
               </button>
+              <button type="button" id="tabBtn-password" onclick="setProfileTab('password', this)" class="profile-tab <?= $profileTab === 'password' ? 'active' : '' ?> text-sm font-semibold pb-3 whitespace-nowrap">Change Password</button>
             </div>
 
             <!-- TAB 1: Profile Details -->
@@ -259,6 +260,7 @@ tailwind.config = {
 
                         <form id="removeGcashQrForm" method="POST" action="<?= htmlspecialchars($baseUrl) ?>/owner/account" class="inline">
                           <input type="hidden" name="action" value="delete_gcash_qr">
+                          <input type="hidden" name="csrf_token" value="<?= e($passwordCsrfToken ?? '') ?>">
                           <button type="button" onclick="openRemoveQrModal()" class="btn-press flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl text-red-600 hover:bg-red-50 transition-all">
                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                             Remove
@@ -281,6 +283,7 @@ tailwind.config = {
 
                 <form method="POST" action="<?= htmlspecialchars($baseUrl) ?>/owner/account" enctype="multipart/form-data" class="space-y-4">
                   <input type="hidden" name="action" value="upload_gcash_qr">
+                  <input type="hidden" name="csrf_token" value="<?= e($passwordCsrfToken ?? '') ?>">
                   
                   <div class="border-2 border-dashed border-slate-200 hover:border-slate-400 bg-slate-50/50 hover:bg-slate-50 rounded-2xl p-6 transition-all text-center cursor-pointer relative" onclick="document.getElementById('gcashQrInput').click()">
                     <input type="file" id="gcashQrInput" name="gcash_qr_image" accept=".jpg,.jpeg,.png,.webp" required class="hidden" onchange="handleQrSelect(event)">
@@ -317,33 +320,34 @@ tailwind.config = {
               </div>
             </div>
 
+            <!-- TAB 3: Change Password -->
+            <div id="tab-password" class="pt-6 max-w-lg <?= $profileTab === 'password' ? '' : 'hidden' ?> space-y-5">
+              <div>
+                <h3 class="text-base font-bold text-slate-900">Change Password</h3>
+                <p class="text-xs text-slate-400 mt-1">Enter your current password and choose a new password with at least 8 characters.</p>
+              </div>
+              <form method="POST" action="<?= htmlspecialchars($baseUrl) ?>/owner/account" class="space-y-4">
+                <input type="hidden" name="action" value="change_password">
+                <input type="hidden" name="csrf_token" value="<?= e($passwordCsrfToken ?? '') ?>">
+                <div>
+                  <label for="ownerCurrentPassword" class="block text-xs font-bold text-slate-700 mb-1.5">Current Password</label>
+                  <input id="ownerCurrentPassword" type="password" name="current_password" required autocomplete="current-password" class="zep-input w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm">
+                </div>
+                <div>
+                  <label for="ownerNewPassword" class="block text-xs font-bold text-slate-700 mb-1.5">New Password</label>
+                  <input id="ownerNewPassword" type="password" name="new_password" required minlength="8" autocomplete="new-password" class="zep-input w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm">
+                </div>
+                <div>
+                  <label for="ownerConfirmPassword" class="block text-xs font-bold text-slate-700 mb-1.5">Confirm New Password</label>
+                  <input id="ownerConfirmPassword" type="password" name="confirm_password" required minlength="8" autocomplete="new-password" class="zep-input w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm">
+                </div>
+                <button type="submit" class="btn-press px-5 py-2.5 text-sm font-semibold bg-slate-900 text-white rounded-xl hover:bg-slate-800 shadow-md">Change Password</button>
+              </form>
+            </div>
+
           </div>
         </div>
       </div>
-
-      <section class="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 md:p-8">
-        <div class="max-w-2xl">
-          <h2 class="text-base font-bold text-slate-900">Change Password</h2>
-          <p class="text-xs text-slate-400 mt-1 mb-5">Enter your current password and choose a new password with at least 8 characters.</p>
-          <form method="POST" action="<?= htmlspecialchars($baseUrl) ?>/owner/account" class="space-y-4">
-            <input type="hidden" name="action" value="change_password">
-            <input type="hidden" name="csrf_token" value="<?= e($passwordCsrfToken ?? '') ?>">
-            <div>
-              <label for="ownerCurrentPassword" class="block text-xs font-bold text-slate-700 mb-1.5">Current Password</label>
-              <input id="ownerCurrentPassword" type="password" name="current_password" required autocomplete="current-password" class="zep-input w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm">
-            </div>
-            <div>
-              <label for="ownerNewPassword" class="block text-xs font-bold text-slate-700 mb-1.5">New Password</label>
-              <input id="ownerNewPassword" type="password" name="new_password" required minlength="8" autocomplete="new-password" class="zep-input w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm">
-            </div>
-            <div>
-              <label for="ownerConfirmPassword" class="block text-xs font-bold text-slate-700 mb-1.5">Confirm New Password</label>
-              <input id="ownerConfirmPassword" type="password" name="confirm_password" required minlength="8" autocomplete="new-password" class="zep-input w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm">
-            </div>
-            <button type="submit" class="btn-press px-5 py-2.5 text-sm font-semibold bg-slate-900 text-white rounded-xl hover:bg-slate-800 shadow-md">Change Password</button>
-          </form>
-        </div>
-      </section>
 
     </div>
   </div>
@@ -360,6 +364,7 @@ tailwind.config = {
     </div>
     <form method="POST" action="<?= htmlspecialchars($baseUrl) ?>/owner/account" class="p-6 space-y-4">
       <input type="hidden" name="action" value="update_profile">
+      <input type="hidden" name="csrf_token" value="<?= e($passwordCsrfToken ?? '') ?>">
       
       <div>
         <label class="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">Full Name</label>
@@ -407,8 +412,9 @@ tailwind.config = {
 <script>
   function setProfileTab(tab, btn) {
     document.querySelectorAll('.profile-tab').forEach(el => el.classList.remove('active'));
-    if (btn) btn.classList.add('active');
-    ['profile','payment'].forEach(t => {
+    const activeBtn = btn || document.getElementById('tabBtn-' + tab);
+    if (activeBtn) activeBtn.classList.add('active');
+    ['profile','payment','password'].forEach(t => {
       const el = document.getElementById('tab-' + t);
       if (el) el.classList.toggle('hidden', t !== tab);
     });

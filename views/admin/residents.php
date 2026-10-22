@@ -357,12 +357,17 @@ if (!function_exists('e')) {
                   <th
                     class="text-center px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wide whitespace-nowrap align-middle cursor-pointer hover:text-slate-700 select-none"
                     onclick="sortTable(5)">Status ↕</th>
+                  <?php if (!empty($isSuperAdmin)): ?>
+                    <th class="text-center px-4 py-3 text-xs font-semibold text-amber-700 uppercase tracking-wide whitespace-nowrap align-middle">
+                      Action
+                    </th>
+                  <?php endif; ?>
                 </tr>
               </thead>
               <tbody class="divide-y divide-slate-50" id="empBody">
                 <?php if (empty($residents)): ?>
                   <tr>
-                    <td colspan="6" class="px-4 py-10 text-center text-slate-500 text-sm">No residents found.</td>
+                    <td colspan="<?= !empty($isSuperAdmin) ? 7 : 6 ?>" class="px-4 py-10 text-center text-slate-500 text-sm">No residents found.</td>
                   </tr>
                 <?php else: ?>
                   <?php foreach ($residents as $resident): ?>

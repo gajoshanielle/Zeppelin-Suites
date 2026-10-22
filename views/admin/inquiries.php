@@ -282,8 +282,8 @@ $statusMap = [
               </button>
               <button
                 class="filter-btn px-3.5 py-1.5 rounded-full text-slate-500 hover:bg-white/70 active:scale-95 transition-all"
-                data-filter="submitted" onclick="setFilter('submitted')">
-                Submitted
+                data-filter="converted" onclick="setFilter('converted')">
+                Converted
               </button>
               <button
                 class="filter-btn px-3.5 py-1.5 rounded-full text-slate-500 hover:bg-white/70 active:scale-95 transition-all"
@@ -848,8 +848,8 @@ $statusMap = [
         } else if (currentFilter === 'pending') {
           matchesStatus = (rawStatus === 'pending' || rawStatus === 'onhold');
         } else if (currentFilter === 'responded') {
-          matchesStatus = (rawStatus === 'responded');
-        } else if (currentFilter === 'submitted') {
+          matchesStatus = (rawStatus === 'responded' || rawStatus === 'reservation submitted' || rawStatus === 'officially booked');
+        } else if (currentFilter === 'converted') {
           matchesStatus = (rawStatus === 'reservation submitted' || rawStatus === 'officially booked');
         } else {
           matchesStatus = (rawStatus === currentFilter);

@@ -72,6 +72,15 @@ class User extends Model {
             ];
         }
 
+        // Prevent deactivated resident accounts from authenticating
+        if (isset($user['resident_status']) && strtolower((string)$user['resident_status']) === 'inactive') {
+            return [
+                'success' => false,
+                'user'    => null,
+                'error'   => 'Your account is currently inactive. Please contact the Zeppelin Suites administration for assistance.',
+            ];
+        }
+
         return [
             'success' => true,
             'user'    => $user,
@@ -148,6 +157,7 @@ class User extends Model {
         $user = $this->findById($userId);
 
         $defaultNames = [
+            'superadmin' => 'Secret Admin',
             'admin'      => 'Admin User',
             'tenant'     => 'Tenant',
             'unit owner' => 'Unit Owner',
@@ -160,6 +170,37 @@ class User extends Model {
             'full_name' => $fullName,
             'initial'   => $initial,
         ];
+    }
+
+    /**
+     * Generate a cryptographically secure random temporary password.
+     * Example: Zep-k9M2xP7a
+     */
+    public static function generateTemporaryPassword(): string {
+        $chars = '23456789abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ';
+        $random = '';
+        $max = strlen($chars) - 1;
+        for ($i = 0; $i < 8; $i++) {
+            $random .= $chars[random_int(0, $max)];
+        }
+        return 'Zep-' . $random;
+    }
+
+    /**
+     * Superadmin direct password reset for a target user.
+     */
+    public function adminResetPassword(int $userId, string $newPlainPassword): bool {
+        $hash = password_hash($newPlainPassword, PASSWORD_BCRYPT);
+        $sql = "
+            UPDATE users_table 
+            SET password = ?,
+                reset_code_hash = NULL,
+                reset_expires_at = NULL,
+                reset_attempts = 0,
+                reset_requested_at = NULL
+            WHERE user_id = ?
+        ";
+        return $this->execute($sql, [$hash, $userId]);
     }
 
     /**

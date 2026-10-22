@@ -30,7 +30,7 @@ class Reservation extends Model
                   WHERE r.unit_id = u.unit_id
                     AND LOWER(r.reservation_status) NOT IN ('cancelled', 'rejected')
                     AND (
-                        (LOWER(r.transaction_type) = 'unit resale' AND LOWER(r.reservation_status) IN ('reserved', 'handover'))
+                        (LOWER(r.transaction_type) LIKE '%resale%' AND LOWER(r.reservation_status) = 'reserved')
                         OR (r.move_out_date IS NOT NULL AND r.move_out_date >= CURDATE())
                         OR (LOWER(r.reservation_status) = 'reserved' AND (r.move_in_date IS NULL OR r.move_in_date >= CURDATE()))
                     )
@@ -91,6 +91,10 @@ class Reservation extends Model
                 owner.full_name AS owner_name,
                 owner.email AS owner_email,
                 cancel_requester.full_name AS cancellation_requested_by_name,
+                CASE 
+                    WHEN r.cancellation_requested_by IS NULL THEN 'client'
+                    ELSE 'unit owner'
+                END AS cancellation_requested_by_role,
 
                 (SELECT COUNT(*) FROM reservation_documents_table d WHERE d.reservation_id = r.reservation_id) AS total_docs,
                 (SELECT COUNT(*) FROM reservation_documents_table d WHERE d.reservation_id = r.reservation_id AND d.status = 'complete') AS completed_docs
@@ -99,7 +103,7 @@ class Reservation extends Model
             LEFT JOIN units_table u ON r.unit_id = u.unit_id
             LEFT JOIN users_table owner ON u.unit_owner_id = owner.user_id
             LEFT JOIN users_table cancel_requester ON r.cancellation_requested_by = cancel_requester.user_id
-            ORDER BY r.reservation_id DESC
+            ORDER BY COALESCE(r.created_at, '1970-01-01') DESC, r.reservation_id DESC
         ";
 
         return $this->fetchAll($sql);
@@ -160,8 +164,8 @@ class Reservation extends Model
                 COALESCE(SUM(r.required_amount), 0) AS collected_sales,
                 COALESCE(SUM(r.price_basis), 0) AS contract_value,
                 COUNT(*) AS paid_reservations,
-                COALESCE(SUM(CASE WHEN r.transaction_type = 'Unit Leasing' THEN r.required_amount ELSE 0 END), 0) AS leasing_sales,
-                COALESCE(SUM(CASE WHEN r.transaction_type = 'Unit Resale' THEN r.required_amount ELSE 0 END), 0) AS resale_sales
+                COALESCE(SUM(CASE WHEN (LOWER(r.transaction_type) LIKE '%leas%' OR LOWER(r.transaction_type) LIKE '%rent%') THEN r.required_amount ELSE 0 END), 0) AS leasing_sales,
+                COALESCE(SUM(CASE WHEN (LOWER(r.transaction_type) LIKE '%resale%' OR LOWER(r.transaction_type) LIKE '%buy%') THEN r.required_amount ELSE 0 END), 0) AS resale_sales
             FROM reservation_table r
             INNER JOIN units_table u ON r.unit_id = u.unit_id
             WHERE r.payment_status = 'verified'
@@ -296,7 +300,8 @@ class Reservation extends Model
             $clientName = trim((string) ($res['client_name'] ?? ''));
             $clientEmail = trim((string) ($res['client_email'] ?? ''));
             $clientContact = trim((string) ($res['client_contact'] ?? ''));
-            $isResale = strtolower(trim((string) ($res['transaction_type'] ?? ''))) === 'unit resale';
+            $txType = strtolower(trim((string) ($res['transaction_type'] ?? '')));
+            $isResale = ($txType === 'unit resale' || $txType === 'resale' || str_contains($txType, 'resale'));
 
             if ($clientEmail === '') {
                 throw new RuntimeException("Client email is missing in the reservation record.");
@@ -311,8 +316,20 @@ class Reservation extends Model
             ";
             $this->execute($updateResSql, [$reservationId]);
 
-            // 3. Update unit status to 'Occupied'
-            $updateUnitSql = "UPDATE units_table SET unit_current_status = 'Occupied' WHERE unit_id = ?";
+            // 3. Update unit status and listing status based on transaction type
+            if ($isResale) {
+                // Resale: Unit is vacant/ready for the new owner; unlist from resale market
+                $updateUnitSql = "
+                    UPDATE units_table 
+                    SET unit_current_status = 'Ready for Occupancy',
+                        listing_type = 'Not Available',
+                        reselling_price = NULL
+                    WHERE unit_id = ?
+                ";
+            } else {
+                // Lease: Tenant moves in; mark unit as Occupied
+                $updateUnitSql = "UPDATE units_table SET unit_current_status = 'Occupied' WHERE unit_id = ?";
+            }
             $this->execute($updateUnitSql, [$unitId]);
 
             // 4. Update inquiry status if linked
@@ -336,7 +353,7 @@ class Reservation extends Model
                 } else {
                     $newRole = $isResale ? 'unit owner' : 'tenant';
                 }
-                $initialStatus = ($existingUser['resident_status'] === 'Active') ? 'Active' : 'Inactive';
+                $initialStatus = 'Active';
 
                 $updateUserSql = "
                     UPDATE users_table 
@@ -352,7 +369,7 @@ class Reservation extends Model
                 $hashedPassword = password_hash($defaultPassword, PASSWORD_BCRYPT);
                 $insertUserSql = "
                     INSERT INTO users_table (full_name, email, password, contact, user_role, resident_status, created_at)
-                    VALUES (?, ?, ?, ?, ?, 'Inactive', NOW())
+                    VALUES (?, ?, ?, ?, ?, 'Active', NOW())
                 ";
                 $this->execute($insertUserSql, [$clientName, $clientEmail, $hashedPassword, $clientContact, $newRole]);
                 $tenantUserId = (int) $this->lastInsertId();
@@ -377,14 +394,14 @@ class Reservation extends Model
                 $unitDisplay = 'Unit not specified';
             }
 
-            // Send tenant account activation email with credentials
+            // Send account activation email with credentials (adapted for Tenant or Unit Owner)
             require_once __DIR__ . '/../config/owner_notifications.php';
-            $emailSent = notifyTenantOfHandover($clientEmail, $clientName, $unitDisplay, $defaultPassword);
+            $emailSent = notifyTenantOfHandover($clientEmail, $clientName, $unitDisplay, $defaultPassword, $newRole);
 
             $accountTypeDisplay = ($newRole === 'unit owner') ? 'Unit owner' : (($newRole === 'admin') ? 'Administrator' : 'Tenant');
             $message = $existingUser 
                 ? "Unit handover completed! Existing {$accountTypeDisplay} account has been updated for unit {$unitDisplay}."
-                : "Unit handover completed! {$accountTypeDisplay} account has been created (will activate upon first login). Login credentials (Email: {$clientEmail}, Password: {$defaultPassword}) have been sent to {$clientEmail}.";
+                : "Unit handover completed! {$accountTypeDisplay} account has been created. Login credentials (Email: {$clientEmail}, Password: {$defaultPassword}) have been sent to {$clientEmail}.";
 
             return [
                 'success' => true,
@@ -438,6 +455,10 @@ class Reservation extends Model
                 client_user.contact AS client_user_contact,
 
                 cancel_requester.full_name AS cancellation_requested_by_name,
+                CASE 
+                    WHEN r.cancellation_requested_by IS NULL THEN 'client'
+                    ELSE 'unit owner'
+                END AS cancellation_requested_by_role,
                 inq.inquiry_type AS inquiry_type,
                 inq.lease_duration AS inq_lease_duration
             FROM reservation_table r
@@ -712,6 +733,23 @@ class Reservation extends Model
                     'end' => $row['move_out_date']
                 ];
             }
+
+            // Also include dates blocked on the calendar (maintenance / owner unavailability)
+            $calBlockedRows = $this->fetchAll("
+                SELECT unit_id, start_date, end_date
+                FROM unit_blocked_dates_table
+                WHERE unit_id IN ({$placeholders})
+                  AND start_date IS NOT NULL
+                  AND (end_date >= CURDATE() OR end_date IS NULL)
+            ", $allUnitIds);
+
+            foreach ($calBlockedRows as $bRow) {
+                $uId = (int) $bRow['unit_id'];
+                $unitBlockedRanges[$uId][] = [
+                    'start' => $bRow['start_date'],
+                    'end'   => !empty($bRow['end_date']) ? $bRow['end_date'] : $bRow['start_date']
+                ];
+            }
         }
 
         $baseBuffer = date('Y-m-d', strtotime('+3 days'));
@@ -782,7 +820,7 @@ class Reservation extends Model
      */
     public function submitPublicReservation(array $post, array $files): array
     {
-        $token = trim((string) ($post['reservation_token'] ?? ''));
+        $token = trim((string) ($post['reservation_token'] ?? $post['token'] ?? ''));
         $paymentPercentage = (float) ($post['payment_percentage'] ?? 0);
         $declaredAmount = (float) ($post['declared_amount'] ?? 0);
         $moveInDate = trim((string) ($post['move_in_date'] ?? ''));
@@ -816,8 +854,8 @@ class Reservation extends Model
             return ['success' => false, 'error' => 'Missing reservation token.'];
         }
 
-        if (!in_array($paymentPercentage, [0.35, 0.50, 0.75], true)) {
-            return ['success' => false, 'error' => 'Invalid payment percentage.'];
+        if (abs($paymentPercentage - 0.35) > 0.001) {
+            return ['success' => false, 'error' => 'Reservation fee percentage must be 35%.'];
         }
 
         $paymentReference = trim((string) ($post['payment_reference'] ?? $post['reference_number'] ?? 'N/A'));
@@ -980,7 +1018,7 @@ class Reservation extends Model
             }
 
             if ($isLease) {
-                // Overlap check
+                // 1. Overlap check against existing reservations
                 $overlapStmt = $this->db->prepare("
                     SELECT reservation_id
                     FROM reservation_table
@@ -996,9 +1034,38 @@ class Reservation extends Model
                 if ($overlapStmt->fetch()) {
                     throw new RuntimeException("Those move-in/move-out dates overlap with an existing reservation on this unit.");
                 }
+
+                // 2. Overlap check against calendar blocked dates (maintenance / owner unavailability)
+                $calBlockStmt = $this->db->prepare("
+                    SELECT block_id, block_type, remarks
+                    FROM unit_blocked_dates_table
+                    WHERE unit_id = ?
+                      AND start_date <= ?
+                      AND COALESCE(NULLIF(end_date, '0000-00-00'), start_date) >= ?
+                    LIMIT 1
+                ");
+                $calBlockStmt->execute([(int) $data['unit_id'], $moveOutDate, $moveInDate]);
+                $calBlock = $calBlockStmt->fetch(PDO::FETCH_ASSOC);
+                if ($calBlock) {
+                    $blockType = !empty($calBlock['block_type']) ? $calBlock['block_type'] : 'scheduled maintenance or unavailability';
+                    throw new RuntimeException("Those move-in/move-out dates overlap with a blocked calendar period for this unit ({$blockType}). Please choose other dates.");
+                }
             } else {
                 if (!in_array($lockedUnit['unit_current_status'], ['Ready for Occupancy', 'Resale', 'For Resale'], true)) {
                     throw new RuntimeException("This unit is no longer available.");
+                }
+
+                // Check if resale unit is currently blocked on calendar
+                $resaleBlockStmt = $this->db->prepare("
+                    SELECT block_id, block_type
+                    FROM unit_blocked_dates_table
+                    WHERE unit_id = ?
+                      AND (end_date >= CURDATE() OR end_date IS NULL)
+                    LIMIT 1
+                ");
+                $resaleBlockStmt->execute([(int) $data['unit_id']]);
+                if ($resaleBlockStmt->fetch()) {
+                    throw new RuntimeException("This unit is currently blocked on the calendar and unavailable for reservation.");
                 }
             }
 
@@ -1011,6 +1078,9 @@ class Reservation extends Model
 
 
 
+            $clientCancelToken = bin2hex(random_bytes(32));
+            $clientCancelTokenExpiresAt = date('Y-m-d H:i:s', strtotime('+30 days'));
+
             // Insert into reservation_table
             $insertSql = "
                 INSERT INTO reservation_table (
@@ -1020,7 +1090,8 @@ class Reservation extends Model
                     move_in_date, move_out_date, lease_signing_date, is_flexible_signing,
                     price_basis, required_amount,
                     payment_method,
-                    payment_proof, payment_status, reservation_status, client_remarks
+                    payment_proof, payment_status, reservation_status, client_remarks,
+                    client_cancel_token, client_cancel_token_expires_at
                 ) VALUES (
                     ?, ?, ?, ?, ?,
                     ?, ?,
@@ -1028,7 +1099,8 @@ class Reservation extends Model
                     ?, ?, ?, ?,
                     ?, ?,
                     ?,
-                    ?, 'pending review', 'submitted', ?
+                    ?, 'pending review', 'submitted', ?,
+                    ?, ?
                 )
             ";
 
@@ -1050,7 +1122,9 @@ class Reservation extends Model
                 $requiredAmount,
                 $paymentMethod,
                 $dbFilePath,
-                $clientRemarks
+                $clientRemarks,
+                $clientCancelToken,
+                $clientCancelTokenExpiresAt
             ]);
 
             $reservationId = (int) $this->db->lastInsertId();
@@ -1075,7 +1149,7 @@ class Reservation extends Model
 
             $this->db->commit();
 
-            // Notify owner
+            // Notify owner & client
             $ownerNotificationsFile = dirname(__DIR__) . '/config/owner_notifications.php';
             if (file_exists($ownerNotificationsFile)) {
                 require_once $ownerNotificationsFile;
@@ -1087,6 +1161,23 @@ class Reservation extends Model
                         (string) ($data['unit_number'] ?? ''),
                         (string) ($data['sender_name'] ?? 'A client'),
                         $appointmentDate
+                    );
+                }
+
+                if (function_exists('notifyClientOfReservationSubmission')) {
+                    $appUrl = rtrim((string)env('APP_URL', 'http://localhost/Zeppelin-Suites'), '/');
+                    $cancellationLink = $appUrl . '/cancel-reservation?token=' . urlencode($clientCancelToken);
+                    $unitDisplay = trim(($data['unit_type'] ?? '') . ' ' . (!empty($data['unit_number']) ? 'Unit ' . $data['unit_number'] : ''));
+                    if ($unitDisplay === '') {
+                        $unitDisplay = 'Unit #' . ($data['unit_id'] ?? '');
+                    }
+
+                    notifyClientOfReservationSubmission(
+                        (string) ($data['sender_email'] ?? ''),
+                        (string) ($data['sender_name'] ?? 'Valued Client'),
+                        $unitDisplay,
+                        $cancellationLink,
+                        $reservationId
                     );
                 }
             }
@@ -1115,20 +1206,50 @@ class Reservation extends Model
         $sql = "
             SELECT 
                 r.reservation_id,
+                r.inq_id,
+                r.unit_id,
                 r.client_name,
                 r.client_email,
-                r.reservation_status,
+                r.client_contact,
+                r.client_sex,
+                r.client_nationality,
+                r.transaction_type,
+                r.move_in_date,
+                r.move_out_date,
+                r.lease_signing_date,
+                r.is_flexible_signing,
+                r.price_basis,
+                r.required_amount,
+                r.payment_method,
+                r.payment_proof,
                 r.payment_status,
+                r.reservation_status,
+                r.client_remarks,
+                r.created_at,
+                r.client_cancel_token,
                 r.client_cancel_token_expires_at,
                 u.unit_type,
-                u.unit_number
+                u.unit_number,
+                u.floor_number,
+                u.sqm,
+                u.stay_category,
+                u.listing_type,
+                owner.user_id AS owner_id,
+                owner.full_name AS owner_name,
+                owner.email AS owner_email,
+                owner.contact AS owner_contact,
+                inq.lease_duration,
+                inq.inquiry_type
             FROM reservation_table r
             LEFT JOIN units_table u ON r.unit_id = u.unit_id
-            WHERE r.client_cancel_token = ?
+            LEFT JOIN users_table owner ON u.unit_owner_id = owner.user_id
+            LEFT JOIN inquiry_table inq ON r.inq_id = inq.inq_id
+            WHERE r.client_cancel_token = ? OR (r.client_cancel_token IS NULL AND inq.reservation_token = ?)
+            ORDER BY r.reservation_id DESC
             LIMIT 1
         ";
 
-        $res = $this->fetchOne($sql, [$token]);
+        $res = $this->fetchOne($sql, [$token, $token]);
         if (!$res) {
             return ['status' => 'error', 'message' => 'Invalid or expired cancellation link.'];
         }
@@ -1137,12 +1258,12 @@ class Reservation extends Model
             return ['status' => 'error', 'message' => 'This cancellation link has expired.'];
         }
 
-        if ($res['payment_status'] !== 'verified') {
-            return ['status' => 'error', 'message' => 'Cancellation request is only available after payment verification.'];
+        if (!in_array(strtolower((string) $res['payment_status']), ['pending review', 'verified', 'pending'], true)) {
+            return ['status' => 'error', 'message' => 'Cancellation request is not available for this reservation.'];
         }
 
-        if (in_array(strtolower((string) $res['reservation_status']), ['cancelled', 'rejected', 'reserved'], true)) {
-            return ['status' => 'error', 'message' => 'Cancellation request is no longer available for this reservation.'];
+        if (in_array(strtolower((string) $res['reservation_status']), ['cancelled', 'rejected'], true)) {
+            return ['status' => 'error', 'message' => 'This reservation has already been cancelled or closed.'];
         }
 
         if (strtolower((string)($res['reservation_status'] ?? '')) === 'cancellation requested') {
@@ -1169,18 +1290,20 @@ class Reservation extends Model
 
             $sql = "
                 SELECT 
-                    reservation_id,
-                    payment_status,
-                    reservation_status,
-                    client_cancel_token_expires_at
-                FROM reservation_table
-                WHERE client_cancel_token = ?
+                    r.reservation_id,
+                    r.payment_status,
+                    r.reservation_status,
+                    r.client_cancel_token_expires_at
+                FROM reservation_table r
+                LEFT JOIN inquiry_table inq ON r.inq_id = inq.inq_id
+                WHERE r.client_cancel_token = ? OR (r.client_cancel_token IS NULL AND inq.reservation_token = ?)
+                ORDER BY r.reservation_id DESC
                 LIMIT 1
                 FOR UPDATE
             ";
 
             $stmt = $this->db->prepare($sql);
-            $stmt->execute([$token]);
+            $stmt->execute([$token, $token]);
             $res = $stmt->fetch(PDO::FETCH_ASSOC);
 
             if (!$res) {
@@ -1191,21 +1314,23 @@ class Reservation extends Model
                 throw new RuntimeException("This cancellation link has expired.");
             }
 
-            if ($res['payment_status'] !== 'verified') {
-                throw new RuntimeException("Cancellation request is only available after payment verification.");
+            if (!in_array(strtolower((string) $res['payment_status']), ['pending review', 'verified', 'pending'], true)) {
+                throw new RuntimeException("Cancellation request is not available for this reservation.");
             }
 
-            if (in_array(strtolower((string) $res['reservation_status']), ['cancelled', 'rejected', 'reserved'], true)) {
-                throw new RuntimeException("Cancellation request is no longer available for this reservation.");
+            if (in_array(strtolower((string) $res['reservation_status']), ['cancelled', 'rejected'], true)) {
+                throw new RuntimeException("This reservation has already been cancelled or closed.");
             }
 
             if (strtolower((string)($res['reservation_status'] ?? '')) === 'cancellation requested') {
                 throw new RuntimeException("A cancellation request has already been submitted.");
             }
 
-            if (strtolower((string)($res['reservation_status'] ?? '')) === 'cancelled') {
-                throw new RuntimeException("This cancellation request was already approved.");
+            $prevStatus = strtolower(trim((string)($res['reservation_status'] ?? 'submitted')));
+            if ($prevStatus === 'cancellation requested') {
+                $prevStatus = ($res['payment_status'] === 'verified') ? 'reserved' : 'submitted';
             }
+            $encodedReason = "[PREV_STATUS:{$prevStatus}] " . $reason;
 
             $updateSql = "
                 UPDATE reservation_table
@@ -1219,7 +1344,7 @@ class Reservation extends Model
             ";
 
             $stmt = $this->db->prepare($updateSql);
-            $stmt->execute([$reason, (int) $res['reservation_id']]);
+            $stmt->execute([$encodedReason, (int) $res['reservation_id']]);
 
             $this->db->commit();
             return ['success' => true];
@@ -1280,8 +1405,13 @@ class Reservation extends Model
         if (!$res)
             return false;
 
-        $statusLower = strtolower((string) ($res['reservation_status'] ?? ''));
-        if (in_array($statusLower, ['reserved', 'handover', 'moved in', 'active', 'cancelled', 'rejected'], true)) {
+        $statusLower = strtolower(trim((string) ($res['reservation_status'] ?? '')));
+        if (in_array($statusLower, ['reserved', 'handover', 'moved in', 'active', 'completed', 'handed over', 'cancelled', 'rejected'], true)) {
+            return false;
+        }
+
+        $unitStatusLower = strtolower(trim((string) ($res['unit_current_status'] ?? '')));
+        if ($unitStatusLower === 'occupied') {
             return false;
         }
 
@@ -1532,33 +1662,41 @@ class Reservation extends Model
         $completed = (int) ($counts['completed'] ?? 0);
         $allComplete = ($total > 0 && $completed === $total);
 
-        if ($allComplete) {
-            // Check if payment and lease signing are also finished to auto-promote to officially booked
-            $isPromoted = $this->checkAndPromoteToOfficiallyBooked($reservationId, $userId, $userRole);
+        $currentRes = $this->fetchOne("SELECT reservation_status FROM reservation_table WHERE reservation_id = ?", [$reservationId]);
+        $currentStatusLower = strtolower(trim((string) ($currentRes['reservation_status'] ?? '')));
+        $isTerminalOrHandedOver = in_array($currentStatusLower, ['reserved', 'handover', 'moved in', 'active', 'completed', 'handed over', 'cancelled', 'rejected'], true);
 
-            if (!$isPromoted) {
+        if ($allComplete) {
+            if (!$isTerminalOrHandedOver) {
+                // Check if payment and lease signing are also finished to auto-promote to officially booked
+                $isPromoted = $this->checkAndPromoteToOfficiallyBooked($reservationId, $userId, $userRole);
+
+                if (!$isPromoted) {
+                    $this->execute(
+                        "UPDATE reservation_table 
+                         SET reservation_status = CASE 
+                                 WHEN LOWER(reservation_status) IN ('submitted', 'under review', 'pending review', 'requirements pending', 'requested', 'flagged for review') 
+                                 THEN 'requirements completed' 
+                                 ELSE reservation_status 
+                             END
+                         WHERE reservation_id = ?",
+                        [$reservationId]
+                    );
+                }
+            }
+        } else {
+            if (!$isTerminalOrHandedOver) {
                 $this->execute(
                     "UPDATE reservation_table 
                      SET reservation_status = CASE 
-                             WHEN LOWER(reservation_status) IN ('submitted', 'under review', 'pending review', 'requirements pending', 'requested', 'flagged for review') 
-                             THEN 'requirements completed' 
+                             WHEN LOWER(reservation_status) = 'requirements completed' 
+                             THEN 'requirements pending' 
                              ELSE reservation_status 
                          END
                      WHERE reservation_id = ?",
                     [$reservationId]
                 );
             }
-        } else {
-            $this->execute(
-                "UPDATE reservation_table 
-                 SET reservation_status = CASE 
-                         WHEN LOWER(reservation_status) = 'requirements completed' 
-                         THEN 'requirements pending' 
-                         ELSE reservation_status 
-                     END
-                 WHERE reservation_id = ?",
-                [$reservationId]
-            );
         }
 
         return [
@@ -1576,6 +1714,16 @@ class Reservation extends Model
         $res = $this->getDetailsById($reservationId);
         if (!$res) {
             return ['success' => false, 'message' => 'Reservation not found.'];
+        }
+
+        $statusLower = strtolower(trim((string) ($res['reservation_status'] ?? '')));
+        if (in_array($statusLower, ['reserved', 'handover', 'moved in', 'active', 'completed', 'handed over', 'cancelled', 'rejected'], true)) {
+            return ['success' => false, 'message' => 'This reservation is already officially booked or handed over.'];
+        }
+
+        $unitStatusLower = strtolower(trim((string) ($res['unit_current_status'] ?? '')));
+        if ($unitStatusLower === 'occupied') {
+            return ['success' => false, 'message' => 'This unit is already occupied and handed over.'];
         }
 
         $now = date('Y-m-d H:i:s');
@@ -1780,32 +1928,44 @@ class Reservation extends Model
         $completed = (int) ($counts['completed'] ?? 0);
         $allComplete = ($total > 0 && $completed === $total);
 
+        // Fetch current reservation status to avoid downgrading or overwriting handed over / active reservations
+        $currentRes = $this->fetchOne("SELECT reservation_status FROM reservation_table WHERE reservation_id = ?", [$reservationId]);
+        $currentStatusLower = strtolower(trim((string) ($currentRes['reservation_status'] ?? '')));
+        $isTerminalOrHandedOver = in_array($currentStatusLower, ['reserved', 'handover', 'moved in', 'active', 'completed', 'handed over', 'cancelled', 'rejected'], true);
+
         if ($allComplete) {
-            $isPromoted = $this->checkAndPromoteToOfficiallyBooked($reservationId, $userId, $userRole);
-            if (!$isPromoted) {
+            if (!$isTerminalOrHandedOver) {
+                $isPromoted = $this->checkAndPromoteToOfficiallyBooked($reservationId, $userId, $userRole);
+                if (!$isPromoted) {
+                    $this->execute(
+                        "UPDATE reservation_table 
+                         SET reservation_status = CASE 
+                                 WHEN LOWER(reservation_status) IN ('submitted', 'under review', 'pending review', 'requirements pending', 'requested', 'flagged for review') 
+                                 THEN 'requirements completed' 
+                                 ELSE reservation_status 
+                             END
+                         WHERE reservation_id = ?",
+                        [$reservationId]
+                    );
+                }
+            }
+        } else {
+            if (!$isTerminalOrHandedOver) {
                 $this->execute(
                     "UPDATE reservation_table 
                      SET reservation_status = CASE 
-                             WHEN LOWER(reservation_status) IN ('submitted', 'under review', 'pending review', 'requirements pending', 'requested', 'flagged for review') 
-                             THEN 'requirements completed' 
+                             WHEN LOWER(reservation_status) = 'requirements completed' 
+                             THEN 'requirements pending' 
                              ELSE reservation_status 
                          END
                      WHERE reservation_id = ?",
                     [$reservationId]
                 );
             }
-        } else {
-            $this->execute(
-                "UPDATE reservation_table 
-                 SET reservation_status = CASE 
-                         WHEN LOWER(reservation_status) = 'requirements completed' 
-                         THEN 'requirements pending' 
-                         ELSE reservation_status 
-                     END
-                 WHERE reservation_id = ?",
-                [$reservationId]
-            );
         }
+
+        $updatedRes = $this->fetchOne("SELECT reservation_status FROM reservation_table WHERE reservation_id = ?", [$reservationId]);
+        $latestStatus = (string) ($updatedRes['reservation_status'] ?? ($currentRes['reservation_status'] ?? ''));
 
         return [
             'success' => true,
@@ -1813,6 +1973,7 @@ class Reservation extends Model
             'url' => $cloudUrl,
             'document_id' => $documentId,
             'all_completed' => $allComplete,
+            'reservation_status' => $latestStatus,
         ];
     }
 
@@ -1848,23 +2009,33 @@ class Reservation extends Model
             [$userId, $now, $documentId, $reservationId]
         );
 
-        // Update reservation status to pending requirements if it was completed
-        $this->execute(
-            "UPDATE reservation_table 
-             SET reservation_status = CASE 
-                     WHEN LOWER(reservation_status) = 'requirements completed' 
-                     THEN 'requirements pending' 
-                     ELSE reservation_status 
-                 END
-             WHERE reservation_id = ?",
-            [$reservationId]
-        );
+        // Fetch current reservation status to avoid touching handed over / active reservations
+        $currentRes = $this->fetchOne("SELECT reservation_status FROM reservation_table WHERE reservation_id = ?", [$reservationId]);
+        $currentStatusLower = strtolower(trim((string) ($currentRes['reservation_status'] ?? '')));
+        $isTerminalOrHandedOver = in_array($currentStatusLower, ['reserved', 'handover', 'moved in', 'active', 'completed', 'handed over', 'cancelled', 'rejected'], true);
+
+        if (!$isTerminalOrHandedOver) {
+            $this->execute(
+                "UPDATE reservation_table 
+                 SET reservation_status = CASE 
+                         WHEN LOWER(reservation_status) = 'requirements completed' 
+                         THEN 'requirements pending' 
+                         ELSE reservation_status 
+                     END
+                 WHERE reservation_id = ?",
+                [$reservationId]
+            );
+        }
+
+        $updatedRes = $this->fetchOne("SELECT reservation_status FROM reservation_table WHERE reservation_id = ?", [$reservationId]);
+        $latestStatus = (string) ($updatedRes['reservation_status'] ?? ($currentRes['reservation_status'] ?? ''));
 
         return [
             'success' => true,
             'message' => 'Document removed successfully.',
             'document_id' => $documentId,
             'all_completed' => false,
+            'reservation_status' => $latestStatus,
         ];
     }
 
@@ -1882,11 +2053,36 @@ class Reservation extends Model
             return ['success' => false, 'message' => 'This reservation does not have a pending cancellation request.'];
         }
 
+        // Restore accurate pre-cancellation status
+        $rawReason = (string) ($res['cancellation_reason'] ?? '');
+        $restoredStatus = null;
+        if (preg_match('/\[PREV_STATUS:([a-z_ ]+)\]/i', $rawReason, $matches)) {
+            $candidate = trim($matches[1]);
+            if ($candidate !== '' && $candidate !== 'cancellation requested') {
+                $restoredStatus = $candidate;
+            }
+        }
+
+        if (!$restoredStatus) {
+            if (!empty($res['officially_booked_at'])) {
+                $restoredStatus = 'officially booked';
+            } elseif (strtolower((string) ($res['payment_status'] ?? '')) === 'verified') {
+                $restoredStatus = !empty($res['lease_signed_at']) ? 'requirements completed' : 'reserved';
+            } elseif (strtolower((string) ($res['payment_status'] ?? '')) === 'pending review') {
+                $restoredStatus = 'under review';
+            } else {
+                $restoredStatus = 'submitted';
+            }
+        }
+
         $this->execute(
             "UPDATE reservation_table 
-             SET reservation_status = CASE WHEN payment_status = 'verified' THEN 'reserved' ELSE 'submitted' END
+             SET reservation_status = ?,
+                 cancellation_reason = NULL,
+                 cancellation_requested_by = NULL,
+                 cancellation_requested_at = NULL
              WHERE reservation_id = ?",
-            [$reservationId]
+            [$restoredStatus, $reservationId]
         );
 
         // Send email notifications to client and owner

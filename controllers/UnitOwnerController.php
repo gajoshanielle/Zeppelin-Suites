@@ -334,7 +334,7 @@ class UnitOwnerController extends Controller {
 
         $toast = null;
         $activeSubTab = (string)$this->getQuery('tab', 'profile');
-        if (!in_array($activeSubTab, ['profile', 'payment'], true)) {
+        if (!in_array($activeSubTab, ['profile', 'payment', 'password'], true)) {
             $activeSubTab = 'profile';
         }
 
@@ -365,6 +365,7 @@ class UnitOwnerController extends Controller {
                     'msg'  => $result['message'],
                 ];
             } elseif ($action === 'change_password') {
+                $activeSubTab = 'password';
                 $userModel = new User();
                 $result = $userModel->changePassword(
                     $ownerId,
@@ -563,6 +564,7 @@ class UnitOwnerController extends Controller {
      */
     public function saveDocuments(): void {
         $userSession = Middleware::requireRole(['unit owner']);
+        $this->validateCsrf();
         $ownerId = (int)$userSession['user_id'];
 
         if (!$this->isPost()) {
@@ -584,10 +586,62 @@ class UnitOwnerController extends Controller {
     }
 
     /**
+     * AJAX endpoint to directly upload a reservation requirement document to CloudStorage (Unit Owner).
+     */
+    public function uploadDocument(): void {
+        $userSession = Middleware::requireRole(['unit owner']);
+        $this->validateCsrf();
+        $ownerId = (int)$userSession['user_id'];
+
+        if (!$this->isPost()) {
+            $this->json(['success' => false, 'message' => 'Invalid request method.'], 405);
+            return;
+        }
+
+        $reservationId = (int)$this->getPost('reservation_id', 0);
+        $documentId = (int)$this->getPost('document_id', 0);
+        $file = $_FILES['document_file'] ?? [];
+
+        if ($reservationId <= 0 || $documentId <= 0 || empty($file)) {
+            $this->json(['success' => false, 'message' => 'Reservation ID, Document ID, and file are required.'], 400);
+            return;
+        }
+
+        $result = $this->ownerModel->uploadDocument($ownerId, $reservationId, $documentId, $file);
+        $this->json($result, $result['success'] ? 200 : 422);
+    }
+
+    /**
+     * AJAX endpoint to remove an uploaded reservation document (Unit Owner).
+     */
+    public function deleteDocument(): void {
+        $userSession = Middleware::requireRole(['unit owner']);
+        $this->validateCsrf();
+        $ownerId = (int)$userSession['user_id'];
+
+        if (!$this->isPost()) {
+            $this->json(['success' => false, 'message' => 'Invalid request method.'], 405);
+            return;
+        }
+
+        $reservationId = (int)$this->getPost('reservation_id', 0);
+        $documentId = (int)$this->getPost('document_id', 0);
+
+        if ($reservationId <= 0 || $documentId <= 0) {
+            $this->json(['success' => false, 'message' => 'Reservation ID and Document ID are required.'], 400);
+            return;
+        }
+
+        $result = $this->ownerModel->deleteDocument($ownerId, $reservationId, $documentId);
+        $this->json($result, $result['success'] ? 200 : 422);
+    }
+
+    /**
      * AJAX endpoint to request cancellation for a reservation (Unit Owner).
      */
     public function requestCancellation(): void {
         $userSession = Middleware::requireRole(['unit owner']);
+        $this->validateCsrf();
         $ownerId = (int)$userSession['user_id'];
 
         if (!$this->isPost()) {
@@ -612,6 +666,7 @@ class UnitOwnerController extends Controller {
      */
     public function withdrawCancellation(): void {
         $userSession = Middleware::requireRole(['unit owner']);
+        $this->validateCsrf();
         $ownerId = (int)$userSession['user_id'];
 
         if (!$this->isPost()) {

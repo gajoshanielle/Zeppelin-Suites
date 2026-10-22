@@ -48,8 +48,6 @@ if (empty($approvedUnitsList)) {
     'price_label' => (string) $price_label,
     'formatted_price_basis' => '₱' . number_format((float) $price_basis, 2),
     'dp_amount_35' => number_format((float) $price_basis * 0.35, 2),
-    'dp_amount_50' => number_format((float) $price_basis * 0.50, 2),
-    'dp_amount_75' => number_format((float) $price_basis * 0.75, 2),
     'owner_has_qr' => (bool) $owner_has_qr,
     'owner_qr_path' => (string) $owner_qr_path,
     'dropdown_label' => ($selectedUnitData['unit_number'] ?? 'Unit') . ' (' . ($selectedUnitData['unit_type'] ?? 'Unit') . ') - ₱' . number_format((float) $price_basis, 0) . ' (' . ($selectedUnitData['owner_name'] ?? 'Owner') . ')',
@@ -451,6 +449,7 @@ $signing_min = !$is_lease ? date('Y-m-d', strtotime('+3 days')) : date('Y-m-d');
           <div class="p-6 sm:p-7 space-y-7" id="formBody">
             <form id="reservationForm" action="<?= htmlspecialchars($baseUrl) ?>/reservation/submit" method="POST"
               enctype="multipart/form-data" onsubmit="return handleFormSubmit(event)">
+              <?= Csrf::field() ?>
               <input type="hidden" name="reservation_token" value="<?= htmlspecialchars($token) ?>">
               <input type="hidden" id="paymentMethodInput" name="payment_method" value="GCash QR">
               <input type="hidden" id="moveOutDate" name="move_out_date">
@@ -1695,8 +1694,7 @@ $signing_min = !$is_lease ? date('Y-m-d', strtotime('+3 days')) : date('Y-m-d');
 
     // ======= Payment breakdown calculation =======
     function calculateBreakdown() {
-      const dpSelect = document.getElementById('dpOption');
-      const pct = dpSelect ? parseFloat(dpSelect.value) : 0.35;
+      const pct = 0.35;
       const reqAmount = currentPriceBasis * pct;
 
       const formatted = '₱' + reqAmount.toLocaleString('en-US', {

@@ -56,11 +56,16 @@ class TenantController extends Controller {
 
         $tenantId = (int)$userSession['user_id'];
         $toast = null;
+        $activeSubTab = (string)$this->getQuery('tab', 'profile');
+        if (!in_array($activeSubTab, ['profile', 'documents', 'request', 'password'], true)) {
+            $activeSubTab = 'profile';
+        }
 
         if ($this->isPost()) {
             $this->validateCsrf();
             $action = (string)$this->getPost('action', '');
             if ($action === 'change_password') {
+                $activeSubTab = 'password';
                 $result = $this->userModel->changePassword(
                     $tenantId,
                     (string)$this->getPost('current_password', ''),
@@ -69,6 +74,7 @@ class TenantController extends Controller {
                 );
                 $toast = ['type' => $result['success'] ? 'success' : 'error', 'msg' => $result['message']];
             } elseif ($action === 'update_profile') {
+                $activeSubTab = 'profile';
                 $result = $this->tenantModel->updateProfile($tenantId, $_POST);
                 $toast = [
                     'type' => $result['success'] ? 'success' : 'error',
@@ -90,18 +96,19 @@ class TenantController extends Controller {
         $initials = strtoupper(substr(trim($name ?: 'T'), 0, 1));
 
         $this->render('tenant/account', [
-            'pageTitle'      => 'Zeppelin Suites — Account Settings',
-            'activeTab'      => 'account',
-            'baseUrl'        => $baseUrl,
-            'tenant'         => $tenant,
-            'leases'         => $leases,
-            'documents'      => $documents,
-            'maintenance'    => $maintenance,
+            'pageTitle'         => 'Zeppelin Suites — Account Settings',
+            'activeTab'         => 'account',
+            'activeSubTab'      => $activeSubTab,
+            'baseUrl'           => $baseUrl,
+            'tenant'            => $tenant,
+            'leases'            => $leases,
+            'documents'         => $documents,
+            'maintenance'       => $maintenance,
             'passwordCsrfToken' => Csrf::token(),
-            'tenantName'     => $name,
-            'tenantEmail'    => (string)($tenant['email'] ?? $userSession['email'] ?? ''),
-            'tenantInitials' => $initials,
-            'toast'          => $toast,
+            'tenantName'        => $name,
+            'tenantEmail'       => (string)($tenant['email'] ?? $userSession['email'] ?? ''),
+            'tenantInitials'    => $initials,
+            'toast'             => $toast,
         ]);
     }
 

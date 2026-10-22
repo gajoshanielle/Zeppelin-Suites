@@ -249,7 +249,8 @@ class Analytics extends Model {
             SELECT COUNT(*) AS total
             FROM reservation_table
             WHERE payment_status = 'pending review'
-               OR reservation_status IN ('submitted', 'under review', 'requirements pending')
+               OR reservation_status IN ('submitted', 'under review', 'requirements pending', 'requirements completed')
+               OR reservation_status = 'cancellation requested'
         ";
         $resRow = $this->fetchOne($resSql);
 
@@ -267,34 +268,26 @@ class Analytics extends Model {
             SELECT
                 COUNT(*) AS total_units,
                 COALESCE(SUM(CASE WHEN unit_current_status = 'Occupied' THEN 1 ELSE 0 END), 0) AS occupied_units,
-                COALESCE(SUM(CASE WHEN unit_current_status IN ('Ready for Occupancy', 'For Resale', 'Resale', 'On Hold') THEN 1 ELSE 0 END), 0) AS available_units
+                COALESCE(SUM(CASE WHEN unit_current_status IN ('Ready for Occupancy', 'For Resale', 'Resale') THEN 1 ELSE 0 END), 0) AS available_units,
+                COALESCE(SUM(CASE WHEN unit_current_status IN ('Reserved', 'On Hold') THEN 1 ELSE 0 END), 0) AS reserved_units
             FROM units_table
         ";
-        $unitsRow = $this->fetchOne($unitsSql) ?: ['total_units' => 0, 'occupied_units' => 0, 'available_units' => 0];
+        $unitsRow = $this->fetchOne($unitsSql) ?: ['total_units' => 0, 'occupied_units' => 0, 'available_units' => 0, 'reserved_units' => 0];
 
-        $inqSql = "SELECT COUNT(*) AS total FROM inquiry_table WHERE status = 'pending' OR status = '' OR status IS NULL";
-        $inqRow = $this->fetchOne($inqSql);
-
-        $resSql = "
-            SELECT COUNT(*) AS total
-            FROM reservation_table
-            WHERE payment_status = 'pending review'
-               OR reservation_status IN ('submitted', 'under review', 'requirements pending', 'requirements completed')
-               OR reservation_status = 'cancellation requested'
-        ";
-        $resRow = $this->fetchOne($resSql);
+        $pendingCounts = $this->getPendingCounts();
 
         $maintSql = "SELECT COUNT(*) AS total FROM maintenance_table WHERE status IN ('pending', 'in progress')";
         $maintRow = $this->fetchOne($maintSql);
 
-        $pendingInquiries = (int)($inqRow['total'] ?? 0);
-        $pendingReservations = (int)($resRow['total'] ?? 0);
+        $pendingInquiries = $pendingCounts['pending_inquiries'];
+        $pendingReservations = $pendingCounts['pending_reservations'];
         $pendingMaintenance = (int)($maintRow['total'] ?? 0);
 
         return [
             'total_units'          => (int)($unitsRow['total_units'] ?? 0),
             'occupied_units'       => (int)($unitsRow['occupied_units'] ?? 0),
             'available_units'      => (int)($unitsRow['available_units'] ?? 0),
+            'reserved_units'       => (int)($unitsRow['reserved_units'] ?? 0),
             'pending_inquiries'    => $pendingInquiries,
             'pending_reservations' => $pendingReservations,
             'pending_maintenance'  => $pendingMaintenance,

@@ -26,6 +26,7 @@ include __DIR__ . '/../components/public_navbar.php';
     <div class="w-full md:w-1/2 flex flex-col items-center justify-center p-6 sm:p-12 bg-white">
         <form action="<?= htmlspecialchars($actionUrl) ?>" method="POST"
             class="w-full max-w-sm flex flex-col items-center justify-center">
+            <?= Csrf::field() ?>
             <h1 class="text-3xl sm:text-4xl text-slate-900 font-semibold tracking-tight">Sign in</h1>
             <p class="text-sm text-slate-500 mt-2 text-center">Welcome back! Please enter your details to continue</p>
 

@@ -298,7 +298,7 @@ $availableUnits = (int) ($homeStats['available_units'] ?? 0);
             </div>
             <p class="text-2xl font-bold text-slate-900" style="font-family:'DM Mono',monospace">
               <?= e($availableUnits) ?></p>
-            <p class="text-xs text-slate-400 font-normal mt-1">Ready, resale, or on hold</p>
+            <p class="text-xs text-slate-400 font-normal mt-1">Ready for occupancy or resale</p>
           </div>
         </div>
 

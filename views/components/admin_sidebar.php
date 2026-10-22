@@ -125,11 +125,25 @@ $navItems = [
           || ($item['id'] === 'bookingcalendar' && in_array($activeTab, ['bookingcalendar', 'calendar', 'booking_calendar', 'booking-calendar'], true))
           || ($item['id'] === 'reservation' && in_array($activeTab, ['reservation', 'reservations'], true))
           || ($item['id'] === 'inquiry' && in_array($activeTab, ['inquiry', 'inquiries'], true));
+
+        $badgeCount = 0;
+        if ($item['id'] === 'inquiry' && !empty($pendingInquiries)) {
+          $badgeCount = (int)$pendingInquiries;
+        } elseif ($item['id'] === 'reservation' && !empty($pendingReservations)) {
+          $badgeCount = (int)$pendingReservations;
+        }
       ?>
       <a href="<?= htmlspecialchars($item['url']) ?>" data-tooltip="<?= htmlspecialchars($item['label']) ?>"
-        class="sidebar-link <?= $isActive ? 'active' : '' ?> flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium <?= $isActive ? 'text-white' : 'text-slate-500' ?>">
-        <?= $item['svg'] ?>
-        <span class="nav-label"><?= htmlspecialchars($item['label']) ?></span>
+        class="sidebar-link <?= $isActive ? 'active' : '' ?> flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium <?= $isActive ? 'text-white' : 'text-slate-500' ?>">
+        <div class="flex items-center gap-3 min-w-0">
+          <?= $item['svg'] ?>
+          <span class="nav-label"><?= htmlspecialchars($item['label']) ?></span>
+        </div>
+        <?php if ($badgeCount > 0): ?>
+          <span class="nav-badge text-xs px-2 py-0.5 rounded-full font-bold shrink-0 <?= $isActive ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700' ?>">
+            <?= $badgeCount ?>
+          </span>
+        <?php endif; ?>
       </a>
     <?php endforeach; ?>
   </nav>

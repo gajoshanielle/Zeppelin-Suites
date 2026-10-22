@@ -866,7 +866,7 @@ function toggleUnitTypeFilter(key) {
 
   updateFilterButtons();
   syncVisibleRooms();
-  renderTimeline();
+  renderActiveView();
 }
 
 function updateFilterButtons() {
@@ -920,7 +920,355 @@ function populateBlockManualUnits() {
   });
 }
 
+let currentView = "month";
+let selectedDate = null;
 let currentDate = new Date();
+
+function switchCalendarView(mode) {
+  currentView = mode;
+  const btnMonth = document.getElementById("btnViewMonth");
+  const btnTimeline = document.getElementById("btnViewTimeline");
+  const monthContainer = document.getElementById("monthViewContainer");
+  const timelineContainer = document.getElementById("timelineViewContainer");
+  const hintEl = document.getElementById("viewModeHint");
+
+  if (mode === "month") {
+    if (btnMonth) {
+      btnMonth.className = "btn-press px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 text-slate-900 bg-white shadow-xs font-bold";
+    }
+    if (btnTimeline) {
+      btnTimeline.className = "btn-press px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 text-slate-600 hover:text-slate-900 font-semibold";
+    }
+    monthContainer?.classList.remove("hidden");
+    timelineContainer?.classList.add("hidden");
+    if (hintEl) hintEl.innerHTML = '<span class="hidden sm:inline">Tap any date below to inspect and manage room bookings</span>';
+    renderMonthView();
+  } else {
+    if (btnTimeline) {
+      btnTimeline.className = "btn-press px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 text-slate-900 bg-white shadow-xs font-bold";
+    }
+    if (btnMonth) {
+      btnMonth.className = "btn-press px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 text-slate-600 hover:text-slate-900 font-semibold";
+    }
+    timelineContainer?.classList.remove("hidden");
+    monthContainer?.classList.add("hidden");
+    if (hintEl) hintEl.innerHTML = '<span class="hidden sm:inline">Hover or tap on timeline bars for details</span>';
+    renderTimeline();
+    setTimeout(() => {
+      const today = toLocalISODate(new Date());
+      const todayTh = document.querySelector(`th[data-date="${today}"]`);
+      if (todayTh) todayTh.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+    }, 100);
+  }
+}
+
+function renderActiveView() {
+  if (currentView === "month") {
+    renderMonthView();
+  } else {
+    renderTimeline();
+  }
+}
+
+function renderMonthView() {
+  const year = currentDate.getFullYear();
+  const month = currentDate.getMonth();
+
+  const monthEl = document.getElementById("monthNameText");
+  const yearEl = document.getElementById("yearNameText");
+  if (monthEl) monthEl.textContent = MONTH_NAMES_FULL[month];
+  if (yearEl) yearEl.textContent = year;
+
+  const totalDays = new Date(year, month + 1, 0).getDate();
+  const firstDow = new Date(year, month, 1).getDay();
+  const prevMonthTotalDays = new Date(year, month, 0).getDate();
+  const today = toLocalISODate(new Date());
+
+  const grid = document.getElementById("monthGridCells");
+  if (!grid) return;
+  grid.innerHTML = "";
+
+  const curPrefix = `${year}-${String(month + 1).padStart(2, "0")}`;
+  if (!selectedDate || !selectedDate.startsWith(curPrefix)) {
+    if (today.startsWith(curPrefix)) {
+      selectedDate = today;
+    } else {
+      selectedDate = `${curPrefix}-01`;
+    }
+  }
+
+  // Preceding days from previous month
+  for (let i = firstDow - 1; i >= 0; i--) {
+    const dayNum = prevMonthTotalDays - i;
+    const cell = document.createElement("div");
+    cell.className = "month-day-cell is-other-month";
+    cell.innerHTML = `<span class="day-num text-xs font-semibold text-slate-400">${dayNum}</span>`;
+    grid.appendChild(cell);
+  }
+
+  // Days of current month
+  for (let d = 1; d <= totalDays; d++) {
+    const dateStr = formatDate(year, month, d);
+    const isToday = dateStr === today;
+    const isSelected = dateStr === selectedDate;
+
+    let occCount = 0;
+    let resCount = 0;
+    let maintCount = 0;
+    let blockCount = 0;
+
+    UNIT_TYPES.forEach(ut => {
+      const visRooms = ut.rooms.filter(r => visibleRooms.has(ut.key + "::" + r.room));
+      visRooms.forEach(rm => {
+        if (rm.maintenance) {
+          maintCount++;
+          return;
+        }
+        const b = bookings.find(item => item.unitType === ut.key && item.roomNumber === rm.room && dateStr >= item.startDate && dateStr <= item.endDate);
+        if (b) {
+          if (b.status === "Occupied") occCount++;
+          else resCount++;
+          return;
+        }
+        const blk = blockedDates.find(item => ((item.unitId && rm.unitId && item.unitId === rm.unitId) || (item.unitType === ut.key && item.roomNumber === rm.room)) && dateStr >= item.startDate && dateStr <= item.endDate);
+        if (blk) {
+          if (blk.blockType === "Maintenance") maintCount++;
+          else blockCount++;
+        }
+      });
+    });
+
+    const cell = document.createElement("div");
+    cell.className = `month-day-cell${isToday ? " is-today-cell" : ""}${isSelected ? " is-selected" : ""}`;
+    cell.dataset.date = dateStr;
+
+    let dotsHtml = '<div class="month-day-dots">';
+    if (occCount > 0) dotsHtml += `<span class="status-mini-dot dot-occupied" title="${occCount} Occupied"></span>`;
+    if (resCount > 0) dotsHtml += `<span class="status-mini-dot dot-reserved" title="${resCount} Reserved"></span>`;
+    if (maintCount > 0) dotsHtml += `<span class="status-mini-dot dot-maintenance" title="${maintCount} Maintenance"></span>`;
+    if (blockCount > 0) dotsHtml += `<span class="status-mini-dot dot-unavailable" title="${blockCount} Blocked"></span>`;
+    dotsHtml += '</div>';
+
+    cell.innerHTML = `
+      <span class="day-num text-xs font-semibold text-slate-700">${d}</span>
+      ${dotsHtml}
+    `;
+
+    cell.addEventListener("click", () => selectDate(dateStr));
+    grid.appendChild(cell);
+  }
+
+  // Trailing days padding
+  const totalCellsSoFar = firstDow + totalDays;
+  const remainingCells = (7 - (totalCellsSoFar % 7)) % 7;
+  for (let d = 1; d <= remainingCells; d++) {
+    const cell = document.createElement("div");
+    cell.className = "month-day-cell is-other-month";
+    cell.innerHTML = `<span class="day-num text-xs font-semibold text-slate-400">${d}</span>`;
+    grid.appendChild(cell);
+  }
+
+  renderSelectedDaySchedule(selectedDate);
+}
+
+function selectDate(dateStr) {
+  selectedDate = dateStr;
+  const cells = document.querySelectorAll("#monthGridCells .month-day-cell");
+  cells.forEach(c => {
+    if (c.dataset.date === dateStr) {
+      c.classList.add("is-selected");
+    } else {
+      c.classList.remove("is-selected");
+    }
+  });
+  renderSelectedDaySchedule(dateStr);
+}
+
+function renderSelectedDaySchedule(dateStr) {
+  const titleEl = document.getElementById("selectedDateTitle");
+  const badgeEl = document.getElementById("selectedDateBadge");
+  const summaryEl = document.getElementById("selectedDateSummary");
+  const listEl = document.getElementById("selectedDayRoomList");
+  if (!listEl) return;
+
+  const today = toLocalISODate(new Date());
+  const isToday = dateStr === today;
+  const dObj = new Date(dateStr + "T00:00:00");
+  const dowName = dObj.toLocaleDateString("en-US", { weekday: "long" });
+
+  if (titleEl) titleEl.textContent = formatDisplayDate(dateStr);
+  if (badgeEl) {
+    badgeEl.textContent = isToday ? "Today" : dowName;
+    badgeEl.className = isToday 
+      ? "text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-slate-900 text-white" 
+      : "text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700";
+  }
+
+  listEl.innerHTML = "";
+
+  let totalVisRooms = 0;
+  let occupiedRooms = 0;
+  let reservedRooms = 0;
+  let blockedRooms = 0;
+  let maintRooms = 0;
+
+  UNIT_TYPES.forEach(ut => {
+    const visRooms = ut.rooms.filter(r => visibleRooms.has(ut.key + "::" + r.room));
+    totalVisRooms += visRooms.length;
+
+    visRooms.forEach(rm => {
+      const booking = bookings.find(b => b.unitType === ut.key && b.roomNumber === rm.room && dateStr >= b.startDate && dateStr <= b.endDate);
+      const block = blockedDates.find(b => ((b.unitId && rm.unitId && b.unitId === rm.unitId) || (b.unitType === ut.key && b.roomNumber === rm.room)) && dateStr >= b.startDate && dateStr <= b.endDate);
+
+      const card = document.createElement("div");
+      card.className = "p-3 sm:p-4 rounded-xl border border-slate-200/90 hover:border-slate-300 bg-white transition-all shadow-xs flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3";
+
+      if (rm.maintenance) {
+        maintRooms++;
+        card.className += " bg-amber-50/40 border-amber-200";
+        card.innerHTML = `
+          <div class="flex items-start gap-3">
+            <span class="w-3 h-3 rounded-full dot-maintenance mt-1 shrink-0"></span>
+            <div>
+              <div class="flex items-center gap-2">
+                <span class="font-bold text-slate-900 text-sm">Room ${rm.room}</span>
+                <span class="text-xs text-slate-500 font-medium">(${ut.key})</span>
+                <span class="status-badge badge-maintenance text-[10px]">Maintenance</span>
+              </div>
+              <p class="text-xs text-amber-800 mt-1">This unit is marked under maintenance in the system.</p>
+            </div>
+          </div>
+          <div class="flex items-center justify-end">
+            <span class="text-xs text-slate-400 font-mono">Unavailable</span>
+          </div>
+        `;
+      } else if (booking) {
+        if (booking.status === "Occupied") occupiedRooms++;
+        else reservedRooms++;
+        const badgeClass = STATUS_BADGE[booking.status] || "badge-reserved";
+        const dotClass = booking.status === "Occupied" ? "dot-occupied" : "dot-reserved";
+
+        card.innerHTML = `
+          <div class="flex items-start gap-3">
+            <span class="w-3 h-3 rounded-full ${dotClass} mt-1 shrink-0"></span>
+            <div>
+              <div class="flex flex-wrap items-center gap-2">
+                <span class="font-bold text-slate-900 text-sm">Room ${rm.room}</span>
+                <span class="text-xs text-slate-500 font-medium">(${ut.key})</span>
+                <span class="status-badge ${badgeClass} text-[10px]">${booking.status}</span>
+              </div>
+              <p class="text-xs font-semibold text-slate-800 mt-1 flex items-center gap-2">
+                <span>Guest: ${booking.guestName || "—"}</span>
+                ${booking.phone ? `<span class="text-slate-400 font-normal">· ${booking.phone}</span>` : ""}
+              </p>
+              <p class="text-[11px] text-slate-500 mt-0.5">Stay: ${formatDisplayDate(booking.startDate)} &rarr; ${formatDisplayDate(booking.endDate)}</p>
+            </div>
+          </div>
+          <div class="flex items-center justify-end shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100">
+            <a href="${BASE_URL}/owner/reservations/view?reservation_id=${booking.id}" class="btn-press w-full sm:w-auto px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-semibold inline-flex items-center justify-center gap-1.5 shadow-xs transition-all">
+              <span>View Lease Details</span>
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+            </a>
+          </div>
+        `;
+      } else if (block) {
+        if (block.blockType === "Maintenance") maintRooms++;
+        else blockedRooms++;
+
+        const badgeClass = block.blockType === "Maintenance" ? "badge-maintenance" : "badge-unavailable";
+        const dotClass = block.blockType === "Maintenance" ? "dot-maintenance" : "dot-unavailable";
+        const byRole = block.createdByRole === "unit owner" ? "Unit Owner" : "Admin";
+        const blockJson = JSON.stringify(block).replace(/"/g, '&quot;');
+
+        card.innerHTML = `
+          <div class="flex items-start gap-3">
+            <span class="w-3 h-3 rounded-full ${dotClass} mt-1 shrink-0"></span>
+            <div>
+              <div class="flex flex-wrap items-center gap-2">
+                <span class="font-bold text-slate-900 text-sm">Room ${rm.room}</span>
+                <span class="text-xs text-slate-500 font-medium">(${ut.key})</span>
+                <span class="status-badge ${badgeClass} text-[10px]">${block.blockType}</span>
+              </div>
+              <p class="text-xs text-slate-600 mt-1">Blocked by <strong>${byRole}</strong> &bull; ${formatDisplayDate(block.startDate)} &rarr; ${formatDisplayDate(block.endDate)}</p>
+              ${block.remarks ? `<p class="text-[11px] text-slate-500 italic mt-0.5">"${block.remarks}"</p>` : ""}
+            </div>
+          </div>
+          <div class="flex items-center justify-end shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100">
+            <button type="button" onclick="confirmUnblockDirect(${blockJson})" class="btn-press w-full sm:w-auto px-3.5 py-1.5 border border-red-200 bg-red-50 hover:bg-red-100 text-red-700 rounded-xl text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition-all">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+              <span>Unblock</span>
+            </button>
+          </div>
+        `;
+      } else {
+        card.innerHTML = `
+          <div class="flex items-start gap-3">
+            <span class="w-3 h-3 rounded-full bg-emerald-400 mt-1 shrink-0"></span>
+            <div>
+              <div class="flex items-center gap-2">
+                <span class="font-bold text-slate-900 text-sm">Room ${rm.room}</span>
+                <span class="text-xs text-slate-500 font-medium">(${ut.key})</span>
+                <span class="status-badge text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200">Available</span>
+              </div>
+              <p class="text-xs text-slate-400 mt-0.5">Available for reservation on this date.</p>
+            </div>
+          </div>
+          <div class="flex items-center justify-end shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100">
+            <button type="button" onclick="openBlockDatesModal('${ut.key}', '${rm.room}', '${rm.unitId}', '${dateStr}')" class="btn-press w-full sm:w-auto px-3.5 py-1.5 border border-slate-200 hover:border-slate-400 bg-white hover:bg-slate-50 text-slate-700 hover:text-slate-900 rounded-xl text-xs font-semibold inline-flex items-center justify-center gap-1 shadow-xs transition-all">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+              <span>Block Room</span>
+            </button>
+          </div>
+        `;
+      }
+
+      listEl.appendChild(card);
+    });
+  });
+
+  if (totalVisRooms === 0) {
+    listEl.innerHTML = `<p class="text-xs text-slate-400 italic py-4 text-center">No rooms selected in the filter.</p>`;
+    if (summaryEl) summaryEl.textContent = "No rooms matching active filters.";
+  } else {
+    const availCount = totalVisRooms - occupiedRooms - reservedRooms - blockedRooms - maintRooms;
+    if (summaryEl) {
+      summaryEl.textContent = `${totalVisRooms} rooms visible: ${availCount} available, ${occupiedRooms} occupied, ${reservedRooms} reserved, ${blockedRooms + maintRooms} blocked/maintenance.`;
+    }
+  }
+}
+
+function openBlockForSelectedDate() {
+  openBlockDatesModal(null, null, null, selectedDate);
+}
+
+function confirmUnblockDirect(block) {
+  if (!block) return;
+  showConfirmModal(
+    'Unblock Dates',
+    `Are you sure you want to unblock Room ${block.roomNumber} (${formatDisplayDate(block.startDate)} to ${formatDisplayDate(block.endDate)})?`,
+    async () => {
+      const fd = new FormData();
+      fd.append("block_id", block.blockId);
+
+      try {
+        const res = await fetch(`${BASE_URL}/owner/booking-calendar/unblock`, { method: "POST", body: fd });
+        const data = await res.json();
+        if (!data.success) {
+          showToast(`❌ ${data.message || 'Could not unblock dates.'}`);
+          return;
+        }
+        hideQuickView();
+        showToast("✓ Dates successfully unblocked.");
+        await loadCalendarData();
+        buildFilterSidebar();
+        renderActiveView();
+      } catch (err) {
+        console.error(err);
+        showToast("❌ Could not reach the server.");
+      }
+    }
+  );
+}
 
 function renderTimeline() {
   const year  = currentDate.getFullYear();
@@ -1108,13 +1456,13 @@ function toLocalISODate(d) {
 function changeMonth(dir) {
   currentDate.setMonth(currentDate.getMonth() + dir);
   closePickers();
-  renderTimeline();
+  renderActiveView();
 }
 
 function goToday() {
   currentDate = new Date();
   closePickers();
-  renderTimeline();
+  renderActiveView();
 }
 
 let yearPickerBase = Math.floor(new Date().getFullYear() / 12) * 12;
@@ -1234,7 +1582,7 @@ function populateMonthGrid() {
 function selectMonth(monthIndex) {
   currentDate.setMonth(monthIndex);
   closePickers();
-  renderTimeline();
+  renderActiveView();
 }
 
 function shiftYearPage(offset, e) {
@@ -1276,7 +1624,7 @@ function populateYearGrid() {
 function selectYear(year) {
   currentDate.setFullYear(year);
   closePickers();
-  renderTimeline();
+  renderActiveView();
 }
 
 function handleCellClick(unitType, room, unitId, dateStr) {
@@ -1391,7 +1739,7 @@ async function handleSaveBlockDates(e) {
     showToast("Dates blocked successfully.");
     await loadCalendarData();
     buildFilterSidebar();
-    renderTimeline();
+    renderActiveView();
   } catch (err) {
     console.error(err);
     errNotice.textContent = "Network error. Could not reach server.";
@@ -1497,7 +1845,7 @@ async function handleUnblockClick() {
         showToast("Dates successfully unblocked.");
         await loadCalendarData();
         buildFilterSidebar();
-        renderTimeline();
+        renderActiveView();
       } catch (err) {
         console.error(err);
         showToast("❌ Could not reach the server.");
@@ -1573,13 +1921,7 @@ function executeCalConfirm() {
   await loadCalendarData();
   buildFilterSidebar();
   populateBlockManualUnits();
-  renderTimeline();
-
-  setTimeout(() => {
-    const today = toLocalISODate(new Date());
-    const todayTh = document.querySelector(`th[data-date="${today}"]`);
-    if (todayTh) todayTh.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
-  }, 200);
+  switchCalendarView(currentView);
 })();
 </script>
 

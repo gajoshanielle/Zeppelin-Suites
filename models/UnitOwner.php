@@ -232,7 +232,7 @@ class UnitOwner extends Model {
             FROM reservation_table r
             INNER JOIN units_table u ON r.unit_id = u.unit_id
             WHERE u.unit_owner_id = ?
-            ORDER BY r.created_at DESC
+            ORDER BY COALESCE(r.created_at, '1970-01-01') DESC, r.reservation_id DESC
         ";
         return $this->fetchAll($sql, [$ownerId]);
     }
@@ -262,6 +262,10 @@ class UnitOwner extends Model {
                 client_user.resident_status AS client_resident_status,
                 client_user.contact AS client_user_contact,
                 cancel_requester.full_name AS cancellation_requested_by_name,
+                CASE 
+                    WHEN r.cancellation_requested_by IS NULL THEN 'client'
+                    ELSE 'unit owner'
+                END AS cancellation_requested_by_role,
                 inq.inquiry_type AS inquiry_type,
                 inq.lease_duration AS inq_lease_duration
             FROM reservation_table r
@@ -1028,11 +1032,46 @@ class UnitOwner extends Model {
             return ['success' => false, 'message' => 'Database error while saving confirmed signing date.'];
         }
 
+        $formattedDate = date('l, F j, Y', $ts);
+
+        // Dispatch email notification to client informing them of the confirmed lease signing appointment date
+        $clientEmail = trim((string)($res['client_email'] ?? ''));
+        $clientName = trim((string)($res['client_name'] ?? 'Applicant'));
+        $unitDisplay = trim(($res['unit_number'] ? 'Unit ' . $res['unit_number'] : '') . ($res['unit_type'] ? ' (' . $res['unit_type'] . ')' : '')) ?: 'Zeppelin Suites Unit';
+        $ownerName = trim((string)($res['owner_name'] ?? 'Unit Owner'));
+        $ownerContact = trim((string)($res['owner_contact'] ?? ''));
+        $moveInFormatted = (!empty($res['move_in_date']) && $res['move_in_date'] !== '0000-00-00')
+            ? date('F j, Y', strtotime((string)$res['move_in_date']))
+            : '';
+
+        $clientEmailSent = false;
+        if (!empty($clientEmail)) {
+            require_once dirname(__DIR__) . '/config/owner_notifications.php';
+            if (function_exists('notifyClientOfLeaseSigningDate')) {
+                $clientEmailSent = notifyClientOfLeaseSigningDate(
+                    $clientEmail,
+                    $clientName,
+                    $reservationId,
+                    $unitDisplay,
+                    $formattedDate,
+                    $ownerName,
+                    $ownerContact,
+                    $moveInFormatted
+                );
+            }
+        }
+
+        $msg = 'Lease signing appointment confirmed successfully.';
+        if ($clientEmailSent) {
+            $msg .= ' Notification email sent to client (' . $clientEmail . ').';
+        }
+
         return [
-            'success'        => true,
-            'message'        => 'Lease signing appointment confirmed successfully.',
-            'confirmed_date' => $cleanDate,
-            'formatted_date' => date('l, F j, Y', $ts),
+            'success'           => true,
+            'message'           => $msg,
+            'confirmed_date'    => $cleanDate,
+            'formatted_date'    => $formattedDate,
+            'client_email_sent' => $clientEmailSent,
         ];
     }
 
@@ -1186,6 +1225,34 @@ class UnitOwner extends Model {
     }
 
     /**
+     * Directly upload a reservation requirement document to CloudStorage (Unit Owner).
+     */
+    public function uploadDocument(int $ownerId, int $reservationId, int $documentId, array $file): array {
+        $res = $this->getReservationDetails($ownerId, $reservationId);
+        if (!$res) {
+            return ['success' => false, 'message' => 'Reservation not found or unauthorized.'];
+        }
+
+        require_once __DIR__ . '/Reservation.php';
+        $reservationModel = new Reservation();
+        return $reservationModel->uploadReservationDocument($reservationId, $documentId, $file, $ownerId, 'unit owner');
+    }
+
+    /**
+     * Remove an uploaded reservation document (Unit Owner).
+     */
+    public function deleteDocument(int $ownerId, int $reservationId, int $documentId): array {
+        $res = $this->getReservationDetails($ownerId, $reservationId);
+        if (!$res) {
+            return ['success' => false, 'message' => 'Reservation not found or unauthorized.'];
+        }
+
+        require_once __DIR__ . '/Reservation.php';
+        $reservationModel = new Reservation();
+        return $reservationModel->deleteReservationDocument($reservationId, $documentId, $ownerId, 'unit owner');
+    }
+
+    /**
      * Submit a cancellation request to admin (Unit Owner).
      */
     public function requestCancellation(int $ownerId, int $reservationId, string $reason): array {
@@ -1195,6 +1262,11 @@ class UnitOwner extends Model {
         }
 
         $now = date('Y-m-d H:i:s');
+        $prevStatus = strtolower(trim((string)($res['reservation_status'] ?? 'submitted')));
+        if ($prevStatus === 'cancellation requested') {
+            $prevStatus = ($res['payment_status'] === 'verified') ? 'reserved' : 'submitted';
+        }
+        $encodedReason = "[PREV_STATUS:{$prevStatus}] " . $reason;
 
         $success = $this->execute(
             "UPDATE reservation_table 
@@ -1203,7 +1275,7 @@ class UnitOwner extends Model {
                  cancellation_requested_by = ?,
                  cancellation_requested_at = ?
              WHERE reservation_id = ?",
-            [$reason, $ownerId, $now, $reservationId]
+            [$encodedReason, $ownerId, $now, $reservationId]
         );
 
         if (!$success) {
@@ -1226,14 +1298,36 @@ class UnitOwner extends Model {
             return ['success' => false, 'message' => 'There is no pending cancellation request to cancel.'];
         }
 
+        // Restore accurate prior status
+        $rawReason = (string)($res['cancellation_reason'] ?? '');
+        $restoredStatus = null;
+        if (preg_match('/\[PREV_STATUS:([a-z_ ]+)\]/i', $rawReason, $matches)) {
+            $candidate = trim($matches[1]);
+            if ($candidate !== '' && $candidate !== 'cancellation requested') {
+                $restoredStatus = $candidate;
+            }
+        }
+
+        if (!$restoredStatus) {
+            if (!empty($res['officially_booked_at'])) {
+                $restoredStatus = 'officially booked';
+            } elseif (strtolower((string)($res['payment_status'] ?? '')) === 'verified') {
+                $restoredStatus = !empty($res['lease_signed_at']) ? 'requirements completed' : 'reserved';
+            } elseif (strtolower((string)($res['payment_status'] ?? '')) === 'pending review') {
+                $restoredStatus = 'under review';
+            } else {
+                $restoredStatus = 'submitted';
+            }
+        }
+
         $success = $this->execute(
             "UPDATE reservation_table 
-             SET reservation_status = CASE WHEN payment_status = 'verified' THEN 'reserved' ELSE 'submitted' END,
+             SET reservation_status = ?,
                  cancellation_reason = NULL,
                  cancellation_requested_by = NULL,
                  cancellation_requested_at = NULL
              WHERE reservation_id = ?",
-            [$reservationId]
+            [$restoredStatus, $reservationId]
         );
 
         if (!$success) {
