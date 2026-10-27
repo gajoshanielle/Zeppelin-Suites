@@ -157,10 +157,17 @@ $moveOutLabel = $isResale ? 'Turnover Date' : 'Turnover Date';
 
         <!-- Action Link -->
         <div class="mt-5 pt-4 border-t border-slate-100">
-          <a href="<?= htmlspecialchars($baseUrl) ?>/tenant/account" class="btn-press flex items-center justify-between text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-50 hover:bg-slate-100 border border-slate-200/80 rounded-xl px-4 py-2.5 transition-all">
-            <span>View Lease Details</span>
-            <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-          </a>
+          <?php if ($unitNumber !== '—'): ?>
+            <a href="<?= htmlspecialchars($baseUrl) ?>/tenant/account" class="btn-press flex items-center justify-between text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-50 hover:bg-slate-100 border border-slate-200/80 rounded-xl px-4 py-2.5 transition-all">
+              <span>View Lease Details</span>
+              <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+            </a>
+          <?php else: ?>
+            <div class="flex items-center justify-between text-xs font-semibold text-slate-300 bg-slate-50 border border-slate-100 rounded-xl px-4 py-2.5 cursor-not-allowed select-none" title="No unit assigned yet">
+              <span>View Lease Details</span>
+              <svg class="w-4 h-4 text-slate-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+            </div>
+          <?php endif; ?>
         </div>
       </div>
 
