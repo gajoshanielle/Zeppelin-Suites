@@ -1,0 +1,45 @@
+name: Sync MVC-architecture-implementation to Zeppelin-Suites-deployment
+
+on:
+  push:
+    branches: [MVC-architecture-implementation]
+
+concurrency:
+  group: sync-to-deployment
+  cancel-in-progress: false
+
+env:
+  TARGET_REPO: Yedaiah18/Zeppelin-Suites-deployment
+  TARGET_BRANCH: main
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Zeppelin-Suites
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Merge main into Zeppelin-Suites-deployment
+        env:
+          DEPLOY_TOKEN: ${{ secrets.DEPLOYMENT_REPO_TOKEN }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git remote add deploy "https://x-access-token:${DEPLOY_TOKEN}@github.com/${TARGET_REPO}.git"
+          git fetch deploy "${TARGET_BRANCH}"
+
+          # Build the merge on top of the deployment repo's current branch, then push it back.
+          git checkout -B deploy-merge "deploy/${TARGET_BRANCH}"
+          git merge "${GITHUB_SHA}" --allow-unrelated-histories --no-ff --no-commit
+
+          # The sync workflow itself is dev-only: keep it out of the deployment repo.
+          git rm -rf -q --ignore-unmatch .github/workflows/sync-to-deployment.yml
+
+          git commit -m "Merge Zeppelin-Suites@${GITHUB_SHA::7} into ${TARGET_BRANCH}" \
+            || echo "Nothing to merge"
+
+          git push deploy "deploy-merge:${TARGET_BRANCH}"

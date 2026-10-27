@@ -1,0 +1,1341 @@
+<?php
+declare(strict_types=1);
+
+require_once __DIR__ . '/../core/Model.php';
+require_once __DIR__ . '/../core/CloudStorage.php';
+
+/**
+ * Zeppelin Suites - Unit Owner Model
+ * Handles database operations for unit owner portal: overview, units, leases, tenants, maintenance, and calendar.
+ * Pure MVC: strictly PDO prepared statements. Zero direct HTML or output.
+ */
+class UnitOwner extends Model {
+
+    /**
+     * Retrieve overview counts, recent tenants, maintenance, and approval requests for this owner.
+     */
+    public function getOverviewData(int $ownerId): array {
+        // Counts
+        $countSql = "
+            SELECT 
+                COUNT(*) AS total_owned,
+                SUM(CASE WHEN unit_current_status = 'Occupied' THEN 1 ELSE 0 END) AS total_occupied,
+                SUM(CASE WHEN unit_current_status = 'Ready for Occupancy' THEN 1 ELSE 0 END) AS total_available,
+                SUM(CASE WHEN unit_current_status = 'Reserved' THEN 1 ELSE 0 END) AS total_reserved
+            FROM units_table 
+            WHERE unit_owner_id = ?
+        ";
+        $counts = $this->fetchOne($countSql, [$ownerId]) ?: [];
+
+        // Recent tenants
+        $tenantsSql = "
+            SELECT r.client_name, r.client_contact, r.move_in_date, u.unit_number
+            FROM reservation_table r
+            INNER JOIN units_table u ON u.unit_id = r.unit_id
+            WHERE u.unit_owner_id = ? AND r.officially_booked_at IS NOT NULL
+            ORDER BY r.officially_booked_at DESC
+            LIMIT 5
+        ";
+        $recentTenants = $this->fetchAll($tenantsSql, [$ownerId]);
+
+        // Maintenance requests
+        $maintSql = "
+            SELECT m.maintenance_id, m.status, u.unit_number
+            FROM maintenance_table m
+            LEFT JOIN units_table u ON u.unit_id = m.unit_id
+            WHERE m.unit_owner_id = ?
+            ORDER BY m.submitted_at DESC
+            LIMIT 5
+        ";
+        $maintenanceRequests = $this->fetchAll($maintSql, [$ownerId]);
+
+        // Pending approval requests
+        $resReqSql = "
+            SELECT oar.request_id, i.sender_name, un.unit_number
+            FROM owner_approval_table oar
+            LEFT JOIN inquiry_table i ON i.inq_id = oar.inq_id
+            LEFT JOIN units_table un ON un.unit_id = oar.unit_id
+            WHERE oar.unit_owner_id = ? AND oar.request_status = 'pending'
+            ORDER BY oar.requested_at DESC
+            LIMIT 5
+        ";
+        $reservationRequests = $this->fetchAll($resReqSql, [$ownerId]);
+
+        return [
+            'ownedUnits'          => (int)($counts['total_owned'] ?? 0),
+            'occupiedUnits'       => (int)($counts['total_occupied'] ?? 0),
+            'availableUnits'      => (int)($counts['total_available'] ?? 0),
+            'reservedUnits'       => (int)($counts['total_reserved'] ?? 0),
+            'recentTenants'       => $recentTenants,
+            'maintenanceRequests' => $maintenanceRequests,
+            'reservationRequests' => $reservationRequests,
+        ];
+    }
+
+    /**
+     * Retrieve all units owned by this owner with current tenant details.
+     */
+    public function getOwnerUnits(int $ownerId): array {
+        $sql = "
+            SELECT 
+                u.unit_id,
+                u.unit_number,
+                u.unit_type,
+                u.sqm,
+                u.floor_number,
+                u.lease_rate,
+                u.reselling_price AS reselling_price,
+                u.listing_type,
+                u.stay_category,
+                u.unit_current_status,
+                r.client_name AS tenant_name,
+                r.client_contact AS tenant_contact,
+                r.client_email AS tenant_email,
+                r.move_in_date,
+                r.move_out_date,
+                r.reservation_status
+            FROM units_table u
+            LEFT JOIN reservation_table r ON r.unit_id = u.unit_id 
+                AND LOWER(r.reservation_status) IN ('handover', 'moved in', 'reserved', 'active')
+            WHERE u.unit_owner_id = ?
+            ORDER BY u.floor_number ASC, u.unit_number ASC
+        ";
+        return $this->fetchAll($sql, [$ownerId]);
+    }
+
+    /**
+     * Retrieve single unit details verified for this owner.
+     */
+    public function getUnitDetails(int $ownerId, int $unitId): ?array {
+        $sql = "
+            SELECT u.*, owner.full_name AS owner_name, owner.email AS owner_email, owner.contact AS owner_contact
+            FROM units_table u
+            LEFT JOIN users_table owner ON u.unit_owner_id = owner.user_id
+            WHERE u.unit_id = ? AND u.unit_owner_id = ?
+            LIMIT 1
+        ";
+        $unit = $this->fetchOne($sql, [$unitId, $ownerId]);
+        if (!$unit) {
+            return null;
+        }
+
+        // Active tenant
+        $tenantSql = "
+            SELECT * FROM reservation_table 
+            WHERE unit_id = ? AND LOWER(reservation_status) NOT IN ('cancelled', 'rejected')
+              AND move_in_date <= CURDATE() AND move_out_date >= CURDATE()
+            ORDER BY move_in_date DESC LIMIT 1
+        ";
+        $activeTenant = $this->fetchOne($tenantSql, [$unitId]);
+
+        // All leases (current, upcoming, past)
+        $leasesSql = "
+            SELECT 
+                r.*,
+                i.inquiry_type
+            FROM reservation_table r
+            LEFT JOIN inquiry_table i ON r.inq_id = i.inq_id
+            WHERE r.unit_id = ?
+            ORDER BY 
+                CASE 
+                    WHEN (r.move_in_date <= CURDATE() AND r.move_out_date >= CURDATE() AND LOWER(r.reservation_status) NOT IN ('cancelled', 'rejected')) THEN 1
+                    WHEN (r.move_in_date > CURDATE() AND LOWER(r.reservation_status) NOT IN ('cancelled', 'rejected')) THEN 2
+                    WHEN (r.move_out_date < CURDATE() AND LOWER(r.reservation_status) NOT IN ('cancelled', 'rejected')) THEN 3
+                    ELSE 4
+                END ASC,
+                r.move_in_date DESC,
+                r.reservation_id DESC
+        ";
+        $leasesList = $this->fetchAll($leasesSql, [$unitId]);
+
+        // Latest move out for availability
+        $availSql = "
+            SELECT MAX(move_out_date) AS latest_move_out
+            FROM reservation_table
+            WHERE unit_id = ? AND LOWER(reservation_status) NOT IN ('cancelled', 'rejected')
+              AND move_out_date >= CURDATE()
+        ";
+        $availRow = $this->fetchOne($availSql, [$unitId]);
+
+        return [
+            'unit'          => $unit,
+            'activeTenant'  => $activeTenant,
+            'pastTenants'   => $leasesList,
+            'leasesList'    => $leasesList,
+            'latestMoveOut' => $availRow['latest_move_out'] ?? null,
+        ];
+    }
+
+    /**
+     * Retrieve inquiries / approval requests for units owned by this owner.
+     */
+    public function getOwnerInquiries(int $ownerId): array {
+        $sql = "
+            SELECT 
+                r.request_id,
+                r.inq_id,
+                r.request_status,
+                r.owner_remarks,
+                r.requested_at,
+                i.sender_name,
+                i.sender_email,
+                i.sender_contact,
+                i.inquiry_type,
+                i.preferred_move_in_time,
+                i.lease_duration,
+                i.message,
+                i.status AS inquiry_status,
+                i.approval_status,
+                u.unit_id,
+                u.unit_number,
+                u.floor_number,
+                u.unit_type,
+                u.lease_rate,
+                u.sqm,
+                u.listing_type,
+                u.reselling_price AS reselling_price,
+                u.unit_current_status,
+                (SELECT res.move_in_date 
+                 FROM reservation_table res 
+                 WHERE res.unit_id = u.unit_id 
+                   AND LOWER(res.reservation_status) NOT IN ('cancelled', 'rejected') 
+                   AND res.move_out_date >= CURDATE()
+                 ORDER BY res.move_out_date DESC LIMIT 1) AS active_move_in,
+                (SELECT res.move_out_date 
+                 FROM reservation_table res 
+                 WHERE res.unit_id = u.unit_id 
+                   AND LOWER(res.reservation_status) NOT IN ('cancelled', 'rejected') 
+                   AND res.move_out_date >= CURDATE()
+                 ORDER BY res.move_out_date DESC LIMIT 1) AS active_move_out
+            FROM owner_approval_table r
+            INNER JOIN inquiry_table i ON r.inq_id = i.inq_id
+            INNER JOIN units_table u ON r.unit_id = u.unit_id
+            WHERE r.unit_owner_id = ?
+            ORDER BY r.requested_at DESC
+        ";
+        return $this->fetchAll($sql, [$ownerId]);
+    }
+
+    /**
+     * Retrieve all leases and reservations for units owned by this owner.
+     */
+    public function getOwnerReservations(int $ownerId): array {
+        $sql = "
+            SELECT 
+                r.*,
+                u.unit_number,
+                u.unit_type,
+                u.floor_number,
+                u.unit_current_status,
+                (SELECT COUNT(*) FROM reservation_documents_table d WHERE d.reservation_id = r.reservation_id) AS total_docs,
+                (SELECT COUNT(*) FROM reservation_documents_table d WHERE d.reservation_id = r.reservation_id AND d.status = 'complete') AS completed_docs
+            FROM reservation_table r
+            INNER JOIN units_table u ON r.unit_id = u.unit_id
+            WHERE u.unit_owner_id = ?
+            ORDER BY COALESCE(r.created_at, '1970-01-01') DESC, r.reservation_id DESC
+        ";
+        return $this->fetchAll($sql, [$ownerId]);
+    }
+
+    /**
+     * Retrieve single reservation details for this owner's unit.
+     */
+    public function getReservationDetails(int $ownerId, int $reservationId): ?array {
+        $sql = "
+            SELECT 
+                r.*,
+                u.unit_number,
+                u.unit_type,
+                u.sqm,
+                u.floor_number,
+                u.lease_rate,
+                u.listing_type,
+                u.stay_category,
+                u.unit_current_status,
+                u.unit_owner_id,
+                owner.user_id AS owner_id,
+                owner.full_name AS owner_name,
+                owner.email AS owner_email,
+                owner.contact AS owner_contact,
+                owner.additional_email AS owner_additional_email,
+                client_user.user_id AS client_user_id,
+                client_user.resident_status AS client_resident_status,
+                client_user.contact AS client_user_contact,
+                cancel_requester.full_name AS cancellation_requested_by_name,
+                CASE 
+                    WHEN r.cancellation_requested_by IS NULL THEN 'client'
+                    ELSE 'unit owner'
+                END AS cancellation_requested_by_role,
+                inq.inquiry_type AS inquiry_type,
+                inq.lease_duration AS inq_lease_duration
+            FROM reservation_table r
+            INNER JOIN units_table u ON r.unit_id = u.unit_id
+            LEFT JOIN users_table owner ON u.unit_owner_id = owner.user_id
+            LEFT JOIN users_table cancel_requester ON r.cancellation_requested_by = cancel_requester.user_id
+            LEFT JOIN users_table client_user ON r.client_email = client_user.email
+            LEFT JOIN inquiry_table inq ON r.inq_id = inq.inq_id
+            WHERE r.reservation_id = ? AND u.unit_owner_id = ?
+            LIMIT 1
+        ";
+        return $this->fetchOne($sql, [$reservationId, $ownerId]);
+    }
+
+    /**
+     * Retrieve tenants across all units owned by this owner.
+     */
+    public function getOwnerTenants(int $ownerId): array {
+        $sql = "
+            SELECT DISTINCT
+                r.client_name,
+                r.client_email,
+                r.client_contact,
+                r.move_in_date,
+                r.move_out_date,
+                r.reservation_status,
+                u.unit_id,
+                u.unit_number,
+                u.unit_type
+            FROM reservation_table r
+            INNER JOIN units_table u ON r.unit_id = u.unit_id
+            WHERE u.unit_owner_id = ? 
+              AND LOWER(r.reservation_status) NOT IN ('cancelled', 'rejected')
+            ORDER BY r.move_in_date DESC
+        ";
+        return $this->fetchAll($sql, [$ownerId]);
+    }
+
+    /**
+     * Retrieve maintenance requests and filter metadata for this owner's assigned units.
+     */
+    public function getOwnerMaintenance(int $ownerId): array {
+        // 1. Distinct unit types
+        $unitTypesSql = "
+            SELECT DISTINCT unit_type 
+            FROM units_table 
+            WHERE unit_owner_id = ? 
+              AND unit_type IS NOT NULL 
+              AND TRIM(unit_type) != '' 
+            ORDER BY unit_type ASC
+        ";
+        $utRows = $this->fetchAll($unitTypesSql, [$ownerId]);
+        $unitTypeOptions = [];
+        foreach ($utRows as $ut) {
+            $cleanType = trim((string)$ut['unit_type']);
+            if ($cleanType !== '') {
+                $unitTypeOptions[] = $cleanType;
+            }
+        }
+
+        // 2. Units owned by this owner
+        $ownerUnitsSql = "
+            SELECT unit_id, unit_number, unit_type, floor_number 
+            FROM units_table 
+            WHERE unit_owner_id = ? 
+            ORDER BY unit_number ASC
+        ";
+        $ownerUnitsList = $this->fetchAll($ownerUnitsSql, [$ownerId]);
+
+        // 3. Tickets
+        $ticketsSql = "
+            SELECT 
+                m.maintenance_id,
+                m.unit_id,
+                m.unit_owner_id,
+                m.submitted_by_user_id,
+                m.submitted_by_role,
+                m.subject,
+                m.category,
+                m.description,
+                m.priority,
+                m.status,
+                m.photo_paths,
+                m.admin_remarks,
+                m.submitted_at,
+                m.updated_at,
+                m.resolved_at,
+                u.unit_number,
+                u.unit_type,
+                u.floor_number,
+                owner.full_name AS owner_name,
+                owner.email AS owner_email,
+                (SELECT r.client_name 
+                 FROM reservation_table r 
+                 WHERE r.unit_id = u.unit_id 
+                   AND (r.reservation_status = 'reserved' OR r.officially_booked_at IS NOT NULL) 
+                 ORDER BY r.reservation_id DESC LIMIT 1) AS tenant_name
+            FROM maintenance_table m
+            INNER JOIN units_table u ON m.unit_id = u.unit_id
+            LEFT JOIN users_table owner ON m.unit_owner_id = owner.user_id
+            WHERE m.unit_owner_id = ? OR m.submitted_by_user_id = ?
+            ORDER BY m.submitted_at DESC
+        ";
+        $tickets = $this->fetchAll($ticketsSql, [$ownerId, $ownerId]);
+
+        $activeTickets = [];
+        $unassignedTickets = [];
+        $closedTickets = [];
+
+        foreach ($tickets as $row) {
+            $st = strtolower(trim((string)($row['status'] ?? 'pending')));
+            if ($st === 'in progress') {
+                $activeTickets[] = $row;
+            } elseif ($st === 'pending') {
+                $unassignedTickets[] = $row;
+            } else {
+                $closedTickets[] = $row;
+            }
+        }
+
+        return [
+            'unitTypeOptions'   => $unitTypeOptions,
+            'ownerUnitsList'    => $ownerUnitsList,
+            'tickets'           => $tickets,
+            'activeTickets'     => $activeTickets,
+            'unassignedTickets' => $unassignedTickets,
+            'closedTickets'     => $closedTickets,
+            'totalTicketsCount' => count($tickets),
+            'activeCount'       => count($activeTickets),
+            'unassignedCount'   => count($unassignedTickets),
+            'closedCount'       => count($closedTickets),
+        ];
+    }
+
+    /**
+     * Create a maintenance request submitted by a unit owner.
+     */
+    public function createMaintenanceRequest(int $ownerId, array $data, array $files): array {
+        $unitId = (int)($data['unit_id'] ?? 0);
+        $subject = trim((string)($data['subject'] ?? ''));
+        $category = trim((string)($data['category'] ?? ''));
+        $priority = trim((string)($data['priority'] ?? 'normal'));
+        $description = trim((string)($data['description'] ?? ''));
+
+        $allowedCategories = ['Plumbing', 'Electrical', 'Cleaning', 'Fixture', 'Structural', 'Other'];
+        $allowedPriorities = ['low', 'normal', 'urgent'];
+
+        if ($unitId <= 0 || $subject === '' || $category === '' || $description === '') {
+            return ['success' => false, 'message' => 'Please fill in all required fields.'];
+        }
+
+        if (!in_array($category, $allowedCategories, true)) {
+            return ['success' => false, 'message' => 'Invalid maintenance category selected.'];
+        }
+
+        if (!in_array($priority, $allowedPriorities, true)) {
+            return ['success' => false, 'message' => 'Invalid priority selected.'];
+        }
+
+        // Verify the unit belongs to this owner
+        $unit = $this->fetchOne("SELECT unit_id FROM units_table WHERE unit_id = ? AND unit_owner_id = ? LIMIT 1", [$unitId, $ownerId]);
+        if (!$unit) {
+            return ['success' => false, 'message' => 'Invalid unit or unit is not assigned to your account.'];
+        }
+
+        // Handle photos upload
+        $photoPaths = [];
+        if (!empty($files['maintenance_photos']['name'][0])) {
+            $uploadDir = dirname(__DIR__) . '/images/maintenance/';
+            $dbDir = 'images/maintenance/';
+
+            if (!is_dir($uploadDir)) {
+                mkdir($uploadDir, 0775, true);
+            }
+
+            $allowedExt = ['jpg', 'jpeg', 'png', 'webp'];
+            $maxFiles = 5;
+            $maxSize = 5 * 1024 * 1024;
+            $fileCount = count($files['maintenance_photos']['name']);
+
+            if ($fileCount > $maxFiles) {
+                return ['success' => false, 'message' => 'You may upload up to 5 photos only.'];
+            }
+
+            for ($i = 0; $i < $fileCount; $i++) {
+                if ($files['maintenance_photos']['error'][$i] === UPLOAD_ERR_NO_FILE) {
+                    continue;
+                }
+
+                if ($files['maintenance_photos']['error'][$i] !== UPLOAD_ERR_OK) {
+                    return ['success' => false, 'message' => 'One of the uploaded photos failed to process.'];
+                }
+
+                if ($files['maintenance_photos']['size'][$i] > $maxSize) {
+                    return ['success' => false, 'message' => 'Each photo must be 5MB or below.'];
+                }
+
+                $originalName = (string)$files['maintenance_photos']['name'][$i];
+                $tmpName = (string)$files['maintenance_photos']['tmp_name'][$i];
+                $ext = strtolower(pathinfo($originalName, PATHINFO_EXTENSION));
+
+                if (!in_array($ext, $allowedExt, true)) {
+                    return ['success' => false, 'message' => 'Only JPG, PNG, and WEBP files are allowed.'];
+                }
+
+                $newName = 'maintenance_own_' . time() . '_' . bin2hex(random_bytes(8)) . '.' . $ext;
+                $targetPath = $uploadDir . $newName;
+                $dbPath = $dbDir . $newName;
+
+                if (!move_uploaded_file($tmpName, $targetPath)) {
+                    return ['success' => false, 'message' => 'Failed to upload photo.'];
+                }
+
+                $photoPaths[] = $dbPath;
+            }
+        }
+
+        $photoPathsValue = !empty($photoPaths) ? implode(',', $photoPaths) : null;
+
+        $insertSql = "
+            INSERT INTO maintenance_table (
+                submitted_by_user_id,
+                submitted_by_role,
+                unit_owner_id,
+                unit_id,
+                subject,
+                category,
+                description,
+                priority,
+                status,
+                photo_paths,
+                submitted_at
+            ) VALUES (?, 'unit owner', ?, ?, ?, ?, ?, ?, 'pending', ?, NOW())
+        ";
+
+        try {
+            $this->execute($insertSql, [
+                $ownerId,
+                $ownerId,
+                $unitId,
+                $subject,
+                $category,
+                $description,
+                $priority,
+                $photoPathsValue,
+            ]);
+
+            return ['success' => true, 'message' => 'Maintenance request submitted successfully!'];
+        } catch (Throwable $e) {
+            return ['success' => false, 'message' => 'Database error: ' . $e->getMessage()];
+        }
+    }
+
+    /**
+     * Retrieve timeline calendar data filtered for this owner's units.
+     */
+    public function getCalendarData(int $ownerId): array {
+        // Units
+        $unitsSql = "
+            SELECT unit_id, unit_type, unit_number, unit_current_status
+            FROM units_table
+            WHERE unit_owner_id = ?
+            ORDER BY unit_type, unit_number
+        ";
+        $units = $this->fetchAll($unitsSql, [$ownerId]);
+
+        $grouped = [];
+        foreach ($units as $u) {
+            $type = (string)$u['unit_type'];
+            if (!isset($grouped[$type])) {
+                $grouped[$type] = [];
+            }
+            $grouped[$type][] = [
+                'room'        => (string)$u['unit_number'],
+                'unitId'      => (int)$u['unit_id'],
+                'maintenance' => trim((string)$u['unit_current_status']) === 'Under maintenance',
+            ];
+        }
+
+        $unitTypes = [];
+        foreach ($grouped as $type => $rooms) {
+            $unitTypes[] = ['key' => $type, 'rooms' => $rooms];
+        }
+
+        // Bookings
+        $bookingsSql = "
+            SELECT 
+                r.reservation_id, r.client_name, r.client_email, r.client_contact,
+                r.move_in_date, r.move_out_date, r.reservation_status,
+                u.unit_id, u.unit_type, u.unit_number
+            FROM reservation_table r
+            INNER JOIN units_table u ON r.unit_id = u.unit_id
+            WHERE u.unit_owner_id = ?
+              AND LOWER(r.reservation_status) NOT IN ('rejected', 'cancelled')
+              AND r.move_in_date IS NOT NULL
+              AND r.move_out_date IS NOT NULL
+            ORDER BY r.move_in_date
+        ";
+        $bookingsRows = $this->fetchAll($bookingsSql, [$ownerId]);
+
+        $today = date('Y-m-d');
+        $bookings = [];
+        foreach ($bookingsRows as $row) {
+            $isCurrent = $row['move_in_date'] <= $today && $today <= $row['move_out_date'];
+            $bookings[] = [
+                'id'                => (int)$row['reservation_id'],
+                'guestName'         => (string)$row['client_name'],
+                'email'             => (string)$row['client_email'],
+                'phone'             => (string)$row['client_contact'],
+                'unitType'          => (string)$row['unit_type'],
+                'roomNumber'        => (string)$row['unit_number'],
+                'unitId'            => (int)$row['unit_id'],
+                'startDate'         => (string)$row['move_in_date'],
+                'endDate'           => (string)$row['move_out_date'],
+                'status'            => $isCurrent ? 'Occupied' : 'Reserved',
+                'reservationStatus' => (string)$row['reservation_status'],
+            ];
+        }
+
+        // Blocked dates
+        $blockedSql = "
+            SELECT 
+                b.block_id, b.unit_id, b.start_date, b.end_date, b.block_type, b.remarks,
+                b.created_by_role, b.created_at,
+                u.unit_type, u.unit_number
+            FROM unit_blocked_dates_table b
+            INNER JOIN units_table u ON b.unit_id = u.unit_id
+            WHERE u.unit_owner_id = ?
+            ORDER BY b.start_date
+        ";
+        $blockedRows = $this->fetchAll($blockedSql, [$ownerId]);
+
+        $blockedDates = [];
+        foreach ($blockedRows as $row) {
+            $blockedDates[] = [
+                'blockId'       => (int)$row['block_id'],
+                'unitId'        => (int)$row['unit_id'],
+                'unitType'      => (string)$row['unit_type'],
+                'roomNumber'    => (string)$row['unit_number'],
+                'startDate'     => (string)$row['start_date'],
+                'endDate'       => (string)$row['end_date'],
+                'blockType'     => (string)$row['block_type'],
+                'remarks'       => (string)($row['remarks'] ?? ''),
+                'createdByRole' => (string)($row['created_by_role'] ?? 'unit owner'),
+            ];
+        }
+
+        return [
+            'unitTypes'    => $unitTypes,
+            'bookings'     => $bookings,
+            'blockedDates' => $blockedDates,
+        ];
+    }
+
+    /**
+     * Retrieve unit owner account details, units, and maintenance requests.
+     */
+    public function getAccountData(int $ownerId): ?array {
+        $owner = $this->fetchOne("SELECT * FROM users_table WHERE user_id = ? LIMIT 1", [$ownerId]);
+        if (!$owner) return null;
+
+        $hasAddEmailCol = false;
+        $hasQrCol = false;
+
+        try {
+            $colsStmt = $this->db->query("SHOW COLUMNS FROM users_table");
+            $cols = $colsStmt->fetchAll(PDO::FETCH_COLUMN);
+            $hasAddEmailCol = in_array('additional_email', $cols, true);
+            $hasQrCol = in_array('gcash_QR', $cols, true);
+            if (!$hasQrCol) {
+                $this->db->exec("ALTER TABLE users_table ADD COLUMN gcash_QR VARCHAR(255) NULL DEFAULT NULL AFTER resident_status");
+                $hasQrCol = true;
+            }
+        } catch (Throwable $e) {}
+
+        // Fetch owned units with current tenant
+        $uSql = "
+            SELECT 
+                u.unit_id, 
+                u.unit_number, 
+                u.unit_type, 
+                u.floor_number, 
+                u.unit_current_status, 
+                u.lease_rate, 
+                u.created_at,
+                (
+                    SELECT r.client_name 
+                    FROM reservation_table r 
+                    WHERE r.unit_id = u.unit_id 
+                      AND (r.officially_booked_at IS NOT NULL OR r.reservation_status IN ('Approved', 'Completed', 'Confirmed', 'Active', 'reserved', 'moved in'))
+                    ORDER BY r.created_at DESC 
+                    LIMIT 1
+                ) AS current_tenant_name
+            FROM units_table u 
+            WHERE u.unit_owner_id = ? 
+               OR u.unit_owner_id IN (SELECT user_id FROM users_table WHERE email = ?)
+            ORDER BY u.unit_number ASC
+        ";
+        $units = $this->fetchAll($uSql, [$ownerId, $owner['email'] ?? '']);
+
+        // Fetch recent maintenance requests
+        $mSql = "
+            SELECT 
+                m.maintenance_id,
+                m.unit_id,
+                m.unit_owner_id,
+                m.submitted_by_user_id,
+                COALESCE(m.subject, m.category, 'Maintenance Request') AS issue_title,
+                m.category,
+                m.description,
+                m.priority,
+                m.status,
+                m.submitted_at,
+                u.unit_number, 
+                u.unit_type 
+            FROM maintenance_table m 
+            LEFT JOIN units_table u ON m.unit_id = u.unit_id 
+            WHERE m.submitted_by_user_id = ? 
+               OR m.unit_owner_id = ? 
+               OR u.unit_owner_id = ? 
+            ORDER BY m.submitted_at DESC LIMIT 50
+        ";
+        $maintenance = $this->fetchAll($mSql, [$ownerId, $ownerId, $ownerId]);
+
+        return [
+            'owner'           => $owner,
+            'hasAddEmailCol'  => $hasAddEmailCol,
+            'hasQrCol'        => $hasQrCol,
+            'units'           => $units,
+            'maintenance'     => $maintenance,
+            'unitsCount'      => count($units),
+            'requestsCount'   => count($maintenance),
+            'pendingRequests' => count(array_filter($maintenance, fn($item) => strtolower($item['status'] ?? '') === 'pending')),
+        ];
+    }
+
+    /**
+     * Upload and save owner GCash QR code image to CloudStorage (Supabase).
+     */
+    public function uploadGcashQr(int $ownerId, array $file): array {
+        if (!isset($file) || ($file['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE) {
+            return ['success' => false, 'message' => 'Please select a GCash QR image file to upload.'];
+        }
+        if ($file['error'] !== UPLOAD_ERR_OK) {
+            return ['success' => false, 'message' => 'Image upload failed. Please try again.'];
+        }
+        if ($file['size'] > 5 * 1024 * 1024) {
+            return ['success' => false, 'message' => 'QR image must be 5MB or below.'];
+        }
+
+        $allowedExt = ['jpg', 'jpeg', 'png', 'webp'];
+        $origName = (string)($file['name'] ?? '');
+        $tmpName = (string)($file['tmp_name'] ?? '');
+        $ext = strtolower(pathinfo($origName, PATHINFO_EXTENSION));
+
+        if (!in_array($ext, $allowedExt, true)) {
+            return ['success' => false, 'message' => 'Only JPG, JPEG, PNG, and WEBP image files are allowed.'];
+        }
+
+        // Upload to CloudStorage (folder: payment_qr/)
+        $cloudUrl = CloudStorage::uploadPaymentQr($tmpName, $origName, $ownerId);
+
+        if ($cloudUrl !== null && $cloudUrl !== '') {
+            // Remove old QR image file or cloud object if it exists
+            $oldRow = $this->fetchOne("SELECT gcash_QR FROM users_table WHERE user_id = ? LIMIT 1", [$ownerId]);
+            if (!empty($oldRow['gcash_QR'])) {
+                $oldPath = (string) $oldRow['gcash_QR'];
+                if (str_starts_with($oldPath, 'http://') || str_starts_with($oldPath, 'https://')) {
+                    CloudStorage::deleteObject($oldPath);
+                } else {
+                    $oldFile = dirname(__DIR__) . '/' . ltrim($oldPath, '/');
+                    if (file_exists($oldFile) && is_file($oldFile)) {
+                        @unlink($oldFile);
+                    }
+                }
+            }
+
+            $this->execute("UPDATE users_table SET gcash_QR = ? WHERE user_id = ?", [$cloudUrl, $ownerId]);
+            return ['success' => true, 'message' => 'Your GCash QR code has been saved successfully to cloud storage!', 'url' => $cloudUrl];
+        }
+
+        return ['success' => false, 'message' => 'Failed to upload QR code to cloud storage. Please try again.'];
+    }
+
+    /**
+     * Remove owner GCash QR code image.
+     */
+    public function deleteGcashQr(int $ownerId): array {
+        $oldRow = $this->fetchOne("SELECT gcash_QR FROM users_table WHERE user_id = ? LIMIT 1", [$ownerId]);
+        if (!empty($oldRow['gcash_QR'])) {
+            $oldPath = (string) $oldRow['gcash_QR'];
+            if (str_starts_with($oldPath, 'http://') || str_starts_with($oldPath, 'https://')) {
+                CloudStorage::deleteObject($oldPath);
+            } else {
+                $oldFile = dirname(__DIR__) . '/' . ltrim($oldPath, '/');
+                if (file_exists($oldFile) && is_file($oldFile)) {
+                    @unlink($oldFile);
+                }
+            }
+        }
+        $this->execute("UPDATE users_table SET gcash_QR = NULL WHERE user_id = ?", [$ownerId]);
+        return ['success' => true, 'message' => 'Your GCash QR code has been removed.'];
+    }
+
+    /**
+     * Update unit owner profile settings.
+     */
+    public function updateProfile(int $ownerId, array $data): array {
+        $fullName = trim((string)($data['full_name'] ?? ''));
+        $contact = trim((string)($data['contact'] ?? ''));
+        $addEmail = !empty($data['additional_email']) ? trim((string)$data['additional_email']) : null;
+
+        if ($fullName === '') {
+            return ['success' => false, 'message' => 'Full name cannot be empty.'];
+        }
+
+        try {
+            $updates = ["full_name = ?", "contact = ?"];
+            $params = [$fullName, $contact];
+
+            $colsStmt = $this->db->query("SHOW COLUMNS FROM users_table");
+            $columns = $colsStmt->fetchAll(PDO::FETCH_COLUMN);
+
+            if (in_array('additional_email', $columns, true)) {
+                $updates[] = "additional_email = ?";
+                $params[] = $addEmail;
+            }
+            $params[] = $ownerId;
+            $sql = "UPDATE users_table SET " . implode(', ', $updates) . " WHERE user_id = ?";
+            $this->execute($sql, $params);
+
+            return ['success' => true, 'message' => 'Profile updated successfully!'];
+        } catch (Throwable $e) {
+            return ['success' => false, 'message' => 'Failed to update profile: ' . $e->getMessage()];
+        }
+    }
+
+    /**
+     * Respond to an owner approval request (Approve or Decline).
+     */
+    public function respondApprovalRequest(int $ownerId, int $requestId, string $action, string $remarks = ''): array {
+        if ($ownerId <= 0 || $requestId <= 0 || !in_array($action, ['approve', 'decline'], true)) {
+            return ['success' => false, 'message' => 'Invalid request parameters.'];
+        }
+
+        $this->db->beginTransaction();
+
+        try {
+            $sql = "
+                SELECT 
+                    request_id,
+                    inq_id,
+                    unit_id,
+                    unit_owner_id,
+                    request_status
+                FROM owner_approval_table
+                WHERE request_id = ?
+                  AND unit_owner_id = ?
+                FOR UPDATE
+            ";
+            $request = $this->fetchOne($sql, [$requestId, $ownerId]);
+
+            if (!$request) {
+                $this->db->rollBack();
+                return ['success' => false, 'message' => 'Approval request not found or unauthorized.'];
+            }
+
+            if (strtolower((string)$request['request_status']) !== 'pending') {
+                $this->db->rollBack();
+                return ['success' => false, 'message' => 'This request has already been responded to.'];
+            }
+
+            $inqId = (int)$request['inq_id'];
+            $unitId = (int)$request['unit_id'];
+
+            if ($action === 'approve') {
+                // 1. Approve this owner's request (no FCFS: do not expire other owners, do not block)
+                $this->execute(
+                    "UPDATE owner_approval_table SET request_status = 'approved', owner_remarks = ?, responded_at = NOW() WHERE request_id = ?",
+                    [$remarks, $requestId]
+                );
+
+                // 2. Fetch current inquiry state
+                $checkInqSql = "SELECT approval_status, reservation_token FROM inquiry_table WHERE inq_id = ? FOR UPDATE";
+                $inquiry = $this->fetchOne($checkInqSql, [$inqId]);
+
+                // If inquiry is not marked approved, set approval_status to approved without assigning a specific unit
+                if (!$inquiry || strtolower((string)($inquiry['approval_status'] ?? '')) !== 'approved') {
+                    $reservationToken = !empty($inquiry['reservation_token']) ? $inquiry['reservation_token'] : bin2hex(random_bytes(32));
+                    $expiresAt = date('Y-m-d H:i:s', strtotime('+30 days'));
+
+                    $updateInqSql = "
+                        UPDATE inquiry_table
+                        SET approval_status = 'approved',
+                            reservation_token = ?,
+                            reservation_token_expires_at = ?,
+                            approval_approved_at = NOW()
+                        WHERE inq_id = ?
+                    ";
+                    $this->execute($updateInqSql, [$reservationToken, $expiresAt, $inqId]);
+                }
+
+                $this->db->commit();
+
+                return ['success' => true, 'message' => 'Reservation request approved successfully.'];
+            }
+
+            if ($action === 'decline') {
+                // 1. Decline this request
+                $this->execute(
+                    "UPDATE owner_approval_table SET request_status = 'declined', owner_remarks = ?, responded_at = NOW() WHERE request_id = ?",
+                    [$remarks, $requestId]
+                );
+
+                // 2. Check pending and approved count for this inquiry
+                $countsRow = $this->fetchOne(
+                    "SELECT 
+                        SUM(CASE WHEN request_status = 'pending' THEN 1 ELSE 0 END) AS pending_count,
+                        SUM(CASE WHEN request_status = 'approved' THEN 1 ELSE 0 END) AS approved_count
+                     FROM owner_approval_table WHERE inq_id = ?",
+                    [$inqId]
+                );
+                $pendingCount = (int)($countsRow['pending_count'] ?? 0);
+                $approvedCount = (int)($countsRow['approved_count'] ?? 0);
+
+                // Keep the inquiry's main status unchanged; owner decision is tracked separately.
+                if ($pendingCount === 0 && $approvedCount === 0) {
+                    $this->execute(
+                        "UPDATE inquiry_table SET approval_status = 'declined' WHERE inq_id = ? AND approval_status != 'approved'",
+                        [$inqId]
+                    );
+                }
+
+                $this->db->commit();
+
+                return ['success' => true, 'message' => 'Reservation request declined.'];
+            }
+
+            $this->db->rollBack();
+            return ['success' => false, 'message' => 'Invalid action specified.'];
+
+        } catch (\Throwable $e) {
+            if ($this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
+            error_log('respondApprovalRequest error: ' . $e->getMessage());
+            return ['success' => false, 'message' => 'Database error occurred while processing approval: ' . $e->getMessage()];
+        }
+    }
+
+    /**
+     * Update unit settings (listing mode, stay category, lease rate, reselling price) for an owned unit.
+     */
+    public function updateUnitSettings(int $ownerId, int $unitId, array $data): array {
+        // 1. Verify that the unit belongs to this owner
+        $sql = "SELECT unit_id, unit_current_status, stay_category, lease_rate, reselling_price as reselling_price FROM units_table WHERE unit_id = ? AND unit_owner_id = ? LIMIT 1";
+        $unit = $this->fetchOne($sql, [$unitId, $ownerId]);
+        if (!$unit) {
+            throw new RuntimeException('Unit not found or access denied.');
+        }
+
+        // 2. Validate listing_type
+        $listingType = trim((string)($data['listing_type'] ?? 'For Lease'));
+        if (!in_array($listingType, ['For Lease', 'Resale', 'Not Available'], true)) {
+            $listingType = 'For Lease';
+        }
+
+        // 3. Validate stay_category
+        $existingStay = !empty($unit['stay_category']) ? (string)$unit['stay_category'] : 'Long term';
+        $stayCategory = isset($data['stay_category']) && trim((string)$data['stay_category']) !== '' 
+            ? trim((string)$data['stay_category']) 
+            : $existingStay;
+        if (!in_array($stayCategory, ['Long term', 'Short term'], true)) {
+            $stayCategory = $existingStay;
+        }
+
+        // 4. Validate lease_rate and reselling_price
+        $leaseRate = isset($data['lease_rate']) && is_numeric($data['lease_rate'])
+            ? round((float)$data['lease_rate'], 2)
+            : (float)($unit['lease_rate'] ?? 0);
+        if ($leaseRate < 0) $leaseRate = 0.0;
+
+        $rawResale = $data['reselling_price'] ?? null;
+        $resellingPrice = ($rawResale !== null && is_numeric($rawResale))
+            ? round((float)$rawResale, 2)
+            : ($unit['reselling_price'] !== null ? (float)$unit['reselling_price'] : null);
+        if ($resellingPrice !== null && $resellingPrice < 0) $resellingPrice = 0.0;
+
+        // 5. Update unit_current_status based on listing_type if not currently occupied/under maintenance/reserved/on hold
+        $currentStatus = (string)($unit['unit_current_status'] ?? 'Ready for Occupancy');
+        $newStatus = $currentStatus;
+        $protectedStatuses = ['occupied', 'under maintenance', 'reserved', 'on hold'];
+        if (!in_array(strtolower($currentStatus), $protectedStatuses, true)) {
+            if ($listingType === 'Resale') {
+                $newStatus = 'For Resale';
+            } elseif ($listingType === 'Not Available') {
+                $newStatus = 'On Hold';
+            } elseif ($listingType === 'For Lease' && in_array(strtolower($currentStatus), ['resale', 'for resale'], true)) {
+                $newStatus = 'Ready for Occupancy';
+            }
+        }
+
+        // 6. Update unit settings in database
+        $updateSql = "
+            UPDATE units_table 
+            SET listing_type = ?,
+                stay_category = ?,
+                lease_rate = ?,
+                reselling_price = ?,
+                unit_current_status = ?
+            WHERE unit_id = ? AND unit_owner_id = ?
+        ";
+        $this->execute($updateSql, [
+            $listingType,
+            $stayCategory,
+            $leaseRate,
+            $resellingPrice,
+            $newStatus,
+            $unitId,
+            $ownerId
+        ]);
+
+        return [
+            'unit_id'                    => $unitId,
+            'listing_type'               => $listingType,
+            'stay_category'              => $stayCategory,
+            'lease_rate'                 => $leaseRate,
+            'lease_rate_formatted'       => '₱' . number_format($leaseRate, 2),
+            'reselling_price'            => $resellingPrice,
+            'reselling_price_formatted'  => $resellingPrice !== null ? '₱' . number_format($resellingPrice, 2) : '—',
+            'reselling_price_formatted' => $resellingPrice !== null ? '₱' . number_format($resellingPrice, 2) : '—',
+            'unit_current_status'        => $newStatus,
+        ];
+    }
+
+    /**
+     * Confirm / choose agreed lease signing date for this owner's unit.
+     */
+    public function confirmSigningDate(int $ownerId, int $reservationId, string $date): array {
+        $res = $this->getReservationDetails($ownerId, $reservationId);
+        if (!$res) {
+            return ['success' => false, 'message' => 'Reservation not found or unauthorized.'];
+        }
+
+        $cleanDate = trim($date);
+        $ts = strtotime($cleanDate);
+        if (!$ts || date('Y-m-d', $ts) !== $cleanDate) {
+            return ['success' => false, 'message' => 'Please provide a valid date in YYYY-MM-DD format.'];
+        }
+
+        if (!empty($res['move_in_date']) && $res['move_in_date'] !== '0000-00-00') {
+            if ($cleanDate > $res['move_in_date']) {
+                return ['success' => false, 'message' => "Lease signing date cannot be scheduled after the Move-in Date ({$res['move_in_date']})."];
+            }
+        }
+
+        $sql = "
+            UPDATE reservation_table
+            SET lease_signing_date = ?
+            WHERE reservation_id = ?
+        ";
+        $success = $this->execute($sql, [$cleanDate, $reservationId]);
+        if (!$success) {
+            return ['success' => false, 'message' => 'Database error while saving confirmed signing date.'];
+        }
+
+        $formattedDate = date('l, F j, Y', $ts);
+
+        // Dispatch email notification to client informing them of the confirmed lease signing appointment date
+        $clientEmail = trim((string)($res['client_email'] ?? ''));
+        $clientName = trim((string)($res['client_name'] ?? 'Applicant'));
+        $unitDisplay = trim(($res['unit_number'] ? 'Unit ' . $res['unit_number'] : '') . ($res['unit_type'] ? ' (' . $res['unit_type'] . ')' : '')) ?: 'Zeppelin Suites Unit';
+        $ownerName = trim((string)($res['owner_name'] ?? 'Unit Owner'));
+        $ownerContact = trim((string)($res['owner_contact'] ?? ''));
+        $moveInFormatted = (!empty($res['move_in_date']) && $res['move_in_date'] !== '0000-00-00')
+            ? date('F j, Y', strtotime((string)$res['move_in_date']))
+            : '';
+
+        $clientEmailSent = false;
+        if (!empty($clientEmail)) {
+            require_once dirname(__DIR__) . '/config/owner_notifications.php';
+            if (function_exists('notifyClientOfLeaseSigningDate')) {
+                $clientEmailSent = notifyClientOfLeaseSigningDate(
+                    $clientEmail,
+                    $clientName,
+                    $reservationId,
+                    $unitDisplay,
+                    $formattedDate,
+                    $ownerName,
+                    $ownerContact,
+                    $moveInFormatted
+                );
+            }
+        }
+
+        $msg = 'Lease signing appointment confirmed successfully.';
+        if ($clientEmailSent) {
+            $msg .= ' Notification email sent to client (' . $clientEmail . ').';
+        }
+
+        return [
+            'success'           => true,
+            'message'           => $msg,
+            'confirmed_date'    => $cleanDate,
+            'formatted_date'    => $formattedDate,
+            'client_email_sent' => $clientEmailSent,
+        ];
+    }
+
+    /**
+     * Complete or reset lease signing status for this owner's unit.
+     */
+    public function updateLeaseSigningStatus(int $ownerId, int $reservationId, string $action, string $remarks): array {
+        $res = $this->getReservationDetails($ownerId, $reservationId);
+        if (!$res) {
+            return ['success' => false, 'message' => 'Reservation not found or unauthorized.'];
+        }
+
+        $now = date('Y-m-d H:i:s');
+        if ($action === 'complete') {
+            $status = 'Completed';
+            $sql = "
+                UPDATE reservation_table
+                SET lease_signed_at = ?
+                WHERE reservation_id = ?
+            ";
+            $params = [$now, $reservationId];
+        } else {
+            $status = 'Pending Signing';
+            $sql = "
+                UPDATE reservation_table
+                SET lease_signed_at = NULL
+                WHERE reservation_id = ?
+            ";
+            $params = [$reservationId];
+        }
+
+        $success = $this->execute($sql, $params);
+        if (!$success) {
+            return ['success' => false, 'message' => 'Failed to update lease signing status in database.'];
+        }
+
+        if ($action === 'complete') {
+            require_once __DIR__ . '/Reservation.php';
+            (new Reservation())->checkAndPromoteToOfficiallyBooked($reservationId, $ownerId, 'unit owner');
+        }
+
+        return [
+            'success'   => true,
+            'message'   => $action === 'complete' ? 'Lease signing marked as completed successfully.' : 'Lease signing status reset to pending.',
+            'status'    => $status,
+            'signed_at' => $now,
+        ];
+    }
+
+    /**
+     * Verify (complete) or reject payment for this owner's reservation.
+     */
+    public function updatePaymentStatus(int $ownerId, int $reservationId, string $action, string $remarks): array {
+        $res = $this->getReservationDetails($ownerId, $reservationId);
+        if (!$res) {
+            return ['success' => false, 'message' => 'Reservation not found or unauthorized.'];
+        }
+
+        $action = strtolower(trim($action));
+        if (!in_array($action, ['verify', 'reject'], true)) {
+            return ['success' => false, 'message' => 'Invalid payment action.'];
+        }
+
+        $now = date('Y-m-d H:i:s');
+
+        if ($action === 'verify') {
+            $sql = "
+                UPDATE reservation_table
+                SET payment_status = 'verified',
+                    payment_reviewed_at = ?,
+                    reservation_status = CASE 
+                        WHEN LOWER(reservation_status) = 'submitted' THEN 'pending' 
+                        ELSE reservation_status 
+                    END
+                WHERE reservation_id = ?
+            ";
+            $success = $this->execute($sql, [$now, $reservationId]);
+            if (!$success) {
+                return ['success' => false, 'message' => 'Database error while marking payment as complete.'];
+            }
+
+            require_once __DIR__ . '/Reservation.php';
+            (new Reservation())->checkAndPromoteToOfficiallyBooked($reservationId, $ownerId, 'unit owner');
+
+            return [
+                'success'        => true,
+                'message'        => 'Payment marked as complete and verified successfully.',
+                'payment_status' => 'verified',
+                'verified_at'    => $now,
+            ];
+        }
+
+        // Reject / Not Received
+        $isResale = strcasecmp((string)($res['transaction_type'] ?? ''), 'Unit Resale') === 0 || strcasecmp((string)($res['listing_type'] ?? ''), 'Resale') === 0;
+        $releasedStatus = $isResale ? 'For Resale' : 'Ready for Occupancy';
+
+        $sql = "
+            UPDATE reservation_table
+            SET payment_status = 'rejected',
+                reservation_status = 'rejected',
+                payment_reviewed_at = ?
+            WHERE reservation_id = ?
+        ";
+        $success = $this->execute($sql, [$now, $reservationId]);
+        if (!$success) {
+            return ['success' => false, 'message' => 'Database error while rejecting payment.'];
+        }
+
+        // Release the unit back
+        if (!empty($res['unit_id'])) {
+            $this->execute("UPDATE units_table SET unit_current_status = ? WHERE unit_id = ?", [
+                $releasedStatus,
+                (int)$res['unit_id']
+            ]);
+        }
+
+        return [
+            'success'        => true,
+            'message'        => 'Payment marked as not received. Reservation has been rejected and the unit is released.',
+            'payment_status' => 'rejected',
+            'rejected_at'    => $now,
+        ];
+    }
+
+    /**
+     * Retrieve documents for a reservation owned by this unit owner.
+     */
+    public function getDocuments(int $ownerId, int $reservationId): array {
+        $res = $this->getReservationDetails($ownerId, $reservationId);
+        if (!$res) {
+            return ['success' => false, 'message' => 'Reservation not found or unauthorized.', 'documents' => [], 'all_completed' => false];
+        }
+
+        require_once __DIR__ . '/Reservation.php';
+        $reservationModel = new Reservation();
+        return $reservationModel->getDocuments($reservationId);
+    }
+
+    /**
+     * Save documents for a reservation owned by this unit owner.
+     */
+    public function saveDocuments(int $ownerId, int $reservationId, array $documents): array {
+        $res = $this->getReservationDetails($ownerId, $reservationId);
+        if (!$res) {
+            return ['success' => false, 'message' => 'Reservation not found or unauthorized.'];
+        }
+
+        require_once __DIR__ . '/Reservation.php';
+        $reservationModel = new Reservation();
+        return $reservationModel->saveDocuments($reservationId, $documents, $ownerId, 'unit owner');
+    }
+
+    /**
+     * Directly upload a reservation requirement document to CloudStorage (Unit Owner).
+     */
+    public function uploadDocument(int $ownerId, int $reservationId, int $documentId, array $file): array {
+        $res = $this->getReservationDetails($ownerId, $reservationId);
+        if (!$res) {
+            return ['success' => false, 'message' => 'Reservation not found or unauthorized.'];
+        }
+
+        require_once __DIR__ . '/Reservation.php';
+        $reservationModel = new Reservation();
+        return $reservationModel->uploadReservationDocument($reservationId, $documentId, $file, $ownerId, 'unit owner');
+    }
+
+    /**
+     * Remove an uploaded reservation document (Unit Owner).
+     */
+    public function deleteDocument(int $ownerId, int $reservationId, int $documentId): array {
+        $res = $this->getReservationDetails($ownerId, $reservationId);
+        if (!$res) {
+            return ['success' => false, 'message' => 'Reservation not found or unauthorized.'];
+        }
+
+        require_once __DIR__ . '/Reservation.php';
+        $reservationModel = new Reservation();
+        return $reservationModel->deleteReservationDocument($reservationId, $documentId, $ownerId, 'unit owner');
+    }
+
+    /**
+     * Submit a cancellation request to admin (Unit Owner).
+     */
+    public function requestCancellation(int $ownerId, int $reservationId, string $reason): array {
+        $res = $this->getReservationDetails($ownerId, $reservationId);
+        if (!$res) {
+            return ['success' => false, 'message' => 'Reservation not found or unauthorized.'];
+        }
+
+        $now = date('Y-m-d H:i:s');
+        $prevStatus = strtolower(trim((string)($res['reservation_status'] ?? 'submitted')));
+        if ($prevStatus === 'cancellation requested') {
+            $prevStatus = ($res['payment_status'] === 'verified') ? 'reserved' : 'submitted';
+        }
+        $encodedReason = "[PREV_STATUS:{$prevStatus}] " . $reason;
+
+        $success = $this->execute(
+            "UPDATE reservation_table 
+             SET reservation_status = 'cancellation requested',
+                 cancellation_reason = ?,
+                 cancellation_requested_by = ?,
+                 cancellation_requested_at = ?
+             WHERE reservation_id = ?",
+            [$encodedReason, $ownerId, $now, $reservationId]
+        );
+
+        if (!$success) {
+            return ['success' => false, 'message' => 'Database error while submitting cancellation request.'];
+        }
+
+        return ['success' => true, 'message' => 'Cancellation request submitted to admin successfully.'];
+    }
+
+    /**
+     * Cancel / withdraw a pending cancellation request for this owner's unit.
+     */
+    public function withdrawCancellationRequest(int $ownerId, int $reservationId): array {
+        $res = $this->getReservationDetails($ownerId, $reservationId);
+        if (!$res) {
+            return ['success' => false, 'message' => 'Reservation not found or unauthorized.'];
+        }
+
+        if (strtolower((string)($res['reservation_status'] ?? '')) !== 'cancellation requested') {
+            return ['success' => false, 'message' => 'There is no pending cancellation request to cancel.'];
+        }
+
+        // Restore accurate prior status
+        $rawReason = (string)($res['cancellation_reason'] ?? '');
+        $restoredStatus = null;
+        if (preg_match('/\[PREV_STATUS:([a-z_ ]+)\]/i', $rawReason, $matches)) {
+            $candidate = trim($matches[1]);
+            if ($candidate !== '' && $candidate !== 'cancellation requested') {
+                $restoredStatus = $candidate;
+            }
+        }
+
+        if (!$restoredStatus) {
+            if (!empty($res['officially_booked_at'])) {
+                $restoredStatus = 'officially booked';
+            } elseif (strtolower((string)($res['payment_status'] ?? '')) === 'verified') {
+                $restoredStatus = !empty($res['lease_signed_at']) ? 'requirements completed' : 'reserved';
+            } elseif (strtolower((string)($res['payment_status'] ?? '')) === 'pending review') {
+                $restoredStatus = 'under review';
+            } else {
+                $restoredStatus = 'submitted';
+            }
+        }
+
+        $success = $this->execute(
+            "UPDATE reservation_table 
+             SET reservation_status = ?,
+                 cancellation_reason = NULL,
+                 cancellation_requested_by = NULL,
+                 cancellation_requested_at = NULL
+             WHERE reservation_id = ?",
+            [$restoredStatus, $reservationId]
+        );
+
+        if (!$success) {
+            return ['success' => false, 'message' => 'Database error while cancelling cancellation request.'];
+        }
+
+        return ['success' => true, 'message' => 'Your cancellation request has been cancelled. The reservation remains active.'];
+    }
+}
+
+
