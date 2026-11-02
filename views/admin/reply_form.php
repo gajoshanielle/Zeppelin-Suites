@@ -376,8 +376,14 @@ unset($_SESSION['success_message'], $_SESSION['error_message']);
           </div>
         </div>
 
-        <div class="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+        <div class="flex items-center justify-end gap-3 pt-3 border-t border-slate-100 flex-wrap">
           <a href="<?= htmlspecialchars($baseUrl) ?>/admin/inquiries" class="btn-press px-5 py-2.5 text-sm font-semibold text-slate-600 border border-slate-200 rounded-xl hover:bg-slate-50 transition-all">Cancel</a>
+
+          <button type="submit" name="offline_only" value="1" class="btn-press inline-flex items-center gap-1.5 px-4 py-2.5 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-xl transition-all" title="Mark as responded without sending an email via server">
+            <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+            <span>Mark Responded (Offline)</span>
+          </button>
+
           <button type="submit" id="sendReplyBtn" class="btn-press inline-flex items-center gap-2 bg-slate-900 hover:bg-slate-700 text-white text-sm font-semibold px-6 py-2.5 rounded-xl transition-all active:scale-95 shadow-sm">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>
             <span>Send Email Reply</span>
@@ -419,19 +425,39 @@ unset($_SESSION['success_message'], $_SESSION['error_message']);
 
 <?php if (!empty($flashError)): ?>
 <div id="flashErrorModal" class="fixed inset-0 z-[999] flex items-center justify-center bg-slate-900/40 backdrop-blur-xs px-4">
-  <div class="bg-white w-full max-w-sm rounded-2xl shadow-2xl border border-slate-100 p-6 text-center">
+  <div class="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-slate-100 p-6 text-center animate-in fade-in zoom-in-95 duration-150">
     <div class="w-12 h-12 rounded-full bg-red-50 text-red-600 flex items-center justify-center mx-auto mb-3">
       <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
     </div>
     <h3 class="text-base font-bold text-slate-900 mb-1">Delivery Failed</h3>
-    <p class="text-xs text-slate-500 mb-5 leading-relaxed"><?= e($flashError) ?></p>
-    <button onclick="document.getElementById('flashErrorModal').remove()" class="btn-press block w-full py-2.5 rounded-xl bg-slate-900 text-white text-xs font-semibold hover:bg-slate-700 transition-colors">Dismiss</button>
+    <p class="text-xs text-slate-500 mb-4 leading-relaxed"><?= e($flashError) ?></p>
+
+    <div class="bg-amber-50 border border-amber-200 rounded-xl p-3 text-left mb-5 text-xs text-amber-800 leading-relaxed">
+      <span class="font-bold">Notice:</span> Cloud hosting providers may block outbound SMTP traffic. You can copy the email text above to send via your personal email/phone, and mark this inquiry as responded below.
+    </div>
+
+    <div class="flex flex-col sm:flex-row gap-2.5">
+      <form action="<?= htmlspecialchars($baseUrl) ?>/admin/inquiries/reply" method="POST" class="flex-1">
+        <input type="hidden" name="inq_id" value="<?= e($inq_id) ?>">
+        <input type="hidden" name="offline_only" value="1">
+        <button type="submit" class="btn-press w-full py-2.5 rounded-xl bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 transition-colors shadow-sm">
+          Mark as Responded Anyway
+        </button>
+      </form>
+      <button onclick="document.getElementById('flashErrorModal').remove()" class="btn-press py-2.5 px-4 rounded-xl border border-slate-200 text-slate-700 text-xs font-semibold hover:bg-slate-100 transition-colors">
+        Dismiss
+      </button>
+    </div>
   </div>
 </div>
 <?php endif; ?>
 
 <script>
 function handleReplySubmit(e) {
+  const submitter = e.submitter;
+  if (submitter && submitter.getAttribute('name') === 'offline_only') {
+    return;
+  }
   document.getElementById('sendingLoadingOverlay').classList.remove('hidden');
   document.getElementById('sendingLoadingOverlay').classList.add('flex');
 }

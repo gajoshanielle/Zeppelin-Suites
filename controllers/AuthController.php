@@ -361,6 +361,9 @@ class AuthController extends Controller {
         $primaryPort = defined('SMTP_PORT') ? (int)SMTP_PORT : (int)env('SMTP_PORT', 587);
         $fallbackPort = ($primaryPort === 465) ? 587 : 465;
 
+        $rawHost = defined('SMTP_HOST') ? SMTP_HOST : (string)env('SMTP_HOST', 'smtp.gmail.com');
+        $resolvedHost = filter_var($rawHost, FILTER_VALIDATE_IP) ? $rawHost : (gethostbyname($rawHost) ?: $rawHost);
+
         $portAttempts = [
             [
                 'port'   => $primaryPort,
@@ -376,20 +379,21 @@ class AuthController extends Controller {
             try {
                 $mail = new \PHPMailer\PHPMailer\PHPMailer(true);
                 $mail->isSMTP();
-                $mail->Host       = defined('SMTP_HOST') ? SMTP_HOST : (string)env('SMTP_HOST', 'smtp.gmail.com');
+                $mail->Host       = $resolvedHost;
                 $mail->SMTPAuth   = true;
                 $mail->Username   = $username;
                 $mail->Password   = str_replace(' ', '', (string)$password);
                 $mail->Port       = $attempt['port'];
                 $mail->SMTPSecure = $attempt['secure'];
-                $mail->Timeout    = 6;
-                $mail->Timelimit  = 6;
+                $mail->Timeout    = 4;
+                $mail->Timelimit  = 4;
 
                 $mail->SMTPOptions = [
                     'ssl' => [
                         'verify_peer'       => false,
                         'verify_peer_name'  => false,
                         'allow_self_signed' => true,
+                        'peer_name'         => $rawHost,
                     ],
                 ];
 

@@ -31,6 +31,9 @@ function sendOwnerNotificationEmail(string $ownerEmail, string $ownerName, strin
     $primaryPort = defined('SMTP_PORT') ? (int)SMTP_PORT : (int)env('SMTP_PORT', 587);
     $fallbackPort = ($primaryPort === 465) ? 587 : 465;
 
+    $rawHost = defined('SMTP_HOST') ? SMTP_HOST : (string)env('SMTP_HOST', 'smtp.gmail.com');
+    $resolvedHost = filter_var($rawHost, FILTER_VALIDATE_IP) ? $rawHost : (gethostbyname($rawHost) ?: $rawHost);
+
     $portAttempts = [
         [
             'port'   => $primaryPort,
@@ -46,19 +49,20 @@ function sendOwnerNotificationEmail(string $ownerEmail, string $ownerName, strin
         $mail = new PHPMailer(true);
         try {
             $mail->isSMTP();
-            $mail->Host       = SMTP_HOST;
+            $mail->Host       = $resolvedHost;
             $mail->SMTPAuth   = true;
             $mail->Username   = $username;
             $mail->Password   = str_replace(' ', '', (string)$password);
             $mail->Port       = $attempt['port'];
             $mail->SMTPSecure = $attempt['secure'];
-            $mail->Timeout    = 6;
-            $mail->Timelimit  = 6;
+            $mail->Timeout    = 4;
+            $mail->Timelimit  = 4;
             $mail->SMTPOptions = [
                 'ssl' => [
                     'verify_peer'       => false,
                     'verify_peer_name'  => false,
-                    'allow_self_signed' => true
+                    'allow_self_signed' => true,
+                    'peer_name'         => $rawHost,
                 ]
             ];
 

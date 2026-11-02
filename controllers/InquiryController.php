@@ -147,8 +147,29 @@ class InquiryController extends Controller {
         $replyTo = trim((string)$this->getPost('reply_to', ''));
         $subject = trim((string)$this->getPost('reply_subject', ''));
         $emailBody = trim((string)$this->getPost('email_body', ''));
+        $offlineOnly = (int)$this->getPost('offline_only', 0) === 1;
 
-        if ($inqId <= 0 || $replyTo === '' || $subject === '' || $emailBody === '') {
+        if ($inqId <= 0) {
+            $_SESSION['error_message'] = 'Invalid inquiry ID.';
+            $this->redirect("{$baseUrl}/admin/inquiries");
+            return;
+        }
+
+        if ($offlineOnly) {
+            // Admin elected to record reply without SMTP delivery
+            $ok = $this->inquiryModel->updateStatus($inqId, 'responded');
+            if ($ok) {
+                $_SESSION['success_message'] = 'Inquiry marked as Responded (offline/manual reply recorded).';
+                $this->redirect("{$baseUrl}/admin/inquiries");
+                return;
+            } else {
+                $_SESSION['error_message'] = 'Failed to update inquiry status.';
+                $this->redirect("{$baseUrl}/admin/inquiries/reply?inq_id={$inqId}");
+                return;
+            }
+        }
+
+        if ($replyTo === '' || $subject === '' || $emailBody === '') {
             $_SESSION['error_message'] = 'Please complete all email fields.';
             $this->redirect("{$baseUrl}/admin/inquiries/reply?inq_id={$inqId}");
             return;
@@ -164,11 +185,13 @@ class InquiryController extends Controller {
 
         if ($result['success']) {
             $_SESSION['success_message'] = $result['message'] ?? 'Reply email sent successfully. Inquiry status updated to Responded.';
+            $this->redirect("{$baseUrl}/admin/inquiries");
+            return;
         } else {
             $_SESSION['error_message'] = 'Failed to send email: ' . ($result['error'] ?? 'Unknown error');
+            $this->redirect("{$baseUrl}/admin/inquiries/reply?inq_id={$inqId}");
+            return;
         }
-
-        $this->redirect("{$baseUrl}/admin/inquiries/reply?inq_id={$inqId}");
     }
 
     /**
