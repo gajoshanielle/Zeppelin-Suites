@@ -330,66 +330,83 @@ class AuthController extends Controller {
             return false;
         }
 
-        try {
-            $mail = new \PHPMailer\PHPMailer\PHPMailer(true);
-            $mail->isSMTP();
-            $mail->Host       = defined('SMTP_HOST') ? SMTP_HOST : (string)env('SMTP_HOST', 'smtp.gmail.com');
-            $mail->SMTPAuth   = true;
-            $mail->Username   = $username;
-            $mail->Password   = str_replace(' ', '', (string)$password);
-            $mail->SMTPSecure = (defined('SMTP_PORT') && SMTP_PORT === 465)
-                ? \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_SMTPS
-                : \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS;
-            $mail->Port       = defined('SMTP_PORT') ? (int)SMTP_PORT : 587;
-
-            $mail->SMTPOptions = [
-                'ssl' => [
-                    'verify_peer'       => false,
-                    'verify_peer_name'  => false,
-                    'allow_self_signed' => true,
+        require_once dirname(__DIR__) . '/config/owner_notifications.php';
+        $htmlBody = buildZeppelinEmailHtml([
+            'badgeText'       => 'Password Reset',
+            'badgeType'       => 'blue',
+            'recipientName'   => $name,
+            'greeting'        => "Dear " . htmlspecialchars($name, ENT_QUOTES, 'UTF-8') . ",",
+            'messageHtml'     => "We received a request to reset the password for your Zeppelin Suites account. Please use the 6-digit verification code below to complete your reset:",
+            'highlightBox'    => [
+                'label'     => 'Verification Code',
+                'value'     => $code,
+                'type'      => 'blue',
+                'monospace' => true,
+            ],
+            'reminders'       => [
+                'title' => 'Security Notice',
+                'items' => [
+                    'This verification code is valid for 10 minutes only.',
+                    'For security reasons, never share this code with anyone.',
+                    'If you did not request a password reset, you can safely ignore this email. Your password will remain unchanged.',
                 ],
-            ];
+            ],
+            'reassuranceText' => 'If you require further assistance, please contact the Zeppelin Suites administration office.',
+            'footerSubtext'   => 'This is an automated security verification notification.',
+        ]);
 
-            require_once dirname(__DIR__) . '/config/owner_notifications.php';
-            $htmlBody = buildZeppelinEmailHtml([
-                'badgeText'       => 'Password Reset',
-                'badgeType'       => 'blue',
-                'recipientName'   => $name,
-                'greeting'        => "Dear " . htmlspecialchars($name, ENT_QUOTES, 'UTF-8') . ",",
-                'messageHtml'     => "We received a request to reset the password for your Zeppelin Suites account. Please use the 6-digit verification code below to complete your reset:",
-                'highlightBox'    => [
-                    'label'     => 'Verification Code',
-                    'value'     => $code,
-                    'type'      => 'blue',
-                    'monospace' => true,
-                ],
-                'reminders'       => [
-                    'title' => 'Security Notice',
-                    'items' => [
-                        'This verification code is valid for 10 minutes only.',
-                        'For security reasons, never share this code with anyone.',
-                        'If you did not request a password reset, you can safely ignore this email. Your password will remain unchanged.',
+        $fromEmail = defined('MAIL_FROM_EMAIL') ? MAIL_FROM_EMAIL : (string)env('MAIL_FROM_EMAIL', 'noreply@zeppelinsuites.com');
+        $fromName  = defined('MAIL_FROM_NAME') ? MAIL_FROM_NAME : (string)env('MAIL_FROM_NAME', 'Zeppelin Suites');
+
+        $primaryPort = defined('SMTP_PORT') ? (int)SMTP_PORT : (int)env('SMTP_PORT', 587);
+        $fallbackPort = ($primaryPort === 465) ? 587 : 465;
+
+        $portAttempts = [
+            [
+                'port'   => $primaryPort,
+                'secure' => ($primaryPort === 465 ? \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_SMTPS : \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS)
+            ],
+            [
+                'port'   => $fallbackPort,
+                'secure' => ($fallbackPort === 465 ? \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_SMTPS : \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS)
+            ],
+        ];
+
+        foreach ($portAttempts as $attempt) {
+            try {
+                $mail = new \PHPMailer\PHPMailer\PHPMailer(true);
+                $mail->isSMTP();
+                $mail->Host       = defined('SMTP_HOST') ? SMTP_HOST : (string)env('SMTP_HOST', 'smtp.gmail.com');
+                $mail->SMTPAuth   = true;
+                $mail->Username   = $username;
+                $mail->Password   = str_replace(' ', '', (string)$password);
+                $mail->Port       = $attempt['port'];
+                $mail->SMTPSecure = $attempt['secure'];
+                $mail->Timeout    = 6;
+                $mail->Timelimit  = 6;
+
+                $mail->SMTPOptions = [
+                    'ssl' => [
+                        'verify_peer'       => false,
+                        'verify_peer_name'  => false,
+                        'allow_self_signed' => true,
                     ],
-                ],
-                'reassuranceText' => 'If you require further assistance, please contact the Zeppelin Suites administration office.',
-                'footerSubtext'   => 'This is an automated security verification notification.',
-            ]);
+                ];
 
-            $mail->setFrom(
-                defined('MAIL_FROM_EMAIL') ? MAIL_FROM_EMAIL : (string)env('MAIL_FROM_EMAIL', 'noreply@zeppelinsuites.com'),
-                defined('MAIL_FROM_NAME') ? MAIL_FROM_NAME : (string)env('MAIL_FROM_NAME', 'Zeppelin Suites')
-            );
-            $mail->addAddress($email, $name);
-            $mail->isHTML(true);
-            $mail->Subject = $subject;
-            $mail->Body    = $htmlBody;
-            $mail->AltBody = $body;
+                $mail->setFrom($fromEmail, $fromName);
+                $mail->addAddress($email, $name);
+                $mail->isHTML(true);
+                $mail->Subject = $subject;
+                $mail->Body    = $htmlBody;
+                $mail->AltBody = $body;
 
-            $mail->send();
-            return true;
-        } catch (\Throwable $e) {
-            error_log("Failed to send password reset email to {$email}: " . $e->getMessage());
-            return false;
+                $mail->send();
+                return true;
+            } catch (\Throwable $e) {
+                error_log("Failed to send password reset email to {$email} on port {$attempt['port']}: " . $e->getMessage() . ". Retrying alternate port...");
+            }
         }
+
+        return false;
     }
 }

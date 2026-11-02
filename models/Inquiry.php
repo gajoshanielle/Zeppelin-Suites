@@ -304,97 +304,122 @@ class Inquiry extends Model {
             return ['success' => false, 'error' => 'PHPMailer library unavailable.'];
         }
 
-        try {
-            $mail = new \PHPMailer\PHPMailer\PHPMailer(true);
-            $mail->isSMTP();
-            $mail->Host = defined('SMTP_HOST') ? SMTP_HOST : (string)env('SMTP_HOST', 'smtp.gmail.com');
-            $mail->SMTPAuth = true;
-            $mail->Username = $username;
-            $mail->Password = str_replace(' ', '', (string)$password);
-            $port = defined('SMTP_PORT') ? (int)SMTP_PORT : (int)env('SMTP_PORT', 587);
-            $mail->Port = $port;
-            $mail->SMTPSecure = ($port === 465)
-                ? \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_SMTPS
-                : \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS;
+        require_once dirname(__DIR__) . '/config/owner_notifications.php';
+        $clientName = trim((string)($inquiry['sender_name'] ?? 'Valued Client'));
+        $unitType = trim((string)($inquiry['inquiry_type'] ?? 'Condominium Unit'));
+        $moveIn = trim((string)($inquiry['preferred_move_in_time'] ?? ''));
+        $duration = trim((string)($inquiry['lease_duration'] ?? ''));
 
-            $mail->SMTPOptions = [
-                'ssl' => [
-                    'verify_peer' => false,
-                    'verify_peer_name' => false,
-                    'allow_self_signed' => true
-                ]
-            ];
-
-            require_once dirname(__DIR__) . '/config/owner_notifications.php';
-            $clientName = trim((string)($inquiry['sender_name'] ?? 'Valued Client'));
-            $unitType = trim((string)($inquiry['inquiry_type'] ?? 'Condominium Unit'));
-            $moveIn = trim((string)($inquiry['preferred_move_in_time'] ?? ''));
-            $duration = trim((string)($inquiry['lease_duration'] ?? ''));
-
-            $details = [
-                ['label' => 'Inquiry Reference:', 'value' => '#' . $inqId],
-                ['label' => 'Interested In:', 'value' => $unitType],
-            ];
-            if (!empty($moveIn)) {
-                $details[] = ['label' => 'Target Move-In:', 'value' => $moveIn];
-            }
-            if (!empty($duration)) {
-                $details[] = ['label' => 'Lease Duration:', 'value' => $duration];
-            }
-
-            $actionButton = null;
-            if (!empty($reservationLink)) {
-                $actionButton = [
-                    'text' => 'Finalize Your Reservation',
-                    'url'  => $reservationLink,
-                ];
-            }
-
-            $escapedBody = nl2br(htmlspecialchars($emailBody, ENT_QUOTES, 'UTF-8'));
-
-            $htmlBody = buildZeppelinEmailHtml([
-                'badgeText'       => 'Inquiry Response',
-                'badgeType'       => 'blue',
-                'recipientName'   => $clientName,
-                'greeting'        => "Hi " . htmlspecialchars($clientName, ENT_QUOTES, 'UTF-8') . ",",
-                'messageHtml'     => "Thank you for inquiring about Zeppelin Suites. In response to your inquiry regarding <strong>" . htmlspecialchars($unitType, ENT_QUOTES, 'UTF-8') . "</strong>:<div style=\"background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 18px; margin: 18px 0; color: #1e293b; font-size: 14px; line-height: 1.6;\">{$escapedBody}</div>",
-                'details'         => $details,
-                'actionButton'    => $actionButton,
-                'reminders'       => [
-                    'title' => 'Next Steps',
-                    'items' => [
-                        'You may reply directly to this email to continue your inquiry with our leasing specialists.',
-                        'Unit viewings can be scheduled during regular building operating hours.',
-                    ],
-                ],
-                'reassuranceText' => 'We look forward to welcoming you to Zeppelin Suites.',
-                'footerSubtext'   => 'This is an official response from Zeppelin Suites Leasing Administration.',
-            ]);
-
-            $fromEmail = defined('MAIL_FROM_EMAIL') ? MAIL_FROM_EMAIL : (string)env('MAIL_FROM_EMAIL', 'noreply@zeppelinsuites.com');
-            $fromName = defined('MAIL_FROM_NAME') ? MAIL_FROM_NAME : (string)env('MAIL_FROM_NAME', 'Zeppelin Suites');
-
-            $mail->setFrom($fromEmail, $fromName);
-            $mail->addAddress($replyTo);
-            $mail->isHTML(true);
-            $mail->Subject = $subject;
-            $mail->Body = $htmlBody;
-            $mail->AltBody = $emailBody;
-
-            $mail->send();
-
-            // Update status
-            $updateSql = "
-                UPDATE inquiry_table
-                SET status = 'responded'
-                WHERE inq_id = ?
-            ";
-            $this->execute($updateSql, [$inqId]);
-
-            return ['success' => true, 'message' => 'Reply email sent successfully. Inquiry status updated to Responded.'];
-        } catch (\Throwable $e) {
-            return ['success' => false, 'error' => $e->getMessage()];
+        $details = [
+            ['label' => 'Inquiry Reference:', 'value' => '#' . $inqId],
+            ['label' => 'Interested In:', 'value' => $unitType],
+        ];
+        if (!empty($moveIn)) {
+            $details[] = ['label' => 'Target Move-In:', 'value' => $moveIn];
         }
+        if (!empty($duration)) {
+            $details[] = ['label' => 'Lease Duration:', 'value' => $duration];
+        }
+
+        $actionButton = null;
+        if (!empty($reservationLink)) {
+            $actionButton = [
+                'text' => 'Finalize Your Reservation',
+                'url'  => $reservationLink,
+            ];
+        }
+
+        $escapedBody = nl2br(htmlspecialchars($emailBody, ENT_QUOTES, 'UTF-8'));
+
+        $htmlBody = buildZeppelinEmailHtml([
+            'badgeText'       => 'Inquiry Response',
+            'badgeType'       => 'blue',
+            'recipientName'   => $clientName,
+            'greeting'        => "Hi " . htmlspecialchars($clientName, ENT_QUOTES, 'UTF-8') . ",",
+            'messageHtml'     => "Thank you for inquiring about Zeppelin Suites. In response to your inquiry regarding <strong>" . htmlspecialchars($unitType, ENT_QUOTES, 'UTF-8') . "</strong>:<div style=\"background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 18px; margin: 18px 0; color: #1e293b; font-size: 14px; line-height: 1.6;\">{$escapedBody}</div>",
+            'details'         => $details,
+            'actionButton'    => $actionButton,
+            'reminders'       => [
+                'title' => 'Next Steps',
+                'items' => [
+                    'You may reply directly to this email to continue your inquiry with our leasing specialists.',
+                    'Unit viewings can be scheduled during regular building operating hours.',
+                ],
+            ],
+            'reassuranceText' => 'We look forward to welcoming you to Zeppelin Suites.',
+            'footerSubtext'   => 'This is an official response from Zeppelin Suites Leasing Administration.',
+        ]);
+
+        $fromEmail = defined('MAIL_FROM_EMAIL') ? MAIL_FROM_EMAIL : (string)env('MAIL_FROM_EMAIL', 'noreply@zeppelinsuites.com');
+        $fromName = defined('MAIL_FROM_NAME') ? MAIL_FROM_NAME : (string)env('MAIL_FROM_NAME', 'Zeppelin Suites');
+
+        $primaryPort = defined('SMTP_PORT') ? (int)SMTP_PORT : (int)env('SMTP_PORT', 587);
+        $fallbackPort = ($primaryPort === 465) ? 587 : 465;
+
+        $portAttempts = [
+            [
+                'port'   => $primaryPort,
+                'secure' => ($primaryPort === 465 ? \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_SMTPS : \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS)
+            ],
+            [
+                'port'   => $fallbackPort,
+                'secure' => ($fallbackPort === 465 ? \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_SMTPS : \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS)
+            ],
+        ];
+
+        $emailSent = false;
+        $lastException = null;
+
+        foreach ($portAttempts as $attempt) {
+            try {
+                $mail = new \PHPMailer\PHPMailer\PHPMailer(true);
+                $mail->isSMTP();
+                $mail->Host       = defined('SMTP_HOST') ? SMTP_HOST : (string)env('SMTP_HOST', 'smtp.gmail.com');
+                $mail->SMTPAuth   = true;
+                $mail->Username   = $username;
+                $mail->Password   = str_replace(' ', '', (string)$password);
+                $mail->Port       = $attempt['port'];
+                $mail->SMTPSecure = $attempt['secure'];
+                $mail->Timeout    = 6;
+                $mail->Timelimit  = 6;
+
+                $mail->SMTPOptions = [
+                    'ssl' => [
+                        'verify_peer'       => false,
+                        'verify_peer_name'  => false,
+                        'allow_self_signed' => true,
+                    ]
+                ];
+
+                $mail->setFrom($fromEmail, $fromName);
+                $mail->addAddress($replyTo);
+                $mail->isHTML(true);
+                $mail->Subject = $subject;
+                $mail->Body    = $htmlBody;
+                $mail->AltBody = $emailBody;
+
+                $mail->send();
+                $emailSent = true;
+                break;
+            } catch (\Throwable $e) {
+                $lastException = $e;
+                error_log("Inquiry sendReply port {$attempt['port']} failed: " . $e->getMessage() . ". Retrying alternate port...");
+            }
+        }
+
+        if (!$emailSent && $lastException !== null) {
+            return ['success' => false, 'error' => $lastException->getMessage()];
+        }
+
+        // Update status
+        $updateSql = "
+            UPDATE inquiry_table
+            SET status = 'responded'
+            WHERE inq_id = ?
+        ";
+        $this->execute($updateSql, [$inqId]);
+
+        return ['success' => true, 'message' => 'Reply email sent successfully. Inquiry status updated to Responded.'];
     }
 
     /**

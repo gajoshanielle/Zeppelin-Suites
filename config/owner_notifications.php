@@ -28,49 +28,62 @@ function sendOwnerNotificationEmail(string $ownerEmail, string $ownerName, strin
         return true;
     }
 
-    $mail = new PHPMailer(true);
+    $primaryPort = defined('SMTP_PORT') ? (int)SMTP_PORT : (int)env('SMTP_PORT', 587);
+    $fallbackPort = ($primaryPort === 465) ? 587 : 465;
 
-    try {
-        $mail->isSMTP();
-        $mail->Host = SMTP_HOST;
-        $mail->SMTPAuth = true;
-        $mail->Username = $username;
-        $mail->Password = str_replace(' ', '', (string)$password);
-        $mail->SMTPSecure = (SMTP_PORT === 465) ? PHPMailer::ENCRYPTION_SMTPS : PHPMailer::ENCRYPTION_STARTTLS;
-        $mail->Port = SMTP_PORT;
-        $mail->Timeout = 8;
-        $mail->Timelimit = 8;
-        $mail->SMTPOptions = [
-            'ssl' => [
-                'verify_peer' => false,
-                'verify_peer_name' => false,
-                'allow_self_signed' => true
-            ]
-        ];
+    $portAttempts = [
+        [
+            'port'   => $primaryPort,
+            'secure' => ($primaryPort === 465 ? PHPMailer::ENCRYPTION_SMTPS : PHPMailer::ENCRYPTION_STARTTLS)
+        ],
+        [
+            'port'   => $fallbackPort,
+            'secure' => ($fallbackPort === 465 ? PHPMailer::ENCRYPTION_SMTPS : PHPMailer::ENCRYPTION_STARTTLS)
+        ],
+    ];
 
-        $mail->setFrom(MAIL_FROM_EMAIL, MAIL_FROM_NAME);
-        $mail->addAddress($ownerEmail, $ownerName);
+    foreach ($portAttempts as $attempt) {
+        $mail = new PHPMailer(true);
+        try {
+            $mail->isSMTP();
+            $mail->Host       = SMTP_HOST;
+            $mail->SMTPAuth   = true;
+            $mail->Username   = $username;
+            $mail->Password   = str_replace(' ', '', (string)$password);
+            $mail->Port       = $attempt['port'];
+            $mail->SMTPSecure = $attempt['secure'];
+            $mail->Timeout    = 6;
+            $mail->Timelimit  = 6;
+            $mail->SMTPOptions = [
+                'ssl' => [
+                    'verify_peer'       => false,
+                    'verify_peer_name'  => false,
+                    'allow_self_signed' => true
+                ]
+            ];
 
-        if ($htmlBody !== null && trim($htmlBody) !== '') {
-            $mail->isHTML(true);
-            $mail->Subject = $subject;
-            $mail->Body = $htmlBody;
-            $mail->AltBody = $body;
-        } else {
-            $mail->isHTML(false);
-            $mail->Subject = $subject;
-            $mail->Body = $body;
+            $mail->setFrom(MAIL_FROM_EMAIL, MAIL_FROM_NAME);
+            $mail->addAddress($ownerEmail, $ownerName);
+
+            if ($htmlBody !== null && trim($htmlBody) !== '') {
+                $mail->isHTML(true);
+                $mail->Subject = $subject;
+                $mail->Body    = $htmlBody;
+                $mail->AltBody = $body;
+            } else {
+                $mail->isHTML(false);
+                $mail->Subject = $subject;
+                $mail->Body    = $body;
+            }
+
+            $mail->send();
+            return true;
+        } catch (\Throwable $e) {
+            error_log("sendOwnerNotificationEmail failed on port {$attempt['port']} for {$ownerEmail}: " . $e->getMessage() . ". Retrying alternate port...");
         }
-
-        $mail->send();
-        return true;
-    } catch (PHPMailerException $e) {
-        error_log("sendOwnerNotificationEmail failed for {$ownerEmail}: " . $mail->ErrorInfo);
-        return false;
-    } catch (\Throwable $e) {
-        error_log("sendOwnerNotificationEmail unexpected error for {$ownerEmail}: " . $e->getMessage());
-        return false;
     }
+
+    return false;
 }
 
 /**
