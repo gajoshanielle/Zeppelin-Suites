@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 
+ob_start();
+
 /**
  * Zeppelin Suites - MVC Front Controller & Single Web Entrypoint
  */

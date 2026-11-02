@@ -1166,12 +1166,24 @@ $statusMap = [
       })
         .then(async res => {
           const rawText = await res.text();
+          let data = null;
           try {
-            return JSON.parse(rawText);
+            data = JSON.parse(rawText);
           } catch (e) {
-            console.error("Non-JSON response for check-units:", rawText);
-            throw new Error(`Server returned an unexpected response (Status ${res.status}).`);
+            const firstBrace = rawText.indexOf('{');
+            const lastBrace = rawText.lastIndexOf('}');
+            if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+              try {
+                data = JSON.parse(rawText.substring(firstBrace, lastBrace + 1));
+              } catch (e2) {}
+            }
           }
+          if (!data) {
+            console.error("Non-JSON response for check-units:", rawText);
+            const preview = rawText ? rawText.replace(/<[^>]*>?/gm, ' ').trim().slice(0, 100) : '(empty)';
+            throw new Error(`Server returned an unexpected response (Status ${res.status}): ${preview}`);
+          }
+          return data;
         })
         .then(data => {
           checkBtn.disabled = false;
@@ -1350,14 +1362,26 @@ $statusMap = [
       })
         .then(async res => {
           const rawText = await res.text();
+          let data = null;
           try {
-            return JSON.parse(rawText);
+            data = JSON.parse(rawText);
           } catch (e) {
+            const firstBrace = rawText.indexOf('{');
+            const lastBrace = rawText.lastIndexOf('}');
+            if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+              try {
+                data = JSON.parse(rawText.substring(firstBrace, lastBrace + 1));
+              } catch (e2) {}
+            }
+          }
+          if (!data) {
             console.error("Non-JSON response for send-approval:", rawText);
+            const preview = rawText ? rawText.replace(/<[^>]*>?/gm, ' ').trim().slice(0, 100) : '(empty)';
             throw new Error(res.status === 504 || res.status === 500
               ? "The server took too long to respond or encountered an internal timeout."
-              : `Server returned an unexpected response (Status ${res.status}).`);
+              : `Server returned an unexpected response (Status ${res.status}): ${preview}`);
           }
+          return data;
         })
         .then(data => {
           if (!data.success) {
@@ -1466,12 +1490,24 @@ $statusMap = [
       })
         .then(async res => {
           const rawText = await res.text();
+          let data = null;
           try {
-            return JSON.parse(rawText);
+            data = JSON.parse(rawText);
           } catch (e) {
-            console.error("Non-JSON response for cancel-approval:", rawText);
-            throw new Error(`Server returned an unexpected response (Status ${res.status}).`);
+            const firstBrace = rawText.indexOf('{');
+            const lastBrace = rawText.lastIndexOf('}');
+            if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+              try {
+                data = JSON.parse(rawText.substring(firstBrace, lastBrace + 1));
+              } catch (e2) {}
+            }
           }
+          if (!data) {
+            console.error("Non-JSON response for cancel-approval:", rawText);
+            const preview = rawText ? rawText.replace(/<[^>]*>?/gm, ' ').trim().slice(0, 100) : '(empty)';
+            throw new Error(`Server returned an unexpected response (Status ${res.status}): ${preview}`);
+          }
+          return data;
         })
         .then(data => {
           if (!data.success) {
