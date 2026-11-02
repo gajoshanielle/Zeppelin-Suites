@@ -4,37 +4,6 @@ declare(strict_types=1);
 /**
  * Zeppelin Suites - Lightweight .env Environment Loader
  */
-if (!function_exists('resolveDynamicAppUrl')) {
-    /**
-     * Dynamically resolve APP_URL based on active HTTP host.
-     * Ensures seamless behavior across local XAMPP and live deployments
-     * without hardcoding localhost on production servers.
-     */
-    function resolveDynamicAppUrl(string $url): string {
-        $host = $_SERVER['HTTP_HOST'] ?? '';
-        if (empty($host)) {
-            return $url;
-        }
-
-        $cleanHost = strtolower(explode(':', $host)[0]);
-        $isLocal = in_array($cleanHost, ['localhost', '127.0.0.1', '::1'], true);
-
-        // Deployed live environment (e.g. *.beulahlabs.com)
-        if (!$isLocal) {
-            $proto = (!empty($_SERVER['HTTP_X_FORWARDED_PROTO']))
-                ? $_SERVER['HTTP_X_FORWARDED_PROTO']
-                : ((!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http');
-
-            $parsedPath = parse_url($url, PHP_URL_PATH);
-            $path = !empty($parsedPath) ? '/' . trim($parsedPath, '/') : '/Zeppelin-Suites';
-
-            return "{$proto}://{$host}{$path}";
-        }
-
-        return $url;
-    }
-}
-
 if (!function_exists('loadEnv')) {
     function loadEnv(string $filePath): void {
         if (!file_exists($filePath) || !is_readable($filePath)) {
@@ -100,25 +69,16 @@ if (!function_exists('env')) {
      */
     function env(string $key, mixed $default = null): mixed {
         if (array_key_exists($key, $_ENV)) {
-            $val = $_ENV[$key];
-        } elseif (array_key_exists($key, $_SERVER)) {
-            $val = $_SERVER[$key];
-        } else {
-            $envVal = getenv($key);
-            $val = ($envVal !== false) ? $envVal : $default;
+            return $_ENV[$key];
         }
-
-        // Auto-resolve APP_URL and OWNER_PORTAL_LOGIN_URL to prevent localhost redirection in live deployments
-        if ($key === 'APP_URL' && is_string($val)) {
-            return resolveDynamicAppUrl($val);
+        if (array_key_exists($key, $_SERVER)) {
+            return $_SERVER[$key];
         }
-
-        if ($key === 'OWNER_PORTAL_LOGIN_URL' && is_string($val)) {
-            $baseUrl = resolveDynamicAppUrl((string)env('APP_URL', 'http://localhost/Zeppelin-Suites'));
-            return rtrim($baseUrl, '/') . '/login';
+        $val = getenv($key);
+        if ($val !== false) {
+            return $val;
         }
-
-        return $val;
+        return $default;
     }
 }
 
