@@ -48,11 +48,14 @@ CREATE TABLE `inquiry_table` (
   `message` text NOT NULL,
   `status` enum('pending','responded','onhold','declined','reservation submitted','officially booked') NOT NULL DEFAULT 'pending',
   `approval_status` enum('not_requested','requested','approved','declined') NOT NULL DEFAULT 'not_requested',
+  `approval_requested_at` datetime DEFAULT NULL,
   `approved_unit_id` int(11) DEFAULT NULL,
+  `owner_remarks` text DEFAULT NULL,
   `approval_approved_at` datetime DEFAULT NULL,
   `timestamp` timestamp NOT NULL DEFAULT current_timestamp(),
   `reservation_token` varchar(64) DEFAULT NULL,
   `reservation_token_expires_at` datetime DEFAULT NULL,
+  `reservation_link_sent_at` datetime DEFAULT NULL,
   PRIMARY KEY (`inq_id`),
   KEY `fk_inquiry_approved_unit` (`approved_unit_id`),
   CONSTRAINT `fk_inquiry_approved_unit` FOREIGN KEY (`approved_unit_id`) REFERENCES `units_table` (`unit_id`) ON DELETE SET NULL ON UPDATE CASCADE
@@ -354,6 +357,8 @@ CREATE TABLE `users_table` (
   `email` varchar(150) NOT NULL,
   `password` varchar(255) DEFAULT NULL,
   `contact` varchar(30) DEFAULT NULL,
+  `date_of_birth` date DEFAULT NULL,
+  `additional_contact` varchar(50) DEFAULT NULL,
   `additional_email` varchar(100) DEFAULT NULL,
   `user_role` enum('admin','unit owner','tenant') NOT NULL DEFAULT 'tenant',
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
@@ -374,7 +379,7 @@ CREATE TABLE `users_table` (
 
 LOCK TABLES `users_table` WRITE;
 /*!40000 ALTER TABLE `users_table` DISABLE KEYS */;
-INSERT INTO `users_table` VALUES (1,'Admin User','admin@gmail.com','$2y$10$2lyItzoDb82iwIvA5If8e.jS8I4qVCYHwuLL/EVXvbzSLMke4GZQm','0922384834834848834843',NULL,NULL,'maddysilvano@gmail.com','admin','2026-06-03 15:08:44','Active',NULL),(2,'Unit Owner User','owner@gmail.com','$2y$10$vF.PS79ebAsXug6KckhOXOsuGhm/tVcFzllry.mpKobdDSd6H1JZC','09222222222',NULL,NULL,NULL,'unit owner','2026-06-03 15:08:44','Active','https://nviojvrjgvyyveyyxgmr.supabase.co/storage/v1/object/public/zepellin-buckets/payment_qr/qr_owner_2_1791793874_e1500dd6.jpg'),(3,'Tenant User','tenant@gmail.com','$2y$10$L7fvJzfR29.JSlHrUvK7VuW5.SgOd2K8wKTRUa5fxvO5wswXYhNh.','09333333333',NULL,NULL,NULL,'tenant','2026-06-03 15:08:44','Active',NULL),(4,'Soren Lia','soren@gmail.com','$2y$10$3DkUoCLN4kZZXq2MWmTluuAwthjWl6tXM6BagYmdNcOsxTO0jLyFu','0997562819',NULL,NULL,NULL,'unit owner','2026-06-03 15:18:50','Active','https://nviojvrjgvyyveyyxgmr.supabase.co/storage/v1/object/public/zepellin-buckets/payment_qr/qr_owner_4_1791787624_c2133f47.jpg'),(5,'Mika Reyes','mika.owner@gmail.com','$2y$10$cj24SOxF2ufWpR49rG37auKxxtFA16X1rQj5RASfr.RAsVrFHrt9i','09111111111',NULL,NULL,NULL,'unit owner','2026-06-07 16:10:11','Active','images/payment_qr/gcash_qr_5_1791465903_194cd3d9.png'),(6,'Carlos Santos','carlos.owner@gmail.com','$2y$10$sHLZvBi5Xnx4Vmktb9gIhOktRPHpLnUjTXpiiQzC9unGH4PNOnZj.','09222222222',NULL,NULL,NULL,'unit owner','2026-06-07 16:10:11','Active',NULL),(7,'Alyssa Cruz','alyssa.owner@gmail.com','$2y$10$VD26QufESc7nhgvSdjz7O.e2Mg3pR.trMIgTpbYxCc4KaUJmBBnpG','09333333333',NULL,NULL,NULL,'unit owner','2026-06-07 16:10:11','Active',NULL),(8,'Shanielle Gajo','gajoshanielle@gmail.com','Sha123','09707568287',NULL,NULL,NULL,'unit owner','2026-07-19 06:12:05','Inactive',NULL),(10,'testing resale','maddysilvano@gmail.com','$2y$10$6YMSDZX8lviZos7XDp6t.O6EFqpQTs9CIR9477ILDoQaBeN.isn0a','09707568287',NULL,NULL,NULL,'unit owner','2026-10-08 19:07:07','Active',NULL);
+INSERT INTO `users_table` (`user_id`, `full_name`, `email`, `password`, `contact`, `date_of_birth`, `additional_contact`, `additional_email`, `user_role`, `created_at`, `resident_status`, `gcash_QR`) VALUES (1,'Admin User','admin@gmail.com','$2y$10$2lyItzoDb82iwIvA5If8e.jS8I4qVCYHwuLL/EVXvbzSLMke4GZQm','0922384834834848834843',NULL,NULL,'maddysilvano@gmail.com','admin','2026-06-03 15:08:44','Active',NULL),(2,'Unit Owner User','owner@gmail.com','$2y$10$vF.PS79ebAsXug6KckhOXOsuGhm/tVcFzllry.mpKobdDSd6H1JZC','09222222222',NULL,NULL,NULL,'unit owner','2026-06-03 15:08:44','Active','https://nviojvrjgvyyveyyxgmr.supabase.co/storage/v1/object/public/zepellin-buckets/payment_qr/qr_owner_2_1791793874_e1500dd6.jpg'),(3,'Tenant User','tenant@gmail.com','$2y$10$L7fvJzfR29.JSlHrUvK7VuW5.SgOd2K8wKTRUa5fxvO5wswXYhNh.','09333333333',NULL,NULL,NULL,'tenant','2026-06-03 15:08:44','Active',NULL),(4,'Soren Lia','soren@gmail.com','$2y$10$3DkUoCLN4kZZXq2MWmTluuAwthjWl6tXM6BagYmdNcOsxTO0jLyFu','0997562819',NULL,NULL,NULL,'unit owner','2026-06-03 15:18:50','Active','https://nviojvrjgvyyveyyxgmr.supabase.co/storage/v1/object/public/zepellin-buckets/payment_qr/qr_owner_4_1791787624_c2133f47.jpg'),(5,'Mika Reyes','mika.owner@gmail.com','$2y$10$cj24SOxF2ufWpR49rG37auKxxtFA16X1rQj5RASfr.RAsVrFHrt9i','09111111111',NULL,NULL,NULL,'unit owner','2026-06-07 16:10:11','Active','images/payment_qr/gcash_qr_5_1791465903_194cd3d9.png'),(6,'Carlos Santos','carlos.owner@gmail.com','$2y$10$sHLZvBi5Xnx4Vmktb9gIhOktRPHpLnUjTXpiiQzC9unGH4PNOnZj.','09222222222',NULL,NULL,NULL,'unit owner','2026-06-07 16:10:11','Active',NULL),(7,'Alyssa Cruz','alyssa.owner@gmail.com','$2y$10$VD26QufESc7nhgvSdjz7O.e2Mg3pR.trMIgTpbYxCc4KaUJmBBnpG','09333333333',NULL,NULL,NULL,'unit owner','2026-06-07 16:10:11','Active',NULL),(8,'Shanielle Gajo','gajoshanielle@gmail.com','Sha123','09707568287',NULL,NULL,NULL,'unit owner','2026-07-19 06:12:05','Inactive',NULL),(10,'testing resale','maddysilvano@gmail.com','$2y$10$6YMSDZX8lviZos7XDp6t.O6EFqpQTs9CIR9477ILDoQaBeN.isn0a','09707568287',NULL,NULL,NULL,'unit owner','2026-10-08 19:07:07','Active',NULL);
 /*!40000 ALTER TABLE `users_table` ENABLE KEYS */;
 UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
