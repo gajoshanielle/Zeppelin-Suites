@@ -169,6 +169,8 @@ $router->get('/units/two-bedroom', [GeneralController::class, 'twoBedroom']);
 // Policy & Legal Routes
 $router->get('/privacy-policy', [GeneralController::class, 'privacyPolicy']);
 $router->get('/terms-of-service', [GeneralController::class, 'termsOfService']);
+$router->get('/setup-database', [GeneralController::class, 'setupDatabase']);
+$router->get('/setup-db', [GeneralController::class, 'setupDatabase']);
 
 // Contact & Inquiry Submission Routes
 $router->get('/contact', [GeneralController::class, 'contact']);

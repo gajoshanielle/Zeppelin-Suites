@@ -427,4 +427,35 @@ class GeneralController extends Controller {
             'activePage'   => '',
         ]);
     }
+
+    /**
+     * One-time database initialization / migration endpoint.
+     * Reads database/zepellin_test_cleaned.sql and creates all tables and initial seed data.
+     */
+    public function setupDatabase(): void {
+        $sqlFile = dirname(__DIR__) . '/database/zepellin_test_cleaned.sql';
+        if (!file_exists($sqlFile)) {
+            $this->renderError('Database Setup Failed', 'The schema backup file (zepellin_test_cleaned.sql) could not be found.');
+            return;
+        }
+
+        $sqlContent = (string)file_get_contents($sqlFile);
+        $cleaned = preg_replace('/CREATE\s+DATABASE[^;]*;\s*/is', '', $sqlContent);
+        $cleaned = preg_replace('/USE\s+[`\w]+;\s*/is', '', $cleaned);
+
+        require_once dirname(__DIR__) . '/models/Backup.php';
+        $backupModel = new Backup();
+        $result = $backupModel->restoreFromSql($cleaned);
+
+        $baseUrl = rtrim((string)env('APP_URL', ''), '/');
+        $loginUrl = ($baseUrl === '' ? '' : $baseUrl) . '/login';
+
+        if (!empty($result['success'])) {
+            header('Content-Type: text/html; charset=utf-8');
+            echo "<!DOCTYPE html><html lang='en'><head><meta charset='UTF-8'><title>Database Setup Successful</title><script src='https://cdn.tailwindcss.com'></script></head><body class='bg-slate-50 flex items-center justify-center min-h-screen p-4 font-sans text-center'><div class='max-w-md w-full bg-white p-8 rounded-2xl shadow-sm border border-slate-200'><div class='w-14 h-14 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto mb-4 border border-emerald-100'><svg class='w-7 h-7' fill='none' stroke='currentColor' viewBox='0 0 24 24'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2.5' d='M5 13l4 4L19 7'/></svg></div><h1 class='text-2xl font-bold text-slate-800 mb-2'>Database Initialized!</h1><p class='text-sm text-slate-600 mb-4'>" . htmlspecialchars($result['message']) . "</p><p class='text-xs text-slate-400 mb-6'>All tables and initial admin records have been successfully created.</p><a href='{$loginUrl}' class='inline-block w-full py-3 bg-slate-900 text-white rounded-xl text-sm font-semibold hover:bg-slate-800 transition-colors'>Go to Login</a></div></body></html>";
+            exit;
+        } else {
+            $this->renderError('Database Setup Failed', $result['message'] ?? 'An unexpected error occurred during database migration.');
+        }
+    }
 }
