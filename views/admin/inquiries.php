@@ -1165,11 +1165,13 @@ $statusMap = [
         }
       })
         .then(async res => {
-          const contentType = res.headers.get("content-type") || "";
-          if (!contentType.includes("application/json")) {
+          const rawText = await res.text();
+          try {
+            return JSON.parse(rawText);
+          } catch (e) {
+            console.error("Non-JSON response for check-units:", rawText);
             throw new Error(`Server returned an unexpected response (Status ${res.status}).`);
           }
-          return res.json();
         })
         .then(data => {
           checkBtn.disabled = false;
@@ -1347,13 +1349,15 @@ $statusMap = [
         body: formData
       })
         .then(async res => {
-          const contentType = res.headers.get("content-type") || "";
-          if (!contentType.includes("application/json")) {
+          const rawText = await res.text();
+          try {
+            return JSON.parse(rawText);
+          } catch (e) {
+            console.error("Non-JSON response for send-approval:", rawText);
             throw new Error(res.status === 504 || res.status === 500
               ? "The server took too long to respond or encountered an internal timeout."
               : `Server returned an unexpected response (Status ${res.status}).`);
           }
-          return res.json();
         })
         .then(data => {
           if (!data.success) {
@@ -1461,11 +1465,13 @@ $statusMap = [
         body: formData
       })
         .then(async res => {
-          const contentType = res.headers.get("content-type") || "";
-          if (!contentType.includes("application/json")) {
+          const rawText = await res.text();
+          try {
+            return JSON.parse(rawText);
+          } catch (e) {
+            console.error("Non-JSON response for cancel-approval:", rawText);
             throw new Error(`Server returned an unexpected response (Status ${res.status}).`);
           }
-          return res.json();
         })
         .then(data => {
           if (!data.success) {

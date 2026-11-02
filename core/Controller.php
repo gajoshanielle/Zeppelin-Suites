@@ -47,8 +47,13 @@ abstract class Controller {
      * Send a JSON response with appropriate headers and HTTP status code.
      */
     protected function json(mixed $data, int $statusCode = 200): void {
-        http_response_code($statusCode);
-        header('Content-Type: application/json; charset=utf-8');
+        while (ob_get_level() > 0) {
+            ob_end_clean();
+        }
+        if (!headers_sent()) {
+            http_response_code($statusCode);
+            header('Content-Type: application/json; charset=utf-8');
+        }
         echo json_encode($data, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
         exit;
     }
