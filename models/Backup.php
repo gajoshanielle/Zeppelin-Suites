@@ -157,6 +157,10 @@ class Backup extends Model {
                     if (str_starts_with($stmtSql, '/*')) {
                         continue;
                     }
+                    // If cloud MySQL doesn't permit trigger creation (missing SUPER/TRIGGER privilege), continue safely
+                    if (preg_match('/^CREATE\s+TRIGGER/i', $stmtSql)) {
+                        continue;
+                    }
                     throw $e;
                 }
             }
@@ -233,6 +237,12 @@ class Backup extends Model {
             }
 
             if ($char === ';' && !$inSingleQuote && !$inDoubleQuote) {
+                // Semicolons inside trigger definitions do not terminate the statement until END is reached
+                if (preg_match('/CREATE\s+TRIGGER/i', $current) && !preg_match('/\bEND\s*$/i', trim($current))) {
+                    $current .= $char;
+                    continue;
+                }
+
                 $clean = trim($current);
                 if ($clean !== '') {
                     $statements[] = $clean;
