@@ -29,6 +29,9 @@ if (!empty($_SERVER['HTTP_HOST'])) {
         $proto = (!empty($_SERVER['HTTP_X_FORWARDED_PROTO']))
             ? $_SERVER['HTTP_X_FORWARDED_PROTO']
             : ((!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http');
+        if ($proto === 'https') {
+            $_SERVER['HTTPS'] = 'on';
+        }
         $liveBaseUrl = "{$proto}://" . $_SERVER['HTTP_HOST'];
 
         if (str_contains((string)env('OWNER_PORTAL_LOGIN_URL', ''), 'localhost')) {
@@ -119,9 +122,22 @@ register_shutdown_function(function (): void {
 
 // 3. Initialize secure session
 if (session_status() === PHP_SESSION_NONE) {
+    $isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+        || (!empty($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https');
+
     ini_set('session.cookie_httponly', '1');
     ini_set('session.use_strict_mode', '1');
     ini_set('session.use_only_cookies', '1');
+
+    session_set_cookie_params([
+        'lifetime' => 0,
+        'path'     => '/',
+        'domain'   => '',
+        'secure'   => $isHttps,
+        'httponly' => true,
+        'samesite' => 'Lax',
+    ]);
+
     session_start();
 }
 

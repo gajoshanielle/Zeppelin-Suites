@@ -278,6 +278,19 @@ include __DIR__ . '/../components/public_navbar.php';
 
     function showError(message) {
         document.getElementById("errorMessage").innerText = message;
+        const btn = document.querySelector("#errorModal button");
+        const isSecurityError = message.toLowerCase().includes("token") || 
+                               message.toLowerCase().includes("refresh") || 
+                               message.toLowerCase().includes("expired");
+        if (btn) {
+            if (isSecurityError) {
+                btn.innerText = "Refresh Page";
+                btn.onclick = () => window.location.reload();
+            } else {
+                btn.innerText = "Try Again";
+                btn.onclick = closeModal;
+            }
+        }
         document.getElementById("errorModal").classList.remove("hidden");
         document.body.style.overflow = 'hidden';
     }

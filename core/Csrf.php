@@ -11,10 +11,36 @@ class Csrf {
     /**
      * Retrieve or generate the active CSRF token for the current session.
      */
-    public static function token(): string {
+    /**
+     * Ensure session is started with secure attributes.
+     */
+    private static function ensureSession(): void {
         if (session_status() === PHP_SESSION_NONE) {
+            $isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+                || (!empty($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https');
+
+            ini_set('session.cookie_httponly', '1');
+            ini_set('session.use_strict_mode', '1');
+            ini_set('session.use_only_cookies', '1');
+
+            session_set_cookie_params([
+                'lifetime' => 0,
+                'path'     => '/',
+                'domain'   => '',
+                'secure'   => $isHttps,
+                'httponly' => true,
+                'samesite' => 'Lax',
+            ]);
+
             session_start();
         }
+    }
+
+    /**
+     * Retrieve or generate the active CSRF token for the current session.
+     */
+    public static function token(): string {
+        self::ensureSession();
 
         if (empty($_SESSION[self::SESSION_KEY]) || !is_string($_SESSION[self::SESSION_KEY])) {
             $_SESSION[self::SESSION_KEY] = bin2hex(random_bytes(32));
@@ -34,9 +60,7 @@ class Csrf {
      * Validate an incoming CSRF token against the active session token.
      */
     public static function validate(?string $submittedToken = null): bool {
-        if (session_status() === PHP_SESSION_NONE) {
-            session_start();
-        }
+        self::ensureSession();
 
         $sessionToken = (string)($_SESSION[self::SESSION_KEY] ?? '');
         if ($sessionToken === '') {

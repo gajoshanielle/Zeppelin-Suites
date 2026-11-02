@@ -127,17 +127,40 @@ class Backup extends Model {
         if ($trimmed === '') {
             return [
                 'success' => false,
-                'message' => 'Uploaded SQL file is empty.',
+                'message' => 'Schema or SQL content is empty.',
             ];
         }
 
         try {
             $this->db->setAttribute(PDO::ATTR_EMULATE_PREPARES, true);
             $this->db->exec("SET FOREIGN_KEY_CHECKS = 0;");
-            
-            // Execute the imported SQL script
-            $this->db->exec($trimmed);
-            
+
+            $statements = $this->splitSqlStatements($trimmed);
+            $executed = 0;
+
+            foreach ($statements as $stmtSql) {
+                $stmtSql = trim($stmtSql);
+                if ($stmtSql === '') {
+                    continue;
+                }
+
+                // Skip LOCK and UNLOCK table statements to avoid permission errors on cloud databases
+                if (preg_match('/^(LOCK\s+TABLES|UNLOCK\s+TABLES)/i', $stmtSql)) {
+                    continue;
+                }
+
+                try {
+                    $this->db->exec($stmtSql);
+                    $executed++;
+                } catch (PDOException $e) {
+                    // Ignore comment directives like /*!40101 ... */ if any
+                    if (str_starts_with($stmtSql, '/*')) {
+                        continue;
+                    }
+                    throw $e;
+                }
+            }
+
             $this->db->exec("SET FOREIGN_KEY_CHECKS = 1;");
 
             $stats = $this->getDatabaseStats();
@@ -157,5 +180,75 @@ class Backup extends Model {
                 'message' => 'Database restore failed: ' . $e->getMessage(),
             ];
         }
+    }
+
+    /**
+     * Split a multi-statement SQL script into individual executable statements.
+     */
+    private function splitSqlStatements(string $sql): array {
+        // Strip out single-line comments starting with -- or #
+        $lines = explode("\n", $sql);
+        $cleanedLines = [];
+        foreach ($lines as $line) {
+            $trimmedLine = trim($line);
+            if (str_starts_with($trimmedLine, '--') || str_starts_with($trimmedLine, '#')) {
+                continue;
+            }
+            $cleanedLines[] = $line;
+        }
+        $sql = implode("\n", $cleanedLines);
+
+        $statements = [];
+        $current = '';
+        $inSingleQuote = false;
+        $inDoubleQuote = false;
+        $escaped = false;
+        $len = strlen($sql);
+
+        for ($i = 0; $i < $len; $i++) {
+            $char = $sql[$i];
+
+            if ($escaped) {
+                $current .= $char;
+                $escaped = false;
+                continue;
+            }
+
+            if ($char === '\\') {
+                $current .= $char;
+                $escaped = true;
+                continue;
+            }
+
+            if ($char === "'" && !$inDoubleQuote) {
+                $inSingleQuote = !$inSingleQuote;
+                $current .= $char;
+                continue;
+            }
+
+            if ($char === '"' && !$inSingleQuote) {
+                $inDoubleQuote = !$inDoubleQuote;
+                $current .= $char;
+                continue;
+            }
+
+            if ($char === ';' && !$inSingleQuote && !$inDoubleQuote) {
+                $clean = trim($current);
+                if ($clean !== '') {
+                    $statements[] = $clean;
+                }
+                $current = '';
+                continue;
+            }
+
+            $current .= $char;
+        }
+
+        $clean = trim($current);
+        if ($clean !== '') {
+            $statements[] = $clean;
+        }
+
+        return $statements;
     }
 }
