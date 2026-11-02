@@ -433,19 +433,26 @@ class GeneralController extends Controller {
      * Reads database/zepellin_test_cleaned.sql and creates all tables and initial seed data.
      */
     public function setupDatabase(): void {
+        $sqlContent = '';
+        $phpSchema = dirname(__DIR__) . '/database/schema_data.php';
         $sqlFile = dirname(__DIR__) . '/database/zepellin_test_cleaned.sql';
-        if (!file_exists($sqlFile)) {
-            $this->renderError('Database Setup Failed', 'The schema backup file (zepellin_test_cleaned.sql) could not be found.');
+
+        if (file_exists($phpSchema)) {
+            $sqlContent = (string)require $phpSchema;
+        } elseif (file_exists($sqlFile)) {
+            $raw = (string)file_get_contents($sqlFile);
+            $cleaned = preg_replace('/CREATE\s+DATABASE[^;]*;\s*/is', '', $raw);
+            $sqlContent = preg_replace('/USE\s+[`\w]+;\s*/is', '', $cleaned);
+        }
+
+        if (empty($sqlContent)) {
+            $this->renderError('Database Setup Failed', 'The schema file could not be found.');
             return;
         }
 
-        $sqlContent = (string)file_get_contents($sqlFile);
-        $cleaned = preg_replace('/CREATE\s+DATABASE[^;]*;\s*/is', '', $sqlContent);
-        $cleaned = preg_replace('/USE\s+[`\w]+;\s*/is', '', $cleaned);
-
         require_once dirname(__DIR__) . '/models/Backup.php';
         $backupModel = new Backup();
-        $result = $backupModel->restoreFromSql($cleaned);
+        $result = $backupModel->restoreFromSql($sqlContent);
 
         $baseUrl = rtrim((string)env('APP_URL', ''), '/');
         $loginUrl = ($baseUrl === '' ? '' : $baseUrl) . '/login';
