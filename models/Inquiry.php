@@ -355,47 +355,72 @@ class Inquiry extends Model {
 
         $primaryPort = defined('SMTP_PORT') ? (int)SMTP_PORT : (int)env('SMTP_PORT', 587);
         $fallbackPort = ($primaryPort === 465) ? 587 : 465;
-
-        // Force IPv4 lookup to prevent IPv6 socket hangs/blackholes on cloud VPS hosts
         $rawHost = defined('SMTP_HOST') ? SMTP_HOST : (string)env('SMTP_HOST', 'smtp.gmail.com');
-        $resolvedHost = filter_var($rawHost, FILTER_VALIDATE_IP) ? $rawHost : (gethostbyname($rawHost) ?: $rawHost);
 
-        $portAttempts = [
+        // Multi-tier transport strategies to guarantee delivery across both local development and cloud hosting (e.g. GoDaddy/cPanel)
+        $strategies = [
+            // 1. Direct configured SMTP (TLS 587 or SSL 465)
             [
-                'port'   => $primaryPort,
-                'secure' => ($primaryPort === 465 ? \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_SMTPS : \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS)
+                'desc'     => "Configured SMTP ({$rawHost}:{$primaryPort})",
+                'type'     => 'smtp',
+                'host'     => $rawHost,
+                'port'     => $primaryPort,
+                'secure'   => ($primaryPort === 465 ? \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_SMTPS : \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS),
+                'auth'     => true,
+                'username' => $username,
+                'password' => $password,
+                'timeout'  => 3,
             ],
+            // 2. Alternate SMTP port (SSL 465 or TLS 587)
             [
-                'port'   => $fallbackPort,
-                'secure' => ($fallbackPort === 465 ? \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_SMTPS : \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS)
+                'desc'     => "Alternate SMTP ({$rawHost}:{$fallbackPort})",
+                'type'     => 'smtp',
+                'host'     => $rawHost,
+                'port'     => $fallbackPort,
+                'secure'   => ($fallbackPort === 465 ? \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_SMTPS : \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS),
+                'auth'     => true,
+                'username' => $username,
+                'password' => $password,
+                'timeout'  => 3,
+            ],
+            // 3. GoDaddy cPanel shared hosting internal relay (port 25, no auth)
+            [
+                'desc'     => 'GoDaddy Relay (relay-hosting.secureserver.net:25)',
+                'type'     => 'smtp',
+                'host'     => 'relay-hosting.secureserver.net',
+                'port'     => 25,
+                'secure'   => false,
+                'auth'     => false,
+                'username' => '',
+                'password' => '',
+                'timeout'  => 3,
+            ],
+            // 4. Localhost MTA (port 25, no auth)
+            [
+                'desc'     => 'Localhost MTA (localhost:25)',
+                'type'     => 'smtp',
+                'host'     => 'localhost',
+                'port'     => 25,
+                'secure'   => false,
+                'auth'     => false,
+                'username' => '',
+                'password' => '',
+                'timeout'  => 2,
+            ],
+            // 5. Native server mail() transport via host MTA (Sendmail/Exim)
+            [
+                'desc'     => 'Native Server Mail Transport',
+                'type'     => 'mail',
             ],
         ];
 
         $emailSent = false;
         $lastException = null;
 
-        foreach ($portAttempts as $attempt) {
+        foreach ($strategies as $strategy) {
             try {
                 $mail = new \PHPMailer\PHPMailer\PHPMailer(true);
-                $mail->isSMTP();
-                $mail->Host       = $resolvedHost;
-                $mail->SMTPAuth   = true;
-                $mail->Username   = $username;
-                $mail->Password   = str_replace(' ', '', (string)$password);
-                $mail->Port       = $attempt['port'];
-                $mail->SMTPSecure = $attempt['secure'];
-                $mail->Timeout    = 4;
-                $mail->Timelimit  = 4;
-
-                $mail->SMTPOptions = [
-                    'ssl' => [
-                        'verify_peer'       => false,
-                        'verify_peer_name'  => false,
-                        'allow_self_signed' => true,
-                        'peer_name'         => $rawHost,
-                    ]
-                ];
-
+                $mail->CharSet = 'UTF-8';
                 $mail->setFrom($fromEmail, $fromName);
                 $mail->addAddress($replyTo);
                 $mail->isHTML(true);
@@ -403,12 +428,38 @@ class Inquiry extends Model {
                 $mail->Body    = $htmlBody;
                 $mail->AltBody = $emailBody;
 
+                if ($strategy['type'] === 'smtp') {
+                    $mail->isSMTP();
+                    $mail->Host       = $strategy['host'];
+                    $mail->Port       = $strategy['port'];
+                    $mail->SMTPAuth   = $strategy['auth'];
+                    if ($strategy['auth']) {
+                        $mail->Username = $strategy['username'];
+                        $mail->Password = $strategy['password'];
+                    }
+                    $mail->SMTPSecure = $strategy['secure'] ?: false;
+                    if (!$strategy['secure']) {
+                        $mail->SMTPAutoTLS = false;
+                    }
+                    $mail->Timeout   = $strategy['timeout'] ?? 3;
+                    $mail->Timelimit = $strategy['timeout'] ?? 3;
+                    $mail->SMTPOptions = [
+                        'ssl' => [
+                            'verify_peer'       => false,
+                            'verify_peer_name'  => false,
+                            'allow_self_signed' => true,
+                        ]
+                    ];
+                } else {
+                    $mail->isMail();
+                }
+
                 $mail->send();
                 $emailSent = true;
                 break;
             } catch (\Throwable $e) {
                 $lastException = $e;
-                error_log("Inquiry sendReply port {$attempt['port']} failed: " . $e->getMessage() . ". Retrying alternate port...");
+                error_log("Inquiry sendReply via {$strategy['desc']} failed: " . $e->getMessage() . ". Retrying next transport...");
             }
         }
 

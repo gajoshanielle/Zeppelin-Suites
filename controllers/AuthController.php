@@ -360,43 +360,63 @@ class AuthController extends Controller {
 
         $primaryPort = defined('SMTP_PORT') ? (int)SMTP_PORT : (int)env('SMTP_PORT', 587);
         $fallbackPort = ($primaryPort === 465) ? 587 : 465;
-
         $rawHost = defined('SMTP_HOST') ? SMTP_HOST : (string)env('SMTP_HOST', 'smtp.gmail.com');
-        $resolvedHost = filter_var($rawHost, FILTER_VALIDATE_IP) ? $rawHost : (gethostbyname($rawHost) ?: $rawHost);
 
-        $portAttempts = [
+        $strategies = [
             [
-                'port'   => $primaryPort,
-                'secure' => ($primaryPort === 465 ? \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_SMTPS : \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS)
+                'desc'     => "Configured SMTP ({$rawHost}:{$primaryPort})",
+                'type'     => 'smtp',
+                'host'     => $rawHost,
+                'port'     => $primaryPort,
+                'secure'   => ($primaryPort === 465 ? \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_SMTPS : \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS),
+                'auth'     => true,
+                'username' => $username,
+                'password' => $password,
+                'timeout'  => 3,
             ],
             [
-                'port'   => $fallbackPort,
-                'secure' => ($fallbackPort === 465 ? \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_SMTPS : \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS)
+                'desc'     => "Alternate SMTP ({$rawHost}:{$fallbackPort})",
+                'type'     => 'smtp',
+                'host'     => $rawHost,
+                'port'     => $fallbackPort,
+                'secure'   => ($fallbackPort === 465 ? \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_SMTPS : \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS),
+                'auth'     => true,
+                'username' => $username,
+                'password' => $password,
+                'timeout'  => 3,
+            ],
+            [
+                'desc'     => 'GoDaddy Relay (relay-hosting.secureserver.net:25)',
+                'type'     => 'smtp',
+                'host'     => 'relay-hosting.secureserver.net',
+                'port'     => 25,
+                'secure'   => false,
+                'auth'     => false,
+                'username' => '',
+                'password' => '',
+                'timeout'  => 3,
+            ],
+            [
+                'desc'     => 'Localhost MTA (localhost:25)',
+                'type'     => 'smtp',
+                'host'     => 'localhost',
+                'port'     => 25,
+                'secure'   => false,
+                'auth'     => false,
+                'username' => '',
+                'password' => '',
+                'timeout'  => 2,
+            ],
+            [
+                'desc'     => 'Native Server Mail Transport',
+                'type'     => 'mail',
             ],
         ];
 
-        foreach ($portAttempts as $attempt) {
+        foreach ($strategies as $strategy) {
             try {
                 $mail = new \PHPMailer\PHPMailer\PHPMailer(true);
-                $mail->isSMTP();
-                $mail->Host       = $resolvedHost;
-                $mail->SMTPAuth   = true;
-                $mail->Username   = $username;
-                $mail->Password   = str_replace(' ', '', (string)$password);
-                $mail->Port       = $attempt['port'];
-                $mail->SMTPSecure = $attempt['secure'];
-                $mail->Timeout    = 4;
-                $mail->Timelimit  = 4;
-
-                $mail->SMTPOptions = [
-                    'ssl' => [
-                        'verify_peer'       => false,
-                        'verify_peer_name'  => false,
-                        'allow_self_signed' => true,
-                        'peer_name'         => $rawHost,
-                    ],
-                ];
-
+                $mail->CharSet = 'UTF-8';
                 $mail->setFrom($fromEmail, $fromName);
                 $mail->addAddress($email, $name);
                 $mail->isHTML(true);
@@ -404,10 +424,36 @@ class AuthController extends Controller {
                 $mail->Body    = $htmlBody;
                 $mail->AltBody = $body;
 
+                if ($strategy['type'] === 'smtp') {
+                    $mail->isSMTP();
+                    $mail->Host       = $strategy['host'];
+                    $mail->Port       = $strategy['port'];
+                    $mail->SMTPAuth   = $strategy['auth'];
+                    if ($strategy['auth']) {
+                        $mail->Username = $strategy['username'];
+                        $mail->Password = $strategy['password'];
+                    }
+                    $mail->SMTPSecure = $strategy['secure'] ?: false;
+                    if (!$strategy['secure']) {
+                        $mail->SMTPAutoTLS = false;
+                    }
+                    $mail->Timeout   = $strategy['timeout'] ?? 3;
+                    $mail->Timelimit = $strategy['timeout'] ?? 3;
+                    $mail->SMTPOptions = [
+                        'ssl' => [
+                            'verify_peer'       => false,
+                            'verify_peer_name'  => false,
+                            'allow_self_signed' => true,
+                        ]
+                    ];
+                } else {
+                    $mail->isMail();
+                }
+
                 $mail->send();
                 return true;
             } catch (\Throwable $e) {
-                error_log("Failed to send password reset email to {$email} on port {$attempt['port']}: " . $e->getMessage() . ". Retrying alternate port...");
+                error_log("Failed to send password reset email via {$strategy['desc']}: " . $e->getMessage() . ". Retrying next transport...");
             }
         }
 

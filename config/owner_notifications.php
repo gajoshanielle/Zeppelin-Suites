@@ -30,43 +30,66 @@ function sendOwnerNotificationEmail(string $ownerEmail, string $ownerName, strin
 
     $primaryPort = defined('SMTP_PORT') ? (int)SMTP_PORT : (int)env('SMTP_PORT', 587);
     $fallbackPort = ($primaryPort === 465) ? 587 : 465;
-
     $rawHost = defined('SMTP_HOST') ? SMTP_HOST : (string)env('SMTP_HOST', 'smtp.gmail.com');
-    $resolvedHost = filter_var($rawHost, FILTER_VALIDATE_IP) ? $rawHost : (gethostbyname($rawHost) ?: $rawHost);
+    $fromEmail = defined('MAIL_FROM_EMAIL') ? MAIL_FROM_EMAIL : (string)env('MAIL_FROM_EMAIL', 'noreply@zeppelinsuites.com');
+    $fromName  = defined('MAIL_FROM_NAME') ? MAIL_FROM_NAME : (string)env('MAIL_FROM_NAME', 'Zeppelin Suites');
 
-    $portAttempts = [
+    $strategies = [
         [
-            'port'   => $primaryPort,
-            'secure' => ($primaryPort === 465 ? PHPMailer::ENCRYPTION_SMTPS : PHPMailer::ENCRYPTION_STARTTLS)
+            'desc'     => "Configured SMTP ({$rawHost}:{$primaryPort})",
+            'type'     => 'smtp',
+            'host'     => $rawHost,
+            'port'     => $primaryPort,
+            'secure'   => ($primaryPort === 465 ? PHPMailer::ENCRYPTION_SMTPS : PHPMailer::ENCRYPTION_STARTTLS),
+            'auth'     => true,
+            'username' => $username,
+            'password' => $password,
+            'timeout'  => 3,
         ],
         [
-            'port'   => $fallbackPort,
-            'secure' => ($fallbackPort === 465 ? PHPMailer::ENCRYPTION_SMTPS : PHPMailer::ENCRYPTION_STARTTLS)
+            'desc'     => "Alternate SMTP ({$rawHost}:{$fallbackPort})",
+            'type'     => 'smtp',
+            'host'     => $rawHost,
+            'port'     => $fallbackPort,
+            'secure'   => ($fallbackPort === 465 ? PHPMailer::ENCRYPTION_SMTPS : PHPMailer::ENCRYPTION_STARTTLS),
+            'auth'     => true,
+            'username' => $username,
+            'password' => $password,
+            'timeout'  => 3,
+        ],
+        [
+            'desc'     => 'GoDaddy Relay (relay-hosting.secureserver.net:25)',
+            'type'     => 'smtp',
+            'host'     => 'relay-hosting.secureserver.net',
+            'port'     => 25,
+            'secure'   => false,
+            'auth'     => false,
+            'username' => '',
+            'password' => '',
+            'timeout'  => 3,
+        ],
+        [
+            'desc'     => 'Localhost MTA (localhost:25)',
+            'type'     => 'smtp',
+            'host'     => 'localhost',
+            'port'     => 25,
+            'secure'   => false,
+            'auth'     => false,
+            'username' => '',
+            'password' => '',
+            'timeout'  => 2,
+        ],
+        [
+            'desc'     => 'Native Server Mail Transport',
+            'type'     => 'mail',
         ],
     ];
 
-    foreach ($portAttempts as $attempt) {
+    foreach ($strategies as $strategy) {
         $mail = new PHPMailer(true);
         try {
-            $mail->isSMTP();
-            $mail->Host       = $resolvedHost;
-            $mail->SMTPAuth   = true;
-            $mail->Username   = $username;
-            $mail->Password   = str_replace(' ', '', (string)$password);
-            $mail->Port       = $attempt['port'];
-            $mail->SMTPSecure = $attempt['secure'];
-            $mail->Timeout    = 4;
-            $mail->Timelimit  = 4;
-            $mail->SMTPOptions = [
-                'ssl' => [
-                    'verify_peer'       => false,
-                    'verify_peer_name'  => false,
-                    'allow_self_signed' => true,
-                    'peer_name'         => $rawHost,
-                ]
-            ];
-
-            $mail->setFrom(MAIL_FROM_EMAIL, MAIL_FROM_NAME);
+            $mail->CharSet = 'UTF-8';
+            $mail->setFrom($fromEmail, $fromName);
             $mail->addAddress($ownerEmail, $ownerName);
 
             if ($htmlBody !== null && trim($htmlBody) !== '') {
@@ -80,10 +103,36 @@ function sendOwnerNotificationEmail(string $ownerEmail, string $ownerName, strin
                 $mail->Body    = $body;
             }
 
+            if ($strategy['type'] === 'smtp') {
+                $mail->isSMTP();
+                $mail->Host       = $strategy['host'];
+                $mail->Port       = $strategy['port'];
+                $mail->SMTPAuth   = $strategy['auth'];
+                if ($strategy['auth']) {
+                    $mail->Username = $strategy['username'];
+                    $mail->Password = $strategy['password'];
+                }
+                $mail->SMTPSecure = $strategy['secure'] ?: false;
+                if (!$strategy['secure']) {
+                    $mail->SMTPAutoTLS = false;
+                }
+                $mail->Timeout   = $strategy['timeout'] ?? 3;
+                $mail->Timelimit = $strategy['timeout'] ?? 3;
+                $mail->SMTPOptions = [
+                    'ssl' => [
+                        'verify_peer'       => false,
+                        'verify_peer_name'  => false,
+                        'allow_self_signed' => true,
+                    ]
+                ];
+            } else {
+                $mail->isMail();
+            }
+
             $mail->send();
             return true;
         } catch (\Throwable $e) {
-            error_log("sendOwnerNotificationEmail failed on port {$attempt['port']} for {$ownerEmail}: " . $e->getMessage() . ". Retrying alternate port...");
+            error_log("sendOwnerNotificationEmail via {$strategy['desc']} failed: " . $e->getMessage() . ". Retrying next transport...");
         }
     }
 
