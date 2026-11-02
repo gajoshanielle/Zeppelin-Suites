@@ -38,6 +38,8 @@ function sendOwnerNotificationEmail(string $ownerEmail, string $ownerName, strin
         $mail->Password = str_replace(' ', '', (string)$password);
         $mail->SMTPSecure = (SMTP_PORT === 465) ? PHPMailer::ENCRYPTION_SMTPS : PHPMailer::ENCRYPTION_STARTTLS;
         $mail->Port = SMTP_PORT;
+        $mail->Timeout = 8;
+        $mail->Timelimit = 8;
         $mail->SMTPOptions = [
             'ssl' => [
                 'verify_peer' => false,
@@ -62,9 +64,15 @@ function sendOwnerNotificationEmail(string $ownerEmail, string $ownerName, strin
 
         $mail->send();
         return true;
-
     } catch (PHPMailerException $e) {
+ catch (\Throwable $e) {
+        error_log("sendOwnerNotificationEmail unexpected error for {$ownerEmail}: " . $e->getMessage());
+        return false;
+    }
         error_log("sendOwnerNotificationEmail failed for {$ownerEmail}: " . $mail->ErrorInfo);
+        return false;
+    } catch (\Throwable $e) {
+        error_log("sendOwnerNotificationEmail unexpected error for {$ownerEmail}: " . $e->getMessage());
         return false;
     }
 }

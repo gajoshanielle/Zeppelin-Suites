@@ -1158,8 +1158,19 @@ $statusMap = [
     </span>
   `;
 
-      fetch(`${BASE_URL}/admin/inquiries/check-units?unit_type=${encodeURIComponent(currentUnitPreference)}&inq_id=${encodeURIComponent(currentInquiryId)}`)
-        .then(res => res.json())
+      fetch(`${BASE_URL}/admin/inquiries/check-units?unit_type=${encodeURIComponent(currentUnitPreference)}&inq_id=${encodeURIComponent(currentInquiryId)}`, {
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest',
+          'Accept': 'application/json'
+        }
+      })
+        .then(async res => {
+          const contentType = res.headers.get("content-type") || "";
+          if (!contentType.includes("application/json")) {
+            throw new Error(`Server returned an unexpected response (Status ${res.status}).`);
+          }
+          return res.json();
+        })
         .then(data => {
           checkBtn.disabled = false;
           checkBtn.innerHTML = "Check Units";
@@ -1329,9 +1340,21 @@ $statusMap = [
 
       fetch(`${BASE_URL}/admin/inquiries/send-approval`, {
         method: "POST",
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest',
+          'Accept': 'application/json'
+        },
         body: formData
       })
-        .then(res => res.json())
+        .then(async res => {
+          const contentType = res.headers.get("content-type") || "";
+          if (!contentType.includes("application/json")) {
+            throw new Error(res.status === 504 || res.status === 500
+              ? "The server took too long to respond or encountered an internal timeout."
+              : `Server returned an unexpected response (Status ${res.status}).`);
+          }
+          return res.json();
+        })
         .then(data => {
           if (!data.success) {
             updateSelectedUnitsUI();
@@ -1431,9 +1454,19 @@ $statusMap = [
 
       fetch(`${BASE_URL}/admin/inquiries/cancel-approval`, {
         method: "POST",
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest',
+          'Accept': 'application/json'
+        },
         body: formData
       })
-        .then(res => res.json())
+        .then(async res => {
+          const contentType = res.headers.get("content-type") || "";
+          if (!contentType.includes("application/json")) {
+            throw new Error(`Server returned an unexpected response (Status ${res.status}).`);
+          }
+          return res.json();
+        })
         .then(data => {
           if (!data.success) {
             showApprovalStatusModal(false, 'Cancellation Failed', data.message || 'Unable to cancel this request.');

@@ -800,11 +800,15 @@ class Inquiry extends Model {
                 require_once $notificationFile;
                 if (function_exists('notifyOwnerOfApprovalRequest')) {
                     foreach ($notifyList as $n) {
-                        notifyOwnerOfApprovalRequest(
-                            $n['owner_email'] ?? '',
-                            $n['owner_name'] ?? 'Unit Owner',
-                            $n['unit_number'] ?? ''
-                        );
+                        try {
+                            notifyOwnerOfApprovalRequest(
+                                $n['owner_email'] ?? '',
+                                $n['owner_name'] ?? 'Unit Owner',
+                                $n['unit_number'] ?? ''
+                            );
+                        } catch (\Throwable $mailEx) {
+                            error_log("Failed to send approval notification email to " . ($n['owner_email'] ?? 'unknown') . ": " . $mailEx->getMessage());
+                        }
                     }
                 }
             }
