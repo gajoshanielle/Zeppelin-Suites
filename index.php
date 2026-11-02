@@ -9,6 +9,27 @@ declare(strict_types=1);
 require_once __DIR__ . '/config/env.php';
 require_once __DIR__ . '/core/Logger.php';
 
+// Normalize APP_URL to root-relative path on live deployments (prevents navigation from jumping to localhost)
+if (!empty($_SERVER['HTTP_HOST'])) {
+    $host = strtolower(explode(':', $_SERVER['HTTP_HOST'])[0]);
+    if (!in_array($host, ['localhost', '127.0.0.1', '::1'], true)) {
+        $_ENV['APP_URL'] = '/Zeppelin-Suites';
+        $_SERVER['APP_URL'] = '/Zeppelin-Suites';
+        putenv('APP_URL=/Zeppelin-Suites');
+
+        $proto = (!empty($_SERVER['HTTP_X_FORWARDED_PROTO']))
+            ? $_SERVER['HTTP_X_FORWARDED_PROTO']
+            : ((!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http');
+        $liveBaseUrl = "{$proto}://" . $_SERVER['HTTP_HOST'] . "/Zeppelin-Suites";
+
+        if (str_contains((string)env('OWNER_PORTAL_LOGIN_URL', ''), 'localhost')) {
+            $_ENV['OWNER_PORTAL_LOGIN_URL'] = "{$liveBaseUrl}/login";
+            $_SERVER['OWNER_PORTAL_LOGIN_URL'] = "{$liveBaseUrl}/login";
+            putenv("OWNER_PORTAL_LOGIN_URL={$liveBaseUrl}/login");
+        }
+    }
+}
+
 // 2. Configure error reporting and register global error & exception listeners
 if (env('APP_DEBUG', false)) {
     ini_set('display_errors', '1');
