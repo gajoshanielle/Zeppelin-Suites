@@ -65,10 +65,6 @@ function sendOwnerNotificationEmail(string $ownerEmail, string $ownerName, strin
         $mail->send();
         return true;
     } catch (PHPMailerException $e) {
- catch (\Throwable $e) {
-        error_log("sendOwnerNotificationEmail unexpected error for {$ownerEmail}: " . $e->getMessage());
-        return false;
-    }
         error_log("sendOwnerNotificationEmail failed for {$ownerEmail}: " . $mail->ErrorInfo);
         return false;
     } catch (\Throwable $e) {
