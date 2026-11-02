@@ -88,6 +88,8 @@ class Router {
             // Strip basePath (e.g. /Zeppelin-Suites) from path if present
             if ($this->basePath !== '' && str_starts_with($path, $this->basePath)) {
                 $path = substr($path, strlen($this->basePath));
+            } elseif (str_starts_with($path, '/Zeppelin-Suites')) {
+                $path = substr($path, strlen('/Zeppelin-Suites'));
             }
 
             // Also strip script filename if directly accessed (e.g. /index.php/login)
