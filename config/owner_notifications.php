@@ -22,7 +22,44 @@ function sendEmailViaBrevoApi(string $apiKey, string $to, string $toName, string
         return false;
     }
 
-    $senderEmail = (strpos($fromEmail, '@') !== false) ? $fromEmail : 'gajoshanielle@gmail.com';
+    // Brevo requires the sender email to be an active, verified sender on the Brevo account.
+    // Query Brevo's verified senders list dynamically to always use an authenticated sender.
+    static $brevoVerifiedSender = null;
+    $senderEmail = trim($fromEmail);
+
+    if ($brevoVerifiedSender === null) {
+        $chSenders = curl_init('https://api.brevo.com/v3/senders');
+        curl_setopt($chSenders, CURLOPT_HTTPHEADER, [
+            'api-key: ' . $apiKey,
+            'Accept: application/json',
+        ]);
+        curl_setopt($chSenders, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($chSenders, CURLOPT_TIMEOUT, 4);
+        curl_setopt($chSenders, CURLOPT_SSL_VERIFYPEER, false);
+        $sendersJson = curl_exec($chSenders);
+        curl_close($chSenders);
+
+        if ($sendersJson) {
+            $sendersData = json_decode($sendersJson, true);
+            if (!empty($sendersData['senders']) && is_array($sendersData['senders'])) {
+                foreach ($sendersData['senders'] as $senderItem) {
+                    if (!empty($senderItem['active']) && !empty($senderItem['email'])) {
+                        $brevoVerifiedSender = (string)$senderItem['email'];
+                        break;
+                    }
+                }
+            }
+        }
+
+        if (empty($brevoVerifiedSender)) {
+            $brevoVerifiedSender = 'maddysilvano@gmail.com';
+        }
+    }
+
+    if (empty($senderEmail) || strpos($senderEmail, '@zeppelinsuites.com') !== false || $senderEmail === 'zepellinsuites_no_reply@gmail.com') {
+        $senderEmail = $brevoVerifiedSender;
+    }
+
     $displayName = 'Zeppelin Suites (No-Reply)';
 
     $payload = json_encode([
@@ -55,6 +92,7 @@ function sendEmailViaBrevoApi(string $apiKey, string $to, string $toName, string
     curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_TIMEOUT, 8);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
     $response = curl_exec($ch);
     $httpCode = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
     curl_close($ch);
@@ -64,9 +102,7 @@ function sendEmailViaBrevoApi(string $apiKey, string $to, string $toName, string
     }
 
     error_log("Brevo API HTTP error ({$httpCode}): " . (string)$response);
-    // If all SMTP and mail() transports failed (e.g. Railway container blocking SMTP), log notice and allow workflow to proceed safely
-    error_log("[Zeppelin Suites Dev Mail] Owner notification email simulated for {$ownerEmail}. Configure BREVO_API_KEY or GOOGLE_SCRIPT_URL in config/email_config.php for live inbox delivery on Railway.");
-    return true;
+    return false;
 }
 
 /**
@@ -166,18 +202,7 @@ function sendOwnerNotificationEmail(string $ownerEmail, string $ownerName, strin
 {
     if (trim($ownerEmail) === '' || !filter_var($ownerEmail, FILTER_VALIDATE_EMAIL)) {
         error_log("sendOwnerNotificationEmail: skipped, invalid/missing owner email ('{$ownerEmail}')");
-        // If all SMTP and mail() transports failed (e.g. Railway container blocking SMTP), log notice and allow workflow to proceed safely
-    error_log("[Zeppelin Suites Dev Mail] Owner notification email simulated for {$ownerEmail}. Configure BREVO_API_KEY or GOOGLE_SCRIPT_URL in config/email_config.php for live inbox delivery on Railway.");
-    return true;
-    }
-
-    $username = defined('SMTP_USERNAME') ? SMTP_USERNAME : (string)env('SMTP_USERNAME', '');
-    $password = defined('SMTP_PASSWORD') ? SMTP_PASSWORD : (string)env('SMTP_PASSWORD', '');
-
-    // If SMTP credentials are not configured in local environment, log simulation and succeed
-    if (empty($username) || empty($password)) {
-        error_log("[Zeppelin Suites Dev Mail] Simulating owner notification to {$ownerEmail} ({$ownerName}) with subject '{$subject}'. SMTP credentials not set in .env.");
-        return true;
+        return false;
     }
 
     $brevoApiKey   = defined('BREVO_API_KEY') ? BREVO_API_KEY : (string)env('BREVO_API_KEY', '');
@@ -205,6 +230,15 @@ function sendOwnerNotificationEmail(string $ownerEmail, string $ownerName, strin
         if (sendEmailViaResendApi($resendApiKey, $ownerEmail, $ownerName, $subject, $htmlBody ?: $body, $body, $fromEmail, $fromName)) {
             return true;
         }
+    }
+
+    $username = defined('SMTP_USERNAME') ? SMTP_USERNAME : (string)env('SMTP_USERNAME', '');
+    $password = defined('SMTP_PASSWORD') ? SMTP_PASSWORD : (string)env('SMTP_PASSWORD', '');
+
+    // If SMTP credentials are not configured in local environment, log simulation and succeed
+    if (empty($username) || empty($password)) {
+        error_log("[Zeppelin Suites Dev Mail] Simulating owner notification to {$ownerEmail} ({$ownerName}) with subject '{$subject}'. SMTP credentials not set in .env.");
+        return true;
     }
 
     $primaryPort = defined('SMTP_PORT') ? (int)SMTP_PORT : (int)env('SMTP_PORT', 587);
