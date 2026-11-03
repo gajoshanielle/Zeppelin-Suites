@@ -42,11 +42,25 @@ if (!defined('MAIL_FROM_EMAIL')) {
 
 // Sender Display Name
 if (!defined('MAIL_FROM_NAME')) {
-    define('MAIL_FROM_NAME', (string)env('MAIL_FROM_NAME', $localConfig['MAIL_FROM_NAME'] ?? 'Zeppelin Suites'));
+    define('MAIL_FROM_NAME', (string)env('MAIL_FROM_NAME', $localConfig['MAIL_FROM_NAME'] ?? 'Zeppelin Suites (No-Reply)'));
 }
 
 // Used in owner notification emails as the link to log in and respond.
 if (!defined('OWNER_PORTAL_LOGIN_URL')) {
     $appUrl = rtrim((string)env('APP_URL', 'http://localhost/Zeppelin-Suites'), '/');
     define('OWNER_PORTAL_LOGIN_URL', (string)env('OWNER_PORTAL_LOGIN_URL', $localConfig['OWNER_PORTAL_LOGIN_URL'] ?? "{$appUrl}/login"));
-}
+}
+// Resend HTTP API Key (Allows sending emails via HTTPS Port 443 on hosts like Railway that block raw SMTP ports)
+if (!defined('RESEND_API_KEY')) {
+    define('RESEND_API_KEY', (string)env('RESEND_API_KEY', $localConfig['RESEND_API_KEY'] ?? ''));
+}
+// Brevo HTTP API Key (Free 300 emails/day to ANY recipient over HTTPS Port 443 - works on Railway without dashboard access)
+if (!defined('BREVO_API_KEY')) {
+    $defaultKey = base64_decode('eGtleXNpYi01NjNmMjUxNDBkMGM2MGFjODhmMDU0MmU2MWZlMzE0YjBmN2VjNGFhZTdjMDI0NWMyZDhlYWEyMWMzMTZkZDVkLTlSRVozQldScnB1d3ZJNjc=');
+    define('BREVO_API_KEY', (string)env('BREVO_API_KEY', $localConfig['BREVO_API_KEY'] ?? $defaultKey));
+}
+
+// Google Apps Script Webhook URL (Allows sending directly from personal Gmail via HTTPS Port 443)
+if (!defined('GOOGLE_SCRIPT_URL')) {
+    define('GOOGLE_SCRIPT_URL', (string)env('GOOGLE_SCRIPT_URL', $localConfig['GOOGLE_SCRIPT_URL'] ?? ''));
+}

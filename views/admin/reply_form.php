@@ -192,7 +192,7 @@ if ($approval_status === 'approved' && $approved_count > 1) {
     $email_body .= "We are currently reviewing your request for " . ($unit_display ?: 'our suites') . " and our team is actively coordinating availability.\n\n";
 }
 
-$email_body .= "If you have any questions or require additional details, feel free to reply directly to this email.\n\n";
+$email_body .= "Please note that this is an automated message. For inquiries, you may contact our leasing administration office.\n\n";
 $email_body .= "Warm regards,\nZeppelin Suites Leasing Management\nadmin@zeppelinsuites.com";
 
 $flashSuccess = $_SESSION['success_message'] ?? null;

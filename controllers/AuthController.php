@@ -358,6 +358,14 @@ class AuthController extends Controller {
         $fromEmail = defined('MAIL_FROM_EMAIL') ? MAIL_FROM_EMAIL : (string)env('MAIL_FROM_EMAIL', 'noreply@zeppelinsuites.com');
         $fromName  = defined('MAIL_FROM_NAME') ? MAIL_FROM_NAME : (string)env('MAIL_FROM_NAME', 'Zeppelin Suites');
 
+        $resendApiKey = defined('RESEND_API_KEY') ? RESEND_API_KEY : (string)env('RESEND_API_KEY', '');
+        if (!empty($resendApiKey) && function_exists('sendEmailViaResendApi')) {
+            $sent = sendEmailViaResendApi($resendApiKey, $email, $name, $subject, $htmlBody, $body, $fromEmail, $fromName);
+            if ($sent) {
+                return true;
+            }
+        }
+
         $primaryPort = defined('SMTP_PORT') ? (int)SMTP_PORT : (int)env('SMTP_PORT', 587);
         $fallbackPort = ($primaryPort === 465) ? 587 : 465;
         $rawHost = defined('SMTP_HOST') ? SMTP_HOST : (string)env('SMTP_HOST', 'smtp.gmail.com');
