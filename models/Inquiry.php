@@ -251,18 +251,35 @@ class Inquiry extends Model {
             return ['success' => false, 'error' => 'Inquiry not found.'];
         }
 
+        // Resolve absolute domain URL for email links
+        $envAppUrl = trim((string)env('APP_URL', ''));
+        if (!empty($envAppUrl) && (str_starts_with($envAppUrl, 'http://') || str_starts_with($envAppUrl, 'https://'))) {
+            $domainUrl = rtrim($envAppUrl, '/');
+        } elseif (!empty($_SERVER['HTTP_HOST'])) {
+            $isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+                || (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https')
+                || (isset($_SERVER['SERVER_PORT']) && (int)$_SERVER['SERVER_PORT'] === 443);
+            $domainUrl = ($isHttps ? 'https://' : 'http://') . $_SERVER['HTTP_HOST'];
+        } else {
+            $domainUrl = 'https://zeppelin-suites.beulahlabs.com';
+        }
+
         // Auto-append reservation token link if approved and not already included
         if (
             strtolower((string)($inquiry['approval_status'] ?? '')) === 'approved' &&
             !empty($inquiry['reservation_token'])
         ) {
             $token = (string)$inquiry['reservation_token'];
-            $baseUrl = rtrim((string)env('APP_URL', 'http://localhost/Zeppelin-Suites'), '/');
-            $reservationLink = "{$baseUrl}/reservation?token=" . urlencode($token);
+            $reservationLink = "{$domainUrl}/reservation?token=" . urlencode($token);
 
             if (strpos($emailBody, $token) === false) {
                 $emailBody .= "\n\nPlease proceed to finalize your reservation at the link below:\n" . $reservationLink;
             }
+        }
+
+        // Ensure any relative /reservation links in the email body are expanded to full clickable URLs
+        if (strpos($emailBody, '/reservation?token=') !== false) {
+            $emailBody = preg_replace('#(?<!https://)(?<!http://)(?<!/)((?:/Zeppelin-Suites)?/reservation\?token=)#i', "{$domainUrl}/reservation?token=", $emailBody);
         }
 
         // Require email config and PHPMailer

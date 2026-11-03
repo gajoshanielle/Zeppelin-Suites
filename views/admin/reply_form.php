@@ -80,7 +80,18 @@ $formatSqm = function($sqm): string {
 };
 
 $reservation_token = (string)($inquiry['reservation_token'] ?? '');
-$reservation_link = $reservation_token ? "{$baseUrl}/reservation?token=" . urlencode($reservation_token) : "{$baseUrl}/reservation";
+$envAppUrl = trim((string)env('APP_URL', ''));
+if (!empty($envAppUrl) && (str_starts_with($envAppUrl, 'http://') || str_starts_with($envAppUrl, 'https://'))) {
+    $emailHostUrl = rtrim($envAppUrl, '/');
+} elseif (!empty($_SERVER['HTTP_HOST'])) {
+    $isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+        || (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https')
+        || (isset($_SERVER['SERVER_PORT']) && (int)$_SERVER['SERVER_PORT'] === 443);
+    $emailHostUrl = ($isHttps ? 'https://' : 'http://') . $_SERVER['HTTP_HOST'];
+} else {
+    $emailHostUrl = 'https://zeppelin-suites.beulahlabs.com';
+}
+$reservation_link = $reservation_token ? "{$emailHostUrl}/reservation?token=" . urlencode($reservation_token) : "{$emailHostUrl}/reservation";
 
 $approved_unit_number = (string)($inquiry['approved_unit_number'] ?? '');
 $approved_unit_type = (string)($inquiry['approved_unit_type'] ?? '');
