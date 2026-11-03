@@ -362,7 +362,7 @@ class Inquiry extends Model {
             if (sendEmailViaBrevoApi($brevoApiKey, $replyTo, $clientName, $subject, $htmlBody, $emailBody, $fromEmail, $fromName)) {
                 $updateSql = "UPDATE inquiry_table SET status = 'responded' WHERE inq_id = ?";
                 $this->execute($updateSql, [$inqId]);
-                return ['success' => true, 'message' => 'Reply email sent successfully via Brevo. Inquiry status updated to Responded.'];
+                return ['success' => true, 'message' => 'Reply email sent successfully.'];
             }
         }
 
@@ -371,7 +371,7 @@ class Inquiry extends Model {
             if (sendEmailViaGoogleScript($googleScript, $replyTo, $subject, $htmlBody, $emailBody)) {
                 $updateSql = "UPDATE inquiry_table SET status = 'responded' WHERE inq_id = ?";
                 $this->execute($updateSql, [$inqId]);
-                return ['success' => true, 'message' => 'Reply email sent successfully via Gmail Webhook. Inquiry status updated to Responded.'];
+                return ['success' => true, 'message' => 'Reply email sent successfully.'];
             }
         }
 
@@ -380,7 +380,7 @@ class Inquiry extends Model {
             if (sendEmailViaResendApi($resendApiKey, $replyTo, $clientName, $subject, $htmlBody, $emailBody, $fromEmail, $fromName)) {
                 $updateSql = "UPDATE inquiry_table SET status = 'responded' WHERE inq_id = ?";
                 $this->execute($updateSql, [$inqId]);
-                return ['success' => true, 'message' => 'Reply email sent successfully via Resend. Inquiry status updated to Responded.'];
+                return ['success' => true, 'message' => 'Reply email sent successfully.'];
             }
         }
 
@@ -520,7 +520,7 @@ class Inquiry extends Model {
         ";
         $this->execute($updateSql, [$inqId]);
 
-        return ['success' => true, 'message' => 'Reply email sent successfully. Inquiry status updated to Responded.'];
+        return ['success' => true, 'message' => 'Reply email sent successfully.'];
     }
 
     /**

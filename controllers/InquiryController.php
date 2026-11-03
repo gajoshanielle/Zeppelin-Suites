@@ -169,7 +169,7 @@ class InquiryController extends Controller {
         $result = $this->inquiryModel->sendReply($inqId, $replyTo, $subject, $emailBody);
 
         if ($result['success']) {
-            $_SESSION['success_message'] = $result['message'] ?? 'Reply email sent successfully. Inquiry status updated to Responded.';
+            $_SESSION['success_message'] = $result['message'] ?? 'Reply email sent successfully.';
             $this->redirect("{$baseUrl}/admin/inquiries");
             return;
         } else {
