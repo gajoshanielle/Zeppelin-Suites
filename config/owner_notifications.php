@@ -23,43 +23,10 @@ function sendEmailViaBrevoApi(string $apiKey, string $to, string $toName, string
     }
 
     // Brevo requires the sender email to be an active, verified sender on the Brevo account.
-    // Query Brevo's verified senders list dynamically to always use an authenticated sender.
-    static $brevoVerifiedSender = null;
-    $senderEmail = trim($fromEmail);
-
-    if ($brevoVerifiedSender === null) {
-        $chSenders = curl_init('https://api.brevo.com/v3/senders');
-        curl_setopt($chSenders, CURLOPT_HTTPHEADER, [
-            'api-key: ' . $apiKey,
-            'Accept: application/json',
-        ]);
-        curl_setopt($chSenders, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($chSenders, CURLOPT_TIMEOUT, 4);
-        curl_setopt($chSenders, CURLOPT_SSL_VERIFYPEER, false);
-        $sendersJson = curl_exec($chSenders);
-        curl_close($chSenders);
-
-        if ($sendersJson) {
-            $sendersData = json_decode($sendersJson, true);
-            if (!empty($sendersData['senders']) && is_array($sendersData['senders'])) {
-                foreach ($sendersData['senders'] as $senderItem) {
-                    if (!empty($senderItem['active']) && !empty($senderItem['email'])) {
-                        $brevoVerifiedSender = (string)$senderItem['email'];
-                        break;
-                    }
-                }
-            }
-        }
-
-        if (empty($brevoVerifiedSender)) {
-            $brevoVerifiedSender = 'maddysilvano@gmail.com';
-        }
-    }
-
-    if (empty($senderEmail) || strpos($senderEmail, '@zeppelinsuites.com') !== false || $senderEmail === 'zepellinsuites_no_reply@gmail.com') {
-        $senderEmail = $brevoVerifiedSender;
-    }
-
+    // The verified email address for this Brevo account is maddysilvano@gmail.com.
+    // We send using this verified email while keeping the display name as 'Zeppelin Suites (No-Reply)'
+    // and replyTo set to 'noreply@zeppelinsuites.com' so customer replies go to no-reply.
+    $senderEmail = 'maddysilvano@gmail.com';
     $displayName = 'Zeppelin Suites (No-Reply)';
 
     $payload = json_encode([
