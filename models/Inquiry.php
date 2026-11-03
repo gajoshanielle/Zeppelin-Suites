@@ -353,80 +353,6 @@ class Inquiry extends Model {
         $fromEmail = defined('MAIL_FROM_EMAIL') ? MAIL_FROM_EMAIL : (string)env('MAIL_FROM_EMAIL', 'noreply@zeppelinsuites.com');
         $fromName = 'Zeppelin Suites (No-Reply)';
 
-        $primaryPort = defined('SMTP_PORT') ? (int)SMTP_PORT : (int)env('SMTP_PORT', 587);
-        $fallbackPort = ($primaryPort === 465) ? 587 : 465;
-        $rawHost = defined('SMTP_HOST') ? SMTP_HOST : (string)env('SMTP_HOST', 'smtp.gmail.com');
-
-        // Priority 1: Direct SMTP (Gmail SMTP) using configured credentials
-        // Connects in 1-2 seconds on environments where SMTP ports are not firewalled (e.g. localhost/XAMPP)
-        if (!empty($username) && !empty($password)) {
-            $smtpStrategies = [
-                [
-                    'desc'     => "Configured SMTP ({$rawHost}:{$primaryPort})",
-                    'type'     => 'smtp',
-                    'host'     => $rawHost,
-                    'port'     => $primaryPort,
-                    'secure'   => ($primaryPort === 465 ? \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_SMTPS : \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS),
-                    'auth'     => true,
-                    'username' => $username,
-                    'password' => $password,
-                    'timeout'  => 4,
-                ],
-                [
-                    'desc'     => "Alternate SMTP ({$rawHost}:{$fallbackPort})",
-                    'type'     => 'smtp',
-                    'host'     => $rawHost,
-                    'port'     => $fallbackPort,
-                    'secure'   => ($fallbackPort === 465 ? \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_SMTPS : \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS),
-                    'auth'     => true,
-                    'username' => $username,
-                    'password' => $password,
-                    'timeout'  => 4,
-                ],
-            ];
-
-            foreach ($smtpStrategies as $strategy) {
-                try {
-                    $mail = new \PHPMailer\PHPMailer\PHPMailer(true);
-                    $mail->CharSet = 'UTF-8';
-                    $envelopeFrom = (!empty($strategy['username']) && strpos($strategy['username'], '@') !== false) ? $strategy['username'] : $fromEmail;
-                    $mail->setFrom($envelopeFrom, $fromName);
-                    $mail->addReplyTo('noreply@zeppelinsuites.com', $fromName);
-                    $mail->addAddress($replyTo);
-                    $mail->isHTML(true);
-                    $mail->Subject = $subject;
-                    $mail->Body    = $htmlBody;
-                    $mail->AltBody = $emailBody;
-
-                    $mail->isSMTP();
-                    $mail->Host       = $strategy['host'];
-                    $mail->Port       = $strategy['port'];
-                    $mail->SMTPAuth   = $strategy['auth'];
-                    $mail->Username   = $strategy['username'];
-                    $mail->Password   = $strategy['password'];
-                    $mail->SMTPSecure = $strategy['secure'] ?: false;
-                    $mail->Timeout    = $strategy['timeout'] ?? 4;
-                    $mail->Timelimit  = $strategy['timeout'] ?? 4;
-                    $mail->SMTPOptions = [
-                        'ssl' => [
-                            'verify_peer'       => false,
-                            'verify_peer_name'  => false,
-                            'allow_self_signed' => true,
-                        ]
-                    ];
-
-                    $mail->send();
-                    $updateSql = "UPDATE inquiry_table SET status = 'responded' WHERE inq_id = ?";
-                    $this->execute($updateSql, [$inqId]);
-                    return ['success' => true, 'message' => 'Reply email sent successfully via Gmail SMTP. Inquiry status updated to Responded.'];
-                } catch (\Throwable $e) {
-                    error_log("Inquiry sendReply via {$strategy['desc']} failed: " . $e->getMessage() . ". Retrying next transport...");
-                }
-            }
-        }
-
-        // Priority 2: HTTPS REST APIs over Port 443 (Brevo / Google Apps Script / Resend)
-        // Automatically utilized on cloud platforms like Railway where outbound raw SMTP ports (587/465) are firewalled
         $brevoApiKey   = defined('BREVO_API_KEY') ? BREVO_API_KEY : (string)env('BREVO_API_KEY', '');
         $googleScript  = defined('GOOGLE_SCRIPT_URL') ? GOOGLE_SCRIPT_URL : (string)env('GOOGLE_SCRIPT_URL', '');
         $resendApiKey  = defined('RESEND_API_KEY') ? RESEND_API_KEY : (string)env('RESEND_API_KEY', '');
@@ -458,9 +384,37 @@ class Inquiry extends Model {
             }
         }
 
-        // Priority 3: Fallback server relays and native mail() transport
-        $fallbackStrategies = [
-            // GoDaddy cPanel shared hosting internal relay (port 25, no auth)
+        $primaryPort = defined('SMTP_PORT') ? (int)SMTP_PORT : (int)env('SMTP_PORT', 587);
+        $fallbackPort = ($primaryPort === 465) ? 587 : 465;
+        $rawHost = defined('SMTP_HOST') ? SMTP_HOST : (string)env('SMTP_HOST', 'smtp.gmail.com');
+
+        // Multi-tier transport strategies to guarantee delivery across both local development and cloud hosting (e.g. GoDaddy/cPanel)
+        $strategies = [
+            // 1. Direct configured SMTP (TLS 587 or SSL 465)
+            [
+                'desc'     => "Configured SMTP ({$rawHost}:{$primaryPort})",
+                'type'     => 'smtp',
+                'host'     => $rawHost,
+                'port'     => $primaryPort,
+                'secure'   => ($primaryPort === 465 ? \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_SMTPS : \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS),
+                'auth'     => true,
+                'username' => $username,
+                'password' => $password,
+                'timeout'  => 3,
+            ],
+            // 2. Alternate SMTP port (SSL 465 or TLS 587)
+            [
+                'desc'     => "Alternate SMTP ({$rawHost}:{$fallbackPort})",
+                'type'     => 'smtp',
+                'host'     => $rawHost,
+                'port'     => $fallbackPort,
+                'secure'   => ($fallbackPort === 465 ? \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_SMTPS : \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS),
+                'auth'     => true,
+                'username' => $username,
+                'password' => $password,
+                'timeout'  => 3,
+            ],
+            // 3. GoDaddy cPanel shared hosting internal relay (port 25, no auth)
             [
                 'desc'     => 'GoDaddy Relay (relay-hosting.secureserver.net:25)',
                 'type'     => 'smtp',
@@ -472,7 +426,7 @@ class Inquiry extends Model {
                 'password' => '',
                 'timeout'  => 3,
             ],
-            // Localhost MTA (port 25, no auth)
+            // 4. Localhost MTA (port 25, no auth)
             [
                 'desc'     => 'Localhost MTA (localhost:25)',
                 'type'     => 'smtp',
@@ -484,7 +438,7 @@ class Inquiry extends Model {
                 'password' => '',
                 'timeout'  => 2,
             ],
-            // Native server mail() transport via host MTA (Sendmail/Exim)
+            // 5. Native server mail() transport via host MTA (Sendmail/Exim)
             [
                 'desc'     => 'Native Server Mail Transport',
                 'type'     => 'mail',
@@ -494,7 +448,7 @@ class Inquiry extends Model {
         $emailSent = false;
         $lastException = null;
 
-        foreach ($fallbackStrategies as $strategy) {
+        foreach ($strategies as $strategy) {
             try {
                 $mail = new \PHPMailer\PHPMailer\PHPMailer(true);
                 $mail->CharSet = 'UTF-8';
