@@ -1928,7 +1928,10 @@ $downpaymentAmount = (float) ($res['required_amount'] ?? 0) > 0
       modal.classList.remove('open');
       setTimeout(() => {
         if (!modal.classList.contains('open')) modal.classList.add('hidden');
-        if (_ownerShouldReload) window.location.reload();
+        if (_ownerShouldReload) {
+          window.location.hash = 'documents';
+          window.location.reload();
+        }
       }, 250);
     }
 
@@ -1947,9 +1950,10 @@ $downpaymentAmount = (float) ($res['required_amount'] ?? 0) > 0
           ? 'btn-press px-5 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-xl shadow-sm cursor-pointer'
           : 'btn-press px-5 py-2 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-xl shadow-sm cursor-pointer';
         btn.onclick = function() {
+          const cb = _ownerConfirmCallback;
           closeOwnerConfirmModal();
-          if (typeof _ownerConfirmCallback === 'function') {
-            _ownerConfirmCallback();
+          if (typeof cb === 'function') {
+            cb();
           }
         };
       }

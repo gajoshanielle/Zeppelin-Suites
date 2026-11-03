@@ -1412,9 +1412,10 @@ $isInHousePayment = strtolower((string)$paymentMethod) === 'in-house';
         ? 'px-5 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-xl shadow-sm cursor-pointer'
         : 'px-5 py-2 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-xl shadow-sm cursor-pointer';
       btn.onclick = function() {
+        const cb = _adminConfirmCallback;
         closeAdminConfirmModal();
-        if (typeof _adminConfirmCallback === 'function') {
-          _adminConfirmCallback();
+        if (typeof cb === 'function') {
+          cb();
         }
       };
     }
