@@ -1167,3 +1167,85 @@ function notifyClientOfLeaseSigningDate(
 }
 
 
+
+
+/**
+ * Notify client that their reservation is Officially Booked once all prerequisites
+ * (payment, lease signing, and documents) have been verified.
+ */
+function notifyClientOfOfficiallyBooked(
+    string $clientEmail,
+    string $clientName,
+    string $unitDisplay,
+    ?string $moveInDate,
+    int $reservationId,
+    string $transactionType = 'Unit Leasing'
+): bool {
+    $subject = "Zeppelin Suites - Reservation Officially Booked (Ref #{$reservationId})";
+
+    $isResale = stripos($transactionType, 'resale') !== false;
+    $actionType = $isResale ? 'Ownership Transfer' : 'Lease Reservation';
+    $turnoverLabel = $isResale ? 'Turnover & Ownership Handover' : 'Move-In & Key Turnover';
+
+    $moveInFormatted = (!empty($moveInDate) && $moveInDate !== '0000-00-00')
+        ? date('F j, Y', strtotime($moveInDate))
+        : 'To be scheduled with management';
+
+    $plainBody = "Dear {$clientName},\n\n"
+        . "Congratulations! Your reservation for {$unitDisplay} at Zeppelin Suites is now officially booked and secured.\n\n"
+        . "All required verification steps—including payment confirmation, lease/contract signing, and document validation—have been successfully completed.\n\n"
+        . "Reservation Summary:\n"
+        . "--------------------------------------------------------\n"
+        . "Reference No:     #{$reservationId}\n"
+        . "Assigned Unit:    {$unitDisplay}\n"
+        . "Transaction:      {$actionType}\n"
+        . "Booking Status:   Officially Booked\n"
+        . "Target {$turnoverLabel}: {$moveInFormatted}\n"
+        . "--------------------------------------------------------\n\n"
+        . "Next Steps:\n"
+        . "1. Your unit is secured and taken off the available market.\n"
+        . "2. On your scheduled {$turnoverLabel} date, our administration team will conduct unit turnover and key release.\n"
+        . "3. Your resident portal account login credentials will be generated and dispatched upon unit turnover.\n\n"
+        . "If you need to make schedule arrangements or have questions, please reach out to our leasing administration office.\n\n"
+        . "Welcome to Zeppelin Suites!\n\n"
+        . "Best regards,\n"
+        . "Zeppelin Suites Management Team";
+
+    $details = [
+        ['label' => 'Reference No:', 'value' => '#' . $reservationId],
+        ['label' => 'Assigned Unit:', 'value' => $unitDisplay],
+        ['label' => 'Transaction:', 'value' => $actionType],
+        ['label' => 'Booking Status:', 'value' => 'Officially Booked', 'color' => '#059669'],
+        ['label' => $turnoverLabel . ':', 'value' => $moveInFormatted],
+    ];
+
+    $htmlBody = buildZeppelinEmailHtml([
+        'badgeText'       => 'Officially Booked',
+        'badgeType'       => 'emerald',
+        'recipientName'   => $clientName,
+        'greeting'        => "Dear " . htmlspecialchars($clientName, ENT_QUOTES, 'UTF-8') . ",",
+        'messageHtml'     => "Congratulations! Your reservation for <strong>" . htmlspecialchars($unitDisplay, ENT_QUOTES, 'UTF-8') . "</strong> at Zeppelin Suites is now <strong>officially booked and secured</strong>. All verification steps—including payment confirmation, agreement signing, and required documents—have been successfully validated.",
+        'highlightBox'    => [
+            'label' => 'Booking Status',
+            'value' => 'Officially Booked & Reserved',
+            'type'  => 'emerald',
+        ],
+        'details'         => $details,
+        'calloutBox'      => [
+            'text'    => "Your unit is officially booked and reserved for you. On your scheduled <strong>" . htmlspecialchars($turnoverLabel, ENT_QUOTES, 'UTF-8') . "</strong> ({$moveInFormatted}), our administration team will facilitate your turnover inspection, release your keys, and activate your resident portal account.",
+            'type'    => 'emerald',
+        ],
+        'reminders'       => [
+            'title' => 'What to Expect Next',
+            'items' => [
+                'Our administration office will coordinate with you prior to your scheduled move-in/turnover date for gate passes and arrival guidelines.',
+                'Your resident portal login credentials will be issued upon unit turnover for easy tracking of maintenance requests and billing.',
+                'If you need to adjust your move-in schedule or submit additional requirements, please contact our leasing office.',
+            ],
+        ],
+        'reassuranceText' => 'Thank you for choosing Zeppelin Suites. We are excited to welcome you!',
+        'footerSubtext'   => 'This is an official reservation confirmation notification.',
+    ]);
+
+    return sendOwnerNotificationEmail($clientEmail, $clientName, $subject, $plainBody, $htmlBody);
+}

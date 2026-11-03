@@ -392,18 +392,25 @@ $downpaymentAmount = (float) ($res['required_amount'] ?? 0) > 0
               <?php
               $pStatus = strtolower(trim((string) ($res['payment_status'] ?? '')));
               $rStatus = strtolower(trim((string) ($res['reservation_status'] ?? 'submitted')));
-              if (in_array($rStatus, ['reserved', 'requirements completed', 'officially booked', 'active', 'handover', 'moved in'], true)) {
-                $displayResStatus = 'Reserved';
-                $resBadgeClass = 'bg-emerald-100 text-emerald-700';
-                $dotClass = 'bg-emerald-500';
-              } elseif ($pStatus === 'verified' || in_array($rStatus, ['pending', 'requirements pending', 'in progress', 'under review', 'pending review', 'submitted', 'reservation form pending'], true)) {
-                $displayResStatus = 'Pending';
-                $resBadgeClass = 'bg-amber-100 text-amber-700';
-                $dotClass = 'bg-amber-500';
-              } elseif (in_array($rStatus, ['rejected', 'cancelled'], true)) {
+              $isHandedOverStatus = in_array($rStatus, ['handover', 'moved in', 'active', 'completed', 'handed over'], true);
+              $hasOfficiallyBooked = !empty($res['officially_booked_at']) || in_array($rStatus, ['officially booked', 'reserved'], true);
+
+              if (in_array($rStatus, ['rejected', 'cancelled'], true)) {
                 $displayResStatus = ucwords($rStatus);
                 $resBadgeClass = 'bg-red-100 text-red-700';
                 $dotClass = 'bg-red-500';
+              } elseif ($isHandedOverStatus) {
+                $displayResStatus = $isResale ? 'Ownership Transferred' : 'Moved In';
+                $resBadgeClass = 'bg-emerald-100 text-emerald-700';
+                $dotClass = 'bg-emerald-500';
+              } elseif ($hasOfficiallyBooked) {
+                $displayResStatus = 'Officially Booked';
+                $resBadgeClass = 'bg-emerald-100 text-emerald-700';
+                $dotClass = 'bg-emerald-500';
+              } elseif ($pStatus === 'verified' || in_array($rStatus, ['pending', 'requirements pending', 'requirements completed', 'in progress', 'under review', 'pending review', 'submitted', 'reservation form pending'], true)) {
+                $displayResStatus = 'Pending';
+                $resBadgeClass = 'bg-amber-100 text-amber-700';
+                $dotClass = 'bg-amber-500';
               } else {
                 $displayResStatus = 'Pending';
                 $resBadgeClass = 'bg-amber-100 text-amber-700';
@@ -1476,13 +1483,13 @@ $downpaymentAmount = (float) ($res['required_amount'] ?? 0) > 0
         return;
       }
 
-      if (status === 'reserved') {
+      if (status === 'reserved' || status === 'officially booked') {
         display.classList.remove('hidden');
         display.classList.add('bg-emerald-50', 'border-emerald-200');
         label.className = 'text-xs font-bold uppercase tracking-wide mb-1 text-emerald-700';
         text.className = 'text-sm font-semibold text-emerald-800';
         label.textContent = 'Officially Booked';
-        text.textContent = 'This reservation is already officially booked.';
+        text.textContent = 'This reservation is officially booked and secured. Unit turnover and key release can be conducted on move-in day.';
         return;
       }
 
@@ -1624,33 +1631,40 @@ $downpaymentAmount = (float) ($res['required_amount'] ?? 0) > 0
     }
 
     function removeDirectDocument(documentId) {
-      if (!confirm('Are you sure you want to remove this document?')) return;
+      showOwnerConfirmModal(
+        'Remove Document',
+        'Are you sure you want to remove this document? Removing this document will cancel the official booking and revert the reservation status to requirements pending.',
+        'Remove Document',
+        true,
+        () => {
+          const formData = new FormData();
+          formData.append('csrf_token', csrfToken);
+          formData.append('reservation_id', currentReservationId);
+          formData.append('document_id', documentId);
 
-      const formData = new FormData();
-      formData.append('csrf_token', csrfToken);
-      formData.append('reservation_id', currentReservationId);
-      formData.append('document_id', documentId);
-
-      fetch(appBaseUrl + '/owner/reservations/delete-document', {
-        method: 'POST',
-        body: formData
-      })
-      .then(r => r.json())
-      .then(data => {
-        if (data.success) {
-          if (data.reservation_status) {
-            currentReservationStatus = data.reservation_status;
-            updateRequirementDecisionUI(currentReservationStatus);
-          }
-          loadDocuments(currentReservationId);
-        } else {
-          showStatusModal(false, 'Remove Failed', data.message || 'Failed to remove document.');
+          fetch(appBaseUrl + '/owner/reservations/delete-document', {
+            method: 'POST',
+            body: formData
+          })
+          .then(r => r.json())
+          .then(data => {
+            if (data.success) {
+              if (data.reservation_status) {
+                currentReservationStatus = data.reservation_status;
+                updateRequirementDecisionUI(currentReservationStatus);
+              }
+              loadDocuments(currentReservationId);
+              showStatusModal(true, 'Document Removed', data.message || 'Document removed and official booking cancelled.', true);
+            } else {
+              showStatusModal(false, 'Remove Failed', data.message || 'Failed to remove document.');
+            }
+          })
+          .catch(err => {
+            console.error(err);
+            showStatusModal(false, 'Network Error', 'An error occurred while removing the document.');
+          });
         }
-      })
-      .catch(err => {
-        console.error(err);
-        showStatusModal(false, 'Network Error', 'An error occurred while removing the document.');
-      });
+      );
     }
 
     function openOwnerCancelRequestModal() {
@@ -1918,6 +1932,38 @@ $downpaymentAmount = (float) ($res['required_amount'] ?? 0) > 0
       }, 250);
     }
 
+    let _ownerConfirmCallback = null;
+    function showOwnerConfirmModal(title, message, confirmBtnText, isDanger, onConfirm) {
+      _ownerConfirmCallback = onConfirm;
+      const modal = document.getElementById('ownerConfirmModal');
+      const t = document.getElementById('ownerConfirmTitle');
+      const m = document.getElementById('ownerConfirmMessage');
+      const btn = document.getElementById('ownerConfirmSubmitBtn');
+      if (t) t.textContent = title || 'Confirmation';
+      if (m) m.textContent = message || 'Are you sure you want to proceed?';
+      if (btn) {
+        btn.textContent = confirmBtnText || 'Confirm';
+        btn.className = isDanger
+          ? 'btn-press px-5 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-xl shadow-sm cursor-pointer'
+          : 'btn-press px-5 py-2 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-xl shadow-sm cursor-pointer';
+        btn.onclick = function() {
+          closeOwnerConfirmModal();
+          if (typeof _ownerConfirmCallback === 'function') {
+            _ownerConfirmCallback();
+          }
+        };
+      }
+      modal?.classList.remove('hidden');
+      modal?.classList.add('flex');
+    }
+
+    function closeOwnerConfirmModal() {
+      const modal = document.getElementById('ownerConfirmModal');
+      modal?.classList.add('hidden');
+      modal?.classList.remove('flex');
+      _ownerConfirmCallback = null;
+    }
+
     document.addEventListener('DOMContentLoaded', function () {
       updateRequirementSectionUI(currentPaymentStatus, currentReservationStatus);
       loadDocuments(currentReservationId);
@@ -1930,6 +1976,27 @@ $downpaymentAmount = (float) ($res['required_amount'] ?? 0) > 0
       }
     });
   </script>
+
+  <!-- Owner Confirm Modal -->
+  <div id="ownerConfirmModal" class="fixed inset-0 z-[80] hidden items-center justify-center bg-black/50 px-4" onclick="if(event.target===this)closeOwnerConfirmModal()">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden border border-slate-100" onclick="event.stopPropagation()">
+      <div class="bg-slate-900 px-6 py-4 flex items-center justify-between">
+        <h3 class="text-base font-bold text-white flex items-center gap-2" id="ownerConfirmTitle">Confirmation</h3>
+        <button type="button" onclick="closeOwnerConfirmModal()" class="p-1 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white cursor-pointer" title="Close">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+
+      <div class="p-6">
+        <p class="text-xs sm:text-sm text-slate-700 leading-relaxed" id="ownerConfirmMessage"></p>
+      </div>
+
+      <div class="flex items-center justify-end gap-2.5 px-6 py-4 border-t border-slate-100 bg-slate-50">
+        <button type="button" onclick="closeOwnerConfirmModal()" class="btn-press px-4 py-2 border border-slate-200 hover:bg-slate-100 rounded-xl text-xs font-semibold text-slate-700 cursor-pointer">Cancel</button>
+        <button type="button" id="ownerConfirmSubmitBtn" class="btn-press px-5 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-xl shadow-sm cursor-pointer">Confirm</button>
+      </div>
+    </div>
+  </div>
 
   <!-- Owner Status Modal -->
   <div id="ownerStatusModal"

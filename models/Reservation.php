@@ -1406,7 +1406,7 @@ class Reservation extends Model
             return false;
 
         $statusLower = strtolower(trim((string) ($res['reservation_status'] ?? '')));
-        if (in_array($statusLower, ['reserved', 'handover', 'moved in', 'active', 'completed', 'handed over', 'cancelled', 'rejected'], true)) {
+        if (!empty($res['officially_booked_at']) || in_array($statusLower, ['officially booked', 'handover', 'moved in', 'active', 'completed', 'handed over', 'cancelled', 'rejected'], true)) {
             return false;
         }
 
@@ -1443,6 +1443,32 @@ class Reservation extends Model
                     [(int) $res['unit_id']]
                 );
             }
+
+            if (!empty($res['inq_id'])) {
+                $this->execute(
+                    "UPDATE inquiry_table SET status = 'officially booked' WHERE inq_id = ?",
+                    [(int) $res['inq_id']]
+                );
+            }
+
+            require_once __DIR__ . '/../config/owner_notifications.php';
+            $unitParts = array_filter([
+                $res['unit_type'] ?? '',
+                !empty($res['unit_number']) ? 'Unit ' . $res['unit_number'] : ''
+            ]);
+            $unitDisplay = trim(implode(' ', $unitParts)) ?: 'Unit ' . ($res['unit_id'] ?? '');
+
+            if (!empty($res['client_email'])) {
+                notifyClientOfOfficiallyBooked(
+                    (string)$res['client_email'],
+                    (string)($res['client_name'] ?? 'Valued Client'),
+                    $unitDisplay,
+                    $res['move_in_date'] ?? null,
+                    $reservationId,
+                    (string)($res['transaction_type'] ?? 'Unit Leasing')
+                );
+            }
+
             return true;
         }
 
@@ -1662,12 +1688,18 @@ class Reservation extends Model
         $completed = (int) ($counts['completed'] ?? 0);
         $allComplete = ($total > 0 && $completed === $total);
 
-        $currentRes = $this->fetchOne("SELECT reservation_status FROM reservation_table WHERE reservation_id = ?", [$reservationId]);
+        $currentRes = $this->fetchOne(
+            "SELECT r.*, u.unit_current_status 
+             FROM reservation_table r 
+             LEFT JOIN units_table u ON r.unit_id = u.unit_id 
+             WHERE r.reservation_id = ?", 
+            [$reservationId]
+        );
         $currentStatusLower = strtolower(trim((string) ($currentRes['reservation_status'] ?? '')));
-        $isTerminalOrHandedOver = in_array($currentStatusLower, ['reserved', 'handover', 'moved in', 'active', 'completed', 'handed over', 'cancelled', 'rejected'], true);
+        $isHandedOverOrCancelled = in_array($currentStatusLower, ['handover', 'moved in', 'active', 'completed', 'handed over', 'cancelled', 'rejected'], true);
 
         if ($allComplete) {
-            if (!$isTerminalOrHandedOver) {
+            if (!$isHandedOverOrCancelled) {
                 // Check if payment and lease signing are also finished to auto-promote to officially booked
                 $isPromoted = $this->checkAndPromoteToOfficiallyBooked($reservationId, $userId, $userRole);
 
@@ -1685,17 +1717,28 @@ class Reservation extends Model
                 }
             }
         } else {
-            if (!$isTerminalOrHandedOver) {
+            if (!$isHandedOverOrCancelled) {
                 $this->execute(
                     "UPDATE reservation_table 
-                     SET reservation_status = CASE 
-                             WHEN LOWER(reservation_status) = 'requirements completed' 
-                             THEN 'requirements pending' 
-                             ELSE reservation_status 
-                         END
+                     SET reservation_status = 'requirements pending',
+                         officially_booked_at = NULL
                      WHERE reservation_id = ?",
                     [$reservationId]
                 );
+
+                if (!empty($currentRes['unit_id']) && strtolower(trim((string)($currentRes['unit_current_status'] ?? ''))) === 'reserved') {
+                    $this->execute(
+                        "UPDATE units_table SET unit_current_status = 'On Hold' WHERE unit_id = ?",
+                        [(int) $currentRes['unit_id']]
+                    );
+                }
+
+                if (!empty($currentRes['inq_id'])) {
+                    $this->execute(
+                        "UPDATE inquiry_table SET status = 'reservation submitted' WHERE inq_id = ? AND status = 'officially booked'",
+                        [(int) $currentRes['inq_id']]
+                    );
+                }
             }
         }
 
@@ -1717,7 +1760,7 @@ class Reservation extends Model
         }
 
         $statusLower = strtolower(trim((string) ($res['reservation_status'] ?? '')));
-        if (in_array($statusLower, ['reserved', 'handover', 'moved in', 'active', 'completed', 'handed over', 'cancelled', 'rejected'], true)) {
+        if (!empty($res['officially_booked_at']) || in_array($statusLower, ['officially booked', 'handover', 'moved in', 'active', 'completed', 'handed over', 'cancelled', 'rejected'], true)) {
             return ['success' => false, 'message' => 'This reservation is already officially booked or handed over.'];
         }
 
@@ -1740,6 +1783,31 @@ class Reservation extends Model
             $this->execute(
                 "UPDATE units_table SET unit_current_status = 'Reserved' WHERE unit_id = ?",
                 [(int) $res['unit_id']]
+            );
+        }
+
+        if (!empty($res['inq_id'])) {
+            $this->execute(
+                "UPDATE inquiry_table SET status = 'officially booked' WHERE inq_id = ?",
+                [(int) $res['inq_id']]
+            );
+        }
+
+        require_once __DIR__ . '/../config/owner_notifications.php';
+        $unitParts = array_filter([
+            $res['unit_type'] ?? '',
+            !empty($res['unit_number']) ? 'Unit ' . $res['unit_number'] : ''
+        ]);
+        $unitDisplay = trim(implode(' ', $unitParts)) ?: 'Unit ' . ($res['unit_id'] ?? '');
+
+        if (!empty($res['client_email'])) {
+            notifyClientOfOfficiallyBooked(
+                (string)$res['client_email'],
+                (string)($res['client_name'] ?? 'Valued Client'),
+                $unitDisplay,
+                $res['move_in_date'] ?? null,
+                $reservationId,
+                (string)($res['transaction_type'] ?? 'Unit Leasing')
             );
         }
 
@@ -2009,30 +2077,50 @@ class Reservation extends Model
             [$userId, $now, $documentId, $reservationId]
         );
 
-        // Fetch current reservation status to avoid touching handed over / active reservations
-        $currentRes = $this->fetchOne("SELECT reservation_status FROM reservation_table WHERE reservation_id = ?", [$reservationId]);
+        // Fetch current reservation status and unit details to avoid touching handed over or cancelled reservations
+        $currentRes = $this->fetchOne(
+            "SELECT r.*, u.unit_current_status 
+             FROM reservation_table r 
+             LEFT JOIN units_table u ON r.unit_id = u.unit_id 
+             WHERE r.reservation_id = ?", 
+            [$reservationId]
+        );
         $currentStatusLower = strtolower(trim((string) ($currentRes['reservation_status'] ?? '')));
-        $isTerminalOrHandedOver = in_array($currentStatusLower, ['reserved', 'handover', 'moved in', 'active', 'completed', 'handed over', 'cancelled', 'rejected'], true);
+        $isHandedOverOrCancelled = in_array($currentStatusLower, ['handover', 'moved in', 'active', 'completed', 'handed over', 'cancelled', 'rejected'], true);
 
-        if (!$isTerminalOrHandedOver) {
+        if (!$isHandedOverOrCancelled) {
+            // Revert official booking and set status to requirements pending
             $this->execute(
                 "UPDATE reservation_table 
-                 SET reservation_status = CASE 
-                         WHEN LOWER(reservation_status) = 'requirements completed' 
-                         THEN 'requirements pending' 
-                         ELSE reservation_status 
-                     END
+                 SET reservation_status = 'requirements pending',
+                     officially_booked_at = NULL
                  WHERE reservation_id = ?",
                 [$reservationId]
             );
+
+            // If unit status was Reserved, revert back to On Hold
+            if (!empty($currentRes['unit_id']) && strtolower(trim((string)($currentRes['unit_current_status'] ?? ''))) === 'reserved') {
+                $this->execute(
+                    "UPDATE units_table SET unit_current_status = 'On Hold' WHERE unit_id = ?",
+                    [(int) $currentRes['unit_id']]
+                );
+            }
+
+            // If linked inquiry was marked officially booked, revert back to reservation submitted
+            if (!empty($currentRes['inq_id'])) {
+                $this->execute(
+                    "UPDATE inquiry_table SET status = 'reservation submitted' WHERE inq_id = ? AND status = 'officially booked'",
+                    [(int) $currentRes['inq_id']]
+                );
+            }
         }
 
         $updatedRes = $this->fetchOne("SELECT reservation_status FROM reservation_table WHERE reservation_id = ?", [$reservationId]);
-        $latestStatus = (string) ($updatedRes['reservation_status'] ?? ($currentRes['reservation_status'] ?? ''));
+        $latestStatus = (string) ($updatedRes['reservation_status'] ?? 'requirements pending');
 
         return [
             'success' => true,
-            'message' => 'Document removed successfully.',
+            'message' => 'Document removed successfully. The official booking has been cancelled and reverted to requirements pending.',
             'document_id' => $documentId,
             'all_completed' => false,
             'reservation_status' => $latestStatus,

@@ -416,6 +416,7 @@ if (!function_exists('badge')) {
       <div class="text-right shrink-0 pl-3">
         <span class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">Assigned Unit</span>
         <span id="timelineUnitDisplay" class="text-xs sm:text-sm font-bold text-slate-800 font-mono block mt-0.5">—</span>
+        <div id="timelineStatusPillSlot" class="mt-1 flex justify-end"></div>
       </div>
     </div>
 
@@ -524,14 +525,37 @@ function openActivityTimelineModal(source) {
   document.getElementById('timelineUnitDisplay').textContent = data.unit_display || 'Unit';
   document.getElementById('timelineViewDetailsBtn').href = data.view_url || (BASE_URL + '/admin/reservations/view?reservation_id=' + data.reservation_id);
 
-  // If ready for handover, show quick handover trigger in modal
-  const handoverSlot = document.getElementById('timelineHandoverActionSlot');
   const resStatus = (data.reservation_status || '').toLowerCase();
-  if (['officially booked', 'reserved'].includes(resStatus) && !data.is_moved_in) {
+  const isOfficiallyBooked = ['officially booked', 'reserved', 'handover', 'moved in', 'active', 'completed'].includes(resStatus) || !!data.officially_booked_at;
+  const isHandedOver = ['handover', 'moved in', 'active', 'completed'].includes(resStatus) || !!data.is_moved_in;
+
+  // Status Pill in Client Card
+  const statusPillSlot = document.getElementById('timelineStatusPillSlot');
+  if (statusPillSlot) {
+    if (['cancelled', 'rejected'].includes(resStatus)) {
+      statusPillSlot.innerHTML = '<span class="inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-700 border border-red-200">Cancelled</span>';
+    } else if (isHandedOver) {
+      statusPillSlot.innerHTML = '<span class="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">Moved In</span>';
+    } else if (isOfficiallyBooked) {
+      statusPillSlot.innerHTML = '<span class="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200"><svg class="w-3 h-3 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>Officially Booked</span>';
+    } else {
+      statusPillSlot.innerHTML = '<span class="inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200">Pending Review</span>';
+    }
+  }
+
+  // If ready for handover, show quick turnover trigger in modal
+  const handoverSlot = document.getElementById('timelineHandoverActionSlot');
+  if (isOfficiallyBooked && !data.is_moved_in) {
     handoverSlot.innerHTML = `
-      <button type="button" onclick="closeActivityTimelineModal(); openHandoverModal(${data.reservation_id}, '${escapeQuote(data.client_name)}', '${escapeQuote(data.client_email)}', '${escapeQuote(data.unit_display)}');" class="btn-press px-3 py-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-xl transition-all">
-        Initiate Handover
-      </button>
+      <div class="flex items-center gap-2">
+        <span class="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200">
+          <svg class="w-3.5 h-3.5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+          Officially Booked
+        </span>
+        <button type="button" onclick="closeActivityTimelineModal(); openHandoverModal(${data.reservation_id}, '${escapeQuote(data.client_name)}', '${escapeQuote(data.client_email)}', '${escapeQuote(data.unit_display)}');" class="btn-press px-3 py-1.5 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-xl transition-all" title="Conduct unit turnover & release resident portal access on move-in day">
+          Turnover / Handover
+        </button>
+      </div>
     `;
   } else {
     handoverSlot.innerHTML = '';
@@ -655,7 +679,9 @@ function renderActivityTimelineSteps(data) {
       title: 'Documents',
       badge: null,
       timestamp: data.officially_booked_at || '',
-      desc: 'All required documents have been submitted and verified.'
+      desc: isOfficiallyBooked 
+        ? 'All required documents have been submitted and verified. Reservation is officially booked.' 
+        : 'All required documents have been submitted and verified.'
     };
   } else if (areDocsInProgress) {
     step4 = {
@@ -682,28 +708,28 @@ function renderActivityTimelineSteps(data) {
     step5 = {
       num: 5,
       state: 'completed',
-      title: 'Handover',
+      title: 'Handover & Move-In',
       badge: null,
       timestamp: data.move_in_date ? 'Move-in: ' + data.move_in_date : 'Turnover completed',
-      desc: 'Unit turnover and key release completed.'
+      desc: 'Unit turnover and key release completed. Tenant resident portal account activated.'
     };
   } else if (isOfficiallyBooked) {
     step5 = {
       num: 5,
       state: 'in_progress',
-      title: 'Handover',
-      badge: '<span class="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 border border-blue-200"><span class="w-1.5 h-1.5 rounded-full bg-blue-600 animate-pulse"></span>Ready</span>',
-      timestamp: data.move_in_date ? 'Scheduled for ' + data.move_in_date : 'Ready for scheduling',
-      desc: 'Unit turnover and key release is ready to be scheduled.'
+      title: 'Handover & Move-In',
+      badge: '<span class="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 border border-blue-200"><span class="w-1.5 h-1.5 rounded-full bg-blue-600 animate-pulse"></span>Move-In Day</span>',
+      timestamp: data.move_in_date ? 'Scheduled for ' + data.move_in_date : 'Awaiting move-in date',
+      desc: 'Unit is officially booked. Key handover and portal activation will take place on scheduled move-in.'
     };
   } else {
     step5 = {
       num: 5,
       state: 'pending',
-      title: 'Handover',
+      title: 'Handover & Move-In',
       badge: '<span class="inline-flex items-center text-[11px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200">Pending</span>',
       timestamp: '',
-      desc: 'Unit turnover and key release will be scheduled after lease signing.'
+      desc: 'Unit turnover and key release will be scheduled after lease signing and document verification.'
     };
   }
 

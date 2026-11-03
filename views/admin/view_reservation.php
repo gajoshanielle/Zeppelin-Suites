@@ -264,18 +264,25 @@ $isInHousePayment = strtolower((string)$paymentMethod) === 'in-house';
             <?php
               $pStatus = strtolower(trim((string)($res['payment_status'] ?? '')));
               $rStatus = strtolower(trim((string)($res['reservation_status'] ?? 'submitted')));
-              if (in_array($rStatus, ['reserved', 'requirements completed', 'officially booked', 'active', 'handover', 'moved in'], true)) {
-                  $displayResStatus = 'Reserved';
-                  $resBadgeClass = 'bg-emerald-100 text-emerald-700';
-                  $dotClass = 'bg-emerald-500';
-              } elseif ($pStatus === 'verified' || in_array($rStatus, ['pending', 'requirements pending', 'in progress', 'under review', 'pending review', 'submitted', 'reservation form pending'], true)) {
-                  $displayResStatus = 'Pending';
-                  $resBadgeClass = 'bg-amber-100 text-amber-700';
-                  $dotClass = 'bg-amber-500';
-              } elseif (in_array($rStatus, ['rejected', 'cancelled'], true)) {
+              $isHandedOverStatus = in_array($rStatus, ['handover', 'moved in', 'active', 'completed', 'handed over'], true);
+              $hasOfficiallyBooked = !empty($res['officially_booked_at']) || in_array($rStatus, ['officially booked', 'reserved'], true);
+
+              if (in_array($rStatus, ['rejected', 'cancelled'], true)) {
                   $displayResStatus = ucwords($rStatus);
                   $resBadgeClass = 'bg-red-100 text-red-700';
                   $dotClass = 'bg-red-500';
+              } elseif ($isHandedOverStatus) {
+                  $displayResStatus = $isResale ? 'Ownership Transferred' : 'Moved In';
+                  $resBadgeClass = 'bg-emerald-100 text-emerald-700';
+                  $dotClass = 'bg-emerald-500';
+              } elseif ($hasOfficiallyBooked) {
+                  $displayResStatus = 'Officially Booked';
+                  $resBadgeClass = 'bg-emerald-100 text-emerald-700';
+                  $dotClass = 'bg-emerald-500';
+              } elseif ($pStatus === 'verified' || in_array($rStatus, ['pending', 'requirements pending', 'requirements completed', 'in progress', 'under review', 'pending review', 'submitted', 'reservation form pending'], true)) {
+                  $displayResStatus = 'Pending';
+                  $resBadgeClass = 'bg-amber-100 text-amber-700';
+                  $dotClass = 'bg-amber-500';
               } else {
                   $displayResStatus = 'Pending';
                   $resBadgeClass = 'bg-amber-100 text-amber-700';
@@ -1581,7 +1588,7 @@ $isInHousePayment = strtolower((string)$paymentMethod) === 'in-house';
       return;
     }
 
-    if (status === 'reserved') {
+    if (status === 'reserved' || status === 'officially booked') {
       display.classList.remove('hidden');
       display.classList.add('bg-emerald-50', 'border-emerald-200');
 
@@ -1589,7 +1596,7 @@ $isInHousePayment = strtolower((string)$paymentMethod) === 'in-house';
       text.className = 'text-sm font-semibold text-emerald-800';
 
       label.textContent = 'Officially Booked';
-      text.textContent = 'This reservation is already officially booked.';
+      text.textContent = 'This reservation is officially booked and secured. Unit turnover and key release can be conducted on move-in day.';
       return;
     }
 
@@ -1751,8 +1758,8 @@ $isInHousePayment = strtolower((string)$paymentMethod) === 'in-house';
   function removeDirectDocument(documentId) {
     showAdminConfirmModal(
       'Remove Document',
-      'Are you sure you want to remove this document?',
-      'Remove',
+      'Are you sure you want to remove this document? Removing this document will cancel the official booking and revert the reservation status to requirements pending.',
+      'Remove Document',
       true,
       () => {
         const formData = new FormData();
@@ -1771,7 +1778,9 @@ $isInHousePayment = strtolower((string)$paymentMethod) === 'in-house';
               updateRequirementDecisionUI(currentReservationStatus);
             }
             loadDocuments(currentReservationId);
-            showAdminStatusModal(true, 'Document Removed', data.message || 'Document removed successfully.');
+            showAdminStatusModal(true, 'Document Removed', data.message || 'Document removed and official booking cancelled.', () => {
+              window.location.reload();
+            });
           } else {
             showAdminStatusModal(false, 'Remove Failed', data.message || 'Failed to remove document.');
           }
