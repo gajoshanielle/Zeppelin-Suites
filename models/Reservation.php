@@ -460,7 +460,9 @@ class Reservation extends Model
                     ELSE 'unit owner'
                 END AS cancellation_requested_by_role,
                 inq.inquiry_type AS inquiry_type,
-                inq.lease_duration AS inq_lease_duration
+                inq.lease_duration AS inq_lease_duration,
+                (SELECT COUNT(*) FROM reservation_documents_table d WHERE d.reservation_id = r.reservation_id) AS total_docs,
+                (SELECT COUNT(*) FROM reservation_documents_table d WHERE d.reservation_id = r.reservation_id AND d.status = 'complete') AS completed_docs
             FROM reservation_table r
             LEFT JOIN units_table u ON r.unit_id = u.unit_id
             LEFT JOIN users_table owner ON u.unit_owner_id = owner.user_id

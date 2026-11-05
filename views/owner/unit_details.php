@@ -498,11 +498,7 @@ if ($isNotAvailable) {
                   <?php if ($listingType === 'Not Available'): ?>
                     <span
                       class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200">Off Market</span>
-                  <?php elseif ($listingType === 'Resale'): ?>
-                    <span
-                      class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200">Resale
-                      Mode</span>
-                  <?php else: ?>
+                  <?php elseif ($listingType !== 'Resale'): ?>
                     <span
                       class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 border border-purple-100">Editable</span>
                   <?php endif; ?>
@@ -553,15 +549,9 @@ if ($isNotAvailable) {
         <div class="bg-white rounded-2xl border border-slate-200/90 overflow-hidden shadow-xs">
           <div
             class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-slate-50/80 via-white to-slate-50/40">
-            <div class="flex items-center gap-2.5">
-              <span
-                class="w-8 h-8 rounded-xl bg-slate-900 text-white flex items-center justify-center font-mono font-bold text-xs">
-                <?= clean($unit['unit_number']) ?>
-              </span>
-              <div>
-                <h2 class="text-sm font-bold text-slate-900">Unit Information Specifications</h2>
-                <p class="text-xs text-slate-500">Official architectural details, floor location, and active status</p>
-              </div>
+            <div>
+              <h2 class="text-sm font-bold text-slate-900">Unit Information Specifications</h2>
+              <p class="text-xs text-slate-500">Official architectural details, floor location, and active status</p>
             </div>
             <button type="button" onclick="openEditModal()"
               class="text-xs font-semibold text-blue-600 hover:text-blue-800 hover:underline">
@@ -1228,7 +1218,7 @@ if ($isNotAvailable) {
             if (displayStayCategory) displayStayCategory.textContent = 'N/A';
             if (displayStaySub) displayStaySub.textContent = 'Not applicable for resale listing';
             if (badgeStay) {
-              badgeStay.innerHTML = `<span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200">Resale Mode</span>
+              badgeStay.innerHTML = `
             <span class="w-7 h-7 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center shrink-0">
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
             </span>`;

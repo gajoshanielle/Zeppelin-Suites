@@ -225,6 +225,11 @@ if (!function_exists('badge')) {
                       $filterCategory = 'reserved';
                   }
 
+                  $isResale = (stripos((string)($row['transaction_type'] ?? ''), 'resell') !== false || stripos((string)($row['transaction_type'] ?? ''), 'resale') !== false);
+                  $cancellationRequested = (strtolower((string)($row['reservation_status'] ?? '')) === 'cancellation requested');
+                  $hasSignedLease = !empty($row['lease_signed_at']);
+                  $paymentMethod = (string)($row['payment_method'] ?? 'GCash QR');
+
                   $timelineData = [
                       'reservation_id'          => (int)$row['reservation_id'],
                       'formatted_id'            => $reservationId,
@@ -232,11 +237,16 @@ if (!function_exists('badge')) {
                       'client_email'            => $row['client_email'] ?? '',
                       'client_contact'          => $row['client_contact'] ?? '',
                       'unit_display'            => $unitDisplay,
+                      'transaction_type'        => $row['transaction_type'] ?? 'For Lease',
+                      'is_resale'               => $isResale,
                       'created_at'              => format_timeline_datetime($row['created_at'] ?? null),
                       'payment_status'          => strtolower(trim((string)($row['payment_status'] ?? 'pending review'))),
+                      'payment_method'          => $paymentMethod,
                       'payment_reviewed_at'     => format_timeline_datetime($row['payment_reviewed_at'] ?? null),
-                      
+                      'lease_signed_at'         => format_timeline_datetime($row['lease_signed_at'] ?? null),
+                      'has_signed_lease'        => $hasSignedLease,
                       'reservation_status'      => $resStatus,
+                      'cancellation_requested'  => $cancellationRequested,
                       'officially_booked_at'    => format_timeline_datetime($row['officially_booked_at'] ?? null),
                       
                       'move_in_date'            => !empty($row['move_in_date']) && $row['move_in_date'] !== '0000-00-00' ? date('M d, Y', strtotime((string)$row['move_in_date'])) : '',
@@ -383,22 +393,21 @@ if (!function_exists('badge')) {
   </div>
 </div>
 
-<!-- ACTIVITY TIMELINE SUMMARY MODAL -->
+<!-- RESERVATION CHECKLIST SUMMARY MODAL -->
 <div id="activityTimelineModal" onclick="if(event.target===this) closeActivityTimelineModal()" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-[99] hidden items-center justify-center p-4">
   <div class="bg-white rounded-2xl shadow-2xl border border-slate-100 max-w-xl sm:max-w-2xl w-full p-6 sm:p-7 relative max-h-[92vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
     
     <!-- Top Header -->
     <div class="flex items-start justify-between gap-3 pb-3 border-b border-slate-100 shrink-0">
       <div class="flex items-center gap-3">
-        <div class="w-10 h-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 border border-blue-100 shadow-sm">
+        <div class="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 border border-blue-100 shadow-sm">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <circle cx="12" cy="12" r="9" stroke-width="2"/>
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 7v5l3 3"/>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
           </svg>
         </div>
         <div>
-          <h3 class="text-base font-bold text-slate-900 leading-tight">Activity Timeline</h3>
-          <p class="text-xs text-slate-400 mt-0.5">Track the lifecycle and current milestone of this reservation.</p>
+          <h3 class="text-base font-bold text-slate-900 leading-tight">Reservation Checklist</h3>
+          <p class="text-xs text-slate-400 mt-0.5">Requirements &amp; booking status checklist.</p>
         </div>
       </div>
       <button type="button" onclick="closeActivityTimelineModal()" class="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition-colors" title="Close">
@@ -420,8 +429,8 @@ if (!function_exists('badge')) {
       </div>
     </div>
 
-    <!-- Timeline Scrollable Steps -->
-    <div class="overflow-y-auto pr-1 flex-1 py-1 space-y-0" id="timelineStepsContainer">
+    <!-- Checklist Scrollable Items -->
+    <div class="overflow-y-auto pr-1 flex-1 py-1 space-y-2.5" id="timelineStepsContainer">
       <!-- Dynamic via JavaScript -->
     </div>
 
@@ -583,214 +592,209 @@ function renderActivityTimelineSteps(data) {
   const container = document.getElementById('timelineStepsContainer');
   if (!container) return;
 
+  const resStatus = (data.reservation_status || '').toLowerCase();
   const paymentStatus = (data.payment_status || 'pending review').toLowerCase();
-  const isPaymentVerified = paymentStatus === 'verified';
+  const paymentMethod = (data.payment_method || '').toLowerCase();
+  const isInHousePayment = paymentMethod.includes('in-house') || paymentMethod.includes('in house');
+  
+  const isCancelled = ['cancelled', 'rejected'].includes(resStatus);
+  const isCancellationRequested = !!data.cancellation_requested || resStatus === 'cancellation requested';
+  const isOfficiallyBooked = ['officially booked', 'handover', 'moved in', 'active', 'completed'].includes(resStatus) || !!data.officially_booked_at;
+  const isHandedOver = ['handover', 'moved in', 'active', 'completed'].includes(resStatus) || !!data.is_moved_in;
+  
+  const isPaymentVerified = paymentStatus === 'verified' || isOfficiallyBooked || isHandedOver;
   const isPaymentRejected = paymentStatus === 'rejected';
 
-  const resStatus = (data.reservation_status || '').toLowerCase();
-  const isOfficiallyBooked = ['officially booked', 'reserved', 'handover', 'moved in', 'active', 'completed'].includes(resStatus) || !!data.officially_booked_at;
-  const isHandedOver = ['handover', 'moved in', 'active', 'completed'].includes(resStatus) || !!data.is_moved_in;
-  const areDocsComplete = (data.total_docs > 0 && data.completed_docs >= data.total_docs) || isOfficiallyBooked;
-  const areDocsInProgress = (data.completed_docs > 0) || ['reserved', 'lease signing'].includes(resStatus);
+  const hasSignedLease = !!data.has_signed_lease || !!data.lease_signed_at || isOfficiallyBooked || isHandedOver;
 
-  const step1 = {
-    num: 1,
-    state: 'completed',
-    title: 'Reservation Form Submitted',
-    badge: null,
-    timestamp: data.created_at || 'Submitted',
-    desc: 'Reservation has been submitted by client.'
-  };
+  const totalDocs = parseInt(data.total_docs, 10) || 0;
+  const completedDocs = parseInt(data.completed_docs, 10) || 0;
+  const areDocsComplete = isOfficiallyBooked || isHandedOver || (totalDocs > 0 && completedDocs >= totalDocs);
+  const areDocsInProgress = !areDocsComplete && completedDocs > 0;
 
-  let step2 = {};
+  const isResale = !!data.is_resale;
+
+  // 1. Lease / Resale & Client Details
+  let item1 = {};
+  if (isCancelled) {
+    item1 = {
+      state: 'rejected',
+      title: isResale ? 'Resale & Client Details' : 'Lease & Client Details',
+      desc: 'Reservation has been cancelled.',
+      badge: '<span class="inline-flex items-center text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-red-50 text-red-700 border border-red-200">Cancelled</span>'
+    };
+  } else if (isCancellationRequested) {
+    item1 = {
+      state: 'incomplete',
+      title: isResale ? 'Resale & Client Details' : 'Lease & Client Details',
+      desc: 'Client submitted a cancellation request.',
+      badge: '<span class="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200"><svg class="w-3 h-3 text-amber-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" stroke-width="2"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01"/></svg>Cancellation Requested</span>'
+    };
+  } else {
+    item1 = {
+      state: 'complete',
+      title: isResale ? 'Resale & Client Details' : 'Lease & Client Details',
+      desc: data.created_at ? 'Submitted on ' + data.created_at : 'Reservation form submitted with client details.',
+      badge: '<span class="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200"><svg class="w-3 h-3 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>Submitted</span>'
+    };
+  }
+
+  // 2. Downpayment
+  let item2 = {};
   if (isPaymentVerified) {
-    step2 = {
-      num: 2,
-      state: 'completed',
-      title: 'Payment Verified',
-      badge: null,
-      timestamp: data.payment_reviewed_at || 'Payment confirmed',
-      desc: 'Payment has been verified by administrator.'
+    item2 = {
+      state: 'complete',
+      title: 'Downpayment',
+      desc: data.payment_reviewed_at ? 'Payment verified on ' + data.payment_reviewed_at : 'Payment proof has been verified.',
+      badge: '<span class="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200"><svg class="w-3 h-3 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>Verified</span>'
     };
   } else if (isPaymentRejected) {
-    step2 = {
-      num: 2,
+    item2 = {
       state: 'rejected',
-      title: 'Payment Rejected',
-      badge: '<span class="inline-flex items-center text-[11px] font-semibold px-2 py-0.5 rounded-full bg-red-50 text-red-600 border border-red-200">Rejected</span>',
-      timestamp: data.payment_reviewed_at || 'Payment not accepted',
-      desc: 'Payment was rejected upon review.'
+      title: 'Downpayment',
+      desc: 'Payment proof was rejected upon review.',
+      badge: '<span class="inline-flex items-center text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-red-50 text-red-700 border border-red-200">Rejected</span>'
+    };
+  } else if (isInHousePayment) {
+    item2 = {
+      state: 'incomplete',
+      title: 'Downpayment',
+      desc: 'In-house collection — to be paid directly during signing or move-in.',
+      badge: '<span class="inline-flex items-center text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">Pay In-House</span>'
     };
   } else {
-    step2 = {
-      num: 2,
-      state: 'in_progress',
-      title: 'Payment Verification',
-      badge: '<span class="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 border border-blue-200"><span class="w-1.5 h-1.5 rounded-full bg-blue-600 animate-pulse"></span>In Progress</span>',
-      timestamp: 'Awaiting payment verification',
-      desc: 'Payment proof is pending administrative review.'
+    item2 = {
+      state: 'incomplete',
+      title: 'Downpayment',
+      desc: 'Proof of downpayment submitted, awaiting review.',
+      badge: '<span class="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200"><svg class="w-3 h-3 text-amber-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" stroke-width="2"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01"/></svg>Pending Review</span>'
     };
   }
 
-  let step3 = {};
-  if (!isPaymentVerified) {
-    step3 = {
-      num: 3,
-      state: 'pending',
-      title: 'Lease Signing',
-      badge: '<span class="inline-flex items-center text-[11px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200">Pending</span>',
-      timestamp: '',
-      desc: 'The lease agreement will be prepared once payment is verified.'
-    };
-  } else if (isOfficiallyBooked) {
-    step3 = {
-      num: 3,
-      state: 'completed',
-      title: 'Lease Signing',
-      badge: null,
-      timestamp: data.officially_booked_at || data.officially_booked_at || 'Lease agreement signed',
-      desc: 'The lease agreement has been signed.'
+  // 3. Lease Signing
+  let item3 = {};
+  if (hasSignedLease) {
+    item3 = {
+      state: 'complete',
+      title: isResale ? 'Contract Signing' : 'Lease Signing',
+      desc: data.lease_signed_at ? 'Agreement signed on ' + data.lease_signed_at : 'Agreement electronically signed by client.',
+      badge: '<span class="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200"><svg class="w-3 h-3 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>Signed</span>'
     };
   } else {
-    step3 = {
-      num: 3,
-      state: 'in_progress',
-      title: 'Lease Signing',
-      badge: '<span class="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 border border-blue-200"><span class="w-1.5 h-1.5 rounded-full bg-blue-600 animate-pulse"></span>In Progress</span>',
-      timestamp: data.payment_reviewed_at || '',
-      desc: 'The lease agreement is ready for signing.'
+    item3 = {
+      state: 'incomplete',
+      title: isResale ? 'Contract Signing' : 'Lease Signing',
+      desc: 'Agreement prepared and awaiting client signature.',
+      badge: '<span class="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200"><svg class="w-3 h-3 text-amber-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" stroke-width="2"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01"/></svg>Awaiting Signature</span>'
     };
   }
 
-  let step4 = {};
-  if (!isPaymentVerified) {
-    step4 = {
-      num: 4,
-      state: 'pending',
+  // 4. Documents
+  let item4 = {};
+  if (areDocsComplete) {
+    item4 = {
+      state: 'complete',
       title: 'Documents',
-      badge: '<span class="inline-flex items-center text-[11px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200">Pending</span>',
-      timestamp: '',
-      desc: 'Complete and submit the required documents.'
-    };
-  } else if (areDocsComplete) {
-    step4 = {
-      num: 4,
-      state: 'completed',
-      title: 'Documents',
-      badge: null,
-      timestamp: data.officially_booked_at || '',
-      desc: isOfficiallyBooked 
-        ? 'All required documents have been submitted and verified. Reservation is officially booked.' 
-        : 'All required documents have been submitted and verified.'
+      desc: totalDocs > 0 ? `All required documents (${completedDocs}/${totalDocs}) verified.` : 'All required documents verified.',
+      badge: '<span class="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200"><svg class="w-3 h-3 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>Complete</span>'
     };
   } else if (areDocsInProgress) {
-    step4 = {
-      num: 4,
-      state: 'in_progress',
+    item4 = {
+      state: 'incomplete',
       title: 'Documents',
-      badge: '<span class="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 border border-blue-200"><span class="w-1.5 h-1.5 rounded-full bg-blue-600 animate-pulse"></span>In Progress</span>',
-      timestamp: data.total_docs ? `${data.completed_docs} of ${data.total_docs} complete` : '',
-      desc: 'Complete and submit the required documents.'
+      desc: `${completedDocs} of ${totalDocs} required documents verified.`,
+      badge: '<span class="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200"><svg class="w-3 h-3 text-amber-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" stroke-width="2"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01"/></svg>In Progress</span>'
     };
   } else {
-    step4 = {
-      num: 4,
-      state: 'pending',
+    item4 = {
+      state: 'incomplete',
       title: 'Documents',
-      badge: '<span class="inline-flex items-center text-[11px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200">Pending</span>',
-      timestamp: '',
-      desc: 'Complete and submit the required documents.'
+      desc: totalDocs > 0 ? `0 of ${totalDocs} documents verified.` : 'Required client documents pending submission.',
+      badge: '<span class="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200"><svg class="w-3 h-3 text-amber-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" stroke-width="2"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01"/></svg>Pending</span>'
     };
   }
 
-  let step5 = {};
+  // 5. Turnover & Move-In
+  let item5 = {};
   if (isHandedOver) {
-    step5 = {
-      num: 5,
-      state: 'completed',
-      title: 'Handover & Move-In',
-      badge: null,
-      timestamp: data.move_in_date ? 'Move-in: ' + data.move_in_date : 'Turnover completed',
-      desc: 'Unit turnover and key release completed. Tenant resident portal account activated.'
+    item5 = {
+      state: 'complete',
+      title: 'Turnover & Move-In',
+      desc: 'Turnover complete. Resident portal account activated.',
+      badge: '<span class="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200"><svg class="w-3 h-3 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>Moved In</span>'
     };
   } else if (isOfficiallyBooked) {
-    step5 = {
-      num: 5,
-      state: 'in_progress',
-      title: 'Handover & Move-In',
-      badge: '<span class="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 border border-blue-200"><span class="w-1.5 h-1.5 rounded-full bg-blue-600 animate-pulse"></span>Move-In Day</span>',
-      timestamp: data.move_in_date ? 'Scheduled for ' + data.move_in_date : 'Awaiting move-in date',
-      desc: 'Unit is officially booked. Key handover and portal activation will take place on scheduled move-in.'
+    item5 = {
+      state: 'neutral',
+      title: 'Turnover & Move-In',
+      desc: data.move_in_date ? 'Move-in scheduled for ' + data.move_in_date : 'Officially booked. Scheduled for move-in day.',
+      badge: '<span class="inline-flex items-center text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">Scheduled</span>'
     };
   } else {
-    step5 = {
-      num: 5,
-      state: 'pending',
-      title: 'Handover & Move-In',
-      badge: '<span class="inline-flex items-center text-[11px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200">Pending</span>',
-      timestamp: '',
-      desc: 'Unit turnover and key release will be scheduled after lease signing and document verification.'
+    item5 = {
+      state: 'neutral',
+      title: 'Turnover & Move-In',
+      desc: 'Turnover will be scheduled once prior requirements are completed.',
+      badge: '<span class="inline-flex items-center text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200">Pending</span>'
     };
   }
 
-  const steps = [step1, step2, step3, step4, step5];
+  const items = [item1, item2, item3, item4, item5];
 
   let html = '';
-  for (let i = 0; i < steps.length; i++) {
-    const step = steps[i];
-    const isLast = (i === steps.length - 1);
-    const nextStep = !isLast ? steps[i + 1] : null;
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i];
+    let iconHtml = '';
+    let bgClass = 'bg-white border-slate-200/80 hover:border-slate-300';
 
-    let circleHtml = '';
-    if (step.state === 'completed') {
-      circleHtml = `
-        <div class="w-7 h-7 rounded-full bg-emerald-500 text-white flex items-center justify-center shrink-0 z-10 shadow-sm">
+    if (item.state === 'complete') {
+      iconHtml = `
+        <div class="w-7 h-7 rounded-lg bg-emerald-500 text-white flex items-center justify-center shrink-0 shadow-xs">
           <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
           </svg>
         </div>
       `;
-    } else if (step.state === 'in_progress') {
-      circleHtml = `
-        <div class="w-7 h-7 rounded-full bg-blue-600 text-white font-bold text-xs flex items-center justify-center shrink-0 z-10 shadow-sm ring-4 ring-blue-50">
-          ${step.num}
+    } else if (item.state === 'incomplete') {
+      iconHtml = `
+        <div class="w-7 h-7 rounded-lg bg-amber-100 text-amber-700 border border-amber-300 flex items-center justify-center shrink-0 shadow-xs">
+          <svg class="w-4 h-4 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="9" stroke-width="2"/>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01"/>
+          </svg>
         </div>
       `;
-    } else if (step.state === 'rejected') {
-      circleHtml = `
-        <div class="w-7 h-7 rounded-full bg-red-500 text-white font-bold text-xs flex items-center justify-center shrink-0 z-10 shadow-sm">
+      bgClass = 'bg-amber-50/20 border-amber-200/60';
+    } else if (item.state === 'rejected') {
+      iconHtml = `
+        <div class="w-7 h-7 rounded-lg bg-red-500 text-white flex items-center justify-center shrink-0 shadow-xs">
           <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/>
           </svg>
         </div>
       `;
+      bgClass = 'bg-red-50/20 border-red-200/60';
     } else {
-      circleHtml = `
-        <div class="w-7 h-7 rounded-full bg-slate-200 text-slate-500 font-bold text-xs flex items-center justify-center shrink-0 z-10">
-          ${step.num}
+      iconHtml = `
+        <div class="w-7 h-7 rounded-lg bg-slate-100 text-slate-400 flex items-center justify-center shrink-0 border border-slate-200">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="6" stroke-width="2"/>
+          </svg>
         </div>
       `;
     }
 
-    let lineClass = 'bg-slate-200';
-    if (step.state === 'completed' && nextStep && (nextStep.state === 'completed' || nextStep.state === 'in_progress')) {
-      lineClass = 'bg-emerald-500';
-    }
-
     html += `
-      <div class="flex gap-3 relative ${isLast ? 'pb-1' : 'pb-5'}">
-        <div class="flex flex-col items-center">
-          ${circleHtml}
-          ${!isLast ? `<div class="w-0.5 grow min-h-[28px] mt-1 ${lineClass}"></div>` : ''}
-        </div>
-
-        <div class="flex-1 min-w-0 pt-0.5">
-          <div class="flex items-center justify-between gap-2 flex-wrap">
-            <h4 class="text-sm font-bold text-slate-800 leading-tight">${step.title}</h4>
-            ${step.badge || ''}
+      <div class="p-3 sm:p-3.5 rounded-xl border ${bgClass} transition-all flex items-center justify-between gap-3">
+        <div class="flex items-center gap-3 min-w-0">
+          ${iconHtml}
+          <div class="min-w-0">
+            <h4 class="text-xs sm:text-sm font-bold text-slate-800 leading-tight truncate">${item.title}</h4>
+            <p class="text-[11px] sm:text-xs text-slate-500 mt-0.5 leading-snug break-words">${item.desc}</p>
           </div>
-          ${step.timestamp ? `<p class="text-xs text-slate-400 font-medium mt-0.5">${step.timestamp}</p>` : ''}
-          <p class="text-xs text-slate-500 mt-1 leading-relaxed">${step.desc}</p>
+        </div>
+        <div class="shrink-0 text-right">
+          ${item.badge}
         </div>
       </div>
     `;

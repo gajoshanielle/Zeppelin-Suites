@@ -301,6 +301,27 @@ $isInHousePayment = strtolower((string)$paymentMethod) === 'in-house';
       <div class="bg-white border border-slate-200/90 rounded-2xl p-6 sm:p-8 shadow-sm">
         <h1 class="text-xl font-bold text-slate-900 mb-5">Reservation form Details</h1>
 
+        <?php
+          // Completeness flags for tab navigation
+          $hasAssignedUnit = !empty($res['unit_id']) && !empty($res['unit_number']) && trim((string)$res['unit_number']) !== '' && trim((string)$res['unit_number']) !== '—';
+          $hasClientDetails = !empty($res['client_name']) && (!empty($res['client_contact']) || !empty($res['client_user_contact'])) && !empty($res['client_email']);
+          $hasMoveIn = !empty($res['move_in_date']) && $res['move_in_date'] !== '0000-00-00';
+          $hasMoveOut = $isResale || (!empty($res['move_out_date']) && $res['move_out_date'] !== '0000-00-00');
+          $hasNoPendingCancellation = ($cancellationStatusLower !== 'requested');
+
+          $isLeaseComplete = ($hasOfficiallyBooked || $isHandedOverStatus)
+              || ($hasAssignedUnit && $hasClientDetails && $hasMoveIn && $hasMoveOut && $hasNoPendingCancellation);
+
+          $isPaymentComplete = ($paymentStatusLower === 'verified') || $hasOfficiallyBooked || $isHandedOverStatus;
+
+          $isSigningComplete = !empty($res['lease_signed_at']) || $hasOfficiallyBooked || $isHandedOverStatus;
+
+          $totalDocs = (int)($res['total_docs'] ?? 0);
+          $completedDocs = (int)($res['completed_docs'] ?? 0);
+          $isDocumentsComplete = ($hasOfficiallyBooked || $isHandedOverStatus)
+              || ($totalDocs > 0 && $completedDocs >= $totalDocs);
+        ?>
+
         <!-- TAB NAVIGATION BAR (Underline style matching screenshot) -->
         <div class="border-b border-slate-200 mb-6">
           <div class="flex items-center gap-6 sm:gap-8 overflow-x-auto no-scrollbar -mb-px">
@@ -308,29 +329,53 @@ $isInHousePayment = strtolower((string)$paymentMethod) === 'in-house';
               type="button" 
               onclick="switchReservationTab('lease')" 
               id="tabBtn-lease" 
-              class="tab-nav-btn pb-3 text-sm font-bold text-slate-900 border-b-2 border-slate-900 shrink-0">
-              <?= $isResale ? 'Resale' : 'Lease' ?>
+              class="tab-nav-btn inline-flex items-center gap-1.5 pb-3 text-sm font-bold text-slate-900 border-b-2 border-slate-900 shrink-0">
+              <span><?= $isResale ? 'Resale' : 'Lease' ?></span>
+              <span id="tabIncomplete-lease" class="<?= $isLeaseComplete ? 'hidden' : 'inline-flex' ?> items-center justify-center text-amber-500 shrink-0" title="Incomplete">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <circle cx="12" cy="12" r="9" stroke-width="2"/>
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01"/>
+                </svg>
+              </span>
             </button>
             <button 
               type="button" 
               onclick="switchReservationTab('payment')" 
               id="tabBtn-payment" 
-              class="tab-nav-btn pb-3 text-sm font-medium text-slate-400 hover:text-slate-800 border-b-2 border-transparent shrink-0">
-              Payment
+              class="tab-nav-btn inline-flex items-center gap-1.5 pb-3 text-sm font-medium text-slate-400 hover:text-slate-800 border-b-2 border-transparent shrink-0">
+              <span>Payment</span>
+              <span id="tabIncomplete-payment" class="<?= $isPaymentComplete ? 'hidden' : 'inline-flex' ?> items-center justify-center text-amber-500 shrink-0" title="Incomplete">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <circle cx="12" cy="12" r="9" stroke-width="2"/>
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01"/>
+                </svg>
+              </span>
             </button>
             <button 
               type="button" 
               onclick="switchReservationTab('lease-signing')" 
               id="tabBtn-lease-signing" 
-              class="tab-nav-btn pb-3 text-sm font-medium text-slate-400 hover:text-slate-800 border-b-2 border-transparent shrink-0">
-              <?= $isResale ? 'Contract Signing' : 'Lease Signing' ?>
+              class="tab-nav-btn inline-flex items-center gap-1.5 pb-3 text-sm font-medium text-slate-400 hover:text-slate-800 border-b-2 border-transparent shrink-0">
+              <span><?= $isResale ? 'Contract Signing' : 'Lease Signing' ?></span>
+              <span id="tabIncomplete-lease-signing" class="<?= $isSigningComplete ? 'hidden' : 'inline-flex' ?> items-center justify-center text-amber-500 shrink-0" title="Incomplete">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <circle cx="12" cy="12" r="9" stroke-width="2"/>
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01"/>
+                </svg>
+              </span>
             </button>
             <button 
               type="button" 
               onclick="switchReservationTab('documents')" 
               id="tabBtn-documents" 
-              class="tab-nav-btn pb-3 text-sm font-medium text-slate-400 hover:text-slate-800 border-b-2 border-transparent shrink-0">
-              Documents
+              class="tab-nav-btn inline-flex items-center gap-1.5 pb-3 text-sm font-medium text-slate-400 hover:text-slate-800 border-b-2 border-transparent shrink-0">
+              <span>Documents</span>
+              <span id="tabIncomplete-documents" class="<?= $isDocumentsComplete ? 'hidden' : 'inline-flex' ?> items-center justify-center text-amber-500 shrink-0" title="Incomplete">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <circle cx="12" cy="12" r="9" stroke-width="2"/>
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01"/>
+                </svg>
+              </span>
             </button>
           </div>
         </div>
@@ -1636,6 +1681,17 @@ $isInHousePayment = strtolower((string)$paymentMethod) === 'in-house';
         currentDocuments = data.documents || [];
         renderDocumentsTable();
         refreshOfficialButton(currentReservationStatus, data.all_completed);
+
+        const docBadge = document.getElementById('tabIncomplete-documents');
+        if (docBadge) {
+          if (data.all_completed) {
+            docBadge.classList.add('hidden');
+            docBadge.classList.remove('inline-flex');
+          } else {
+            docBadge.classList.remove('hidden');
+            docBadge.classList.add('inline-flex');
+          }
+        }
       })
       .catch(error => {
         console.error(error);
@@ -2013,10 +2069,10 @@ $isInHousePayment = strtolower((string)$paymentMethod) === 'in-house';
       if (!btn || !panel) return;
 
       if (t === tabName) {
-        btn.className = 'tab-nav-btn pb-3 text-sm font-bold text-slate-900 border-b-2 border-slate-900 shrink-0';
+        btn.className = 'tab-nav-btn inline-flex items-center gap-1.5 pb-3 text-sm font-bold text-slate-900 border-b-2 border-slate-900 shrink-0';
         panel.classList.remove('hidden');
       } else {
-        btn.className = 'tab-nav-btn pb-3 text-sm font-medium text-slate-400 hover:text-slate-800 border-b-2 border-transparent shrink-0';
+        btn.className = 'tab-nav-btn inline-flex items-center gap-1.5 pb-3 text-sm font-medium text-slate-400 hover:text-slate-800 border-b-2 border-transparent shrink-0';
         panel.classList.add('hidden');
       }
     });

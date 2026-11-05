@@ -73,6 +73,41 @@ class UnitOwner extends Model {
     }
 
     /**
+     * Retrieve pending inquiries and pending reservations counts for this unit owner.
+     */
+    public function getPendingCounts(int $ownerId): array {
+        if ($ownerId <= 0) {
+            return ['pending_inquiries' => 0, 'pending_reservations' => 0];
+        }
+
+        $inqSql = "
+            SELECT COUNT(*) AS total
+            FROM owner_approval_table
+            WHERE unit_owner_id = ? AND request_status = 'pending'
+        ";
+        $inqRow = $this->fetchOne($inqSql, [$ownerId]);
+
+        $resSql = "
+            SELECT COUNT(*) AS total
+            FROM reservation_table r
+            INNER JOIN units_table u ON r.unit_id = u.unit_id
+            WHERE u.unit_owner_id = ?
+              AND (
+                  r.payment_status = 'pending review'
+                  OR LOWER(r.reservation_status) IN ('submitted', 'pending review', 'pending', 'under review', 'in progress', 'reservation form pending', 'cancellation requested', 'requirements pending')
+                  OR (r.lease_signed_at IS NULL AND LOWER(r.reservation_status) NOT IN ('cancelled', 'rejected'))
+              )
+              AND LOWER(r.reservation_status) NOT IN ('cancelled', 'rejected', 'officially booked', 'handover', 'moved in', 'active', 'completed')
+        ";
+        $resRow = $this->fetchOne($resSql, [$ownerId]);
+
+        return [
+            'pending_inquiries'    => (int)($inqRow['total'] ?? 0),
+            'pending_reservations' => (int)($resRow['total'] ?? 0),
+        ];
+    }
+
+    /**
      * Retrieve all units owned by this owner with current tenant details.
      */
     public function getOwnerUnits(int $ownerId): array {
@@ -267,7 +302,9 @@ class UnitOwner extends Model {
                     ELSE 'unit owner'
                 END AS cancellation_requested_by_role,
                 inq.inquiry_type AS inquiry_type,
-                inq.lease_duration AS inq_lease_duration
+                inq.lease_duration AS inq_lease_duration,
+                (SELECT COUNT(*) FROM reservation_documents_table d WHERE d.reservation_id = r.reservation_id) AS total_docs,
+                (SELECT COUNT(*) FROM reservation_documents_table d WHERE d.reservation_id = r.reservation_id AND d.status = 'complete') AS completed_docs
             FROM reservation_table r
             INNER JOIN units_table u ON r.unit_id = u.unit_id
             LEFT JOIN users_table owner ON u.unit_owner_id = owner.user_id

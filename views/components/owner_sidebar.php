@@ -85,7 +85,7 @@ $navItems = [
 .sidebar-link.active .nav-icon { color: #60a5fa; }
 .sidebar-link:not(.active):hover { background: #eff6ff; color: #1d4ed8; }
 .sidebar-link:not(.active):hover .nav-icon { color: #3b82f6; }
-.sidebar.collapsed .nav-label, .sidebar.collapsed .logo-text, .sidebar.collapsed .notice-section { display: none; }
+.sidebar.collapsed .nav-label, .sidebar.collapsed .nav-badge, .sidebar.collapsed .logo-text, .sidebar.collapsed .notice-section { display: none; }
 .sidebar.collapsed .sidebar-link { justify-content: center; padding-left: 0; padding-right: 0; }
 .sidebar.collapsed .collapse-icon { transform: rotate(180deg); }
 .sidebar.collapsed .sidebar-link:hover::after {
@@ -114,12 +114,34 @@ $navItems = [
   </div>
   <nav class="flex-1 px-2 py-4 space-y-0.5 overflow-y-auto overflow-x-hidden">
     <?php foreach ($navItems as $item): ?>
-      <?php $isActive = ($sidebarActiveTab === $item['id']); ?>
+      <?php 
+        $isActive = ($sidebarActiveTab === $item['id'])
+          || ($item['id'] === 'bookingcalendar' && in_array($sidebarActiveTab, ['bookingcalendar', 'calendar', 'booking_calendar', 'booking-calendar'], true))
+          || ($item['id'] === 'reservations' && in_array($sidebarActiveTab, ['reservation', 'reservations'], true))
+          || ($item['id'] === 'inquiries' && in_array($sidebarActiveTab, ['inquiry', 'inquiries'], true));
+
+        $hasBadge = false;
+        if (in_array($item['id'], ['inquiry', 'inquiries'], true) && !empty($pendingInquiries)) {
+          $hasBadge = true;
+        } elseif (in_array($item['id'], ['reservation', 'reservations'], true) && !empty($pendingReservations)) {
+          $hasBadge = true;
+        }
+      ?>
       <a href="<?= htmlspecialchars($item['url']) ?>"
          data-tooltip="<?= htmlspecialchars($item['label']) ?>"
-         class="sidebar-link <?= $isActive ? 'active' : '' ?> flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium <?= $isActive ? 'text-white' : 'text-slate-500' ?>">
-        <?= $item['svg'] ?>
-        <span class="nav-label"><?= htmlspecialchars($item['label']) ?></span>
+         class="sidebar-link <?= $isActive ? 'active' : '' ?> flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium <?= $isActive ? 'text-white' : 'text-slate-500' ?>">
+        <div class="flex items-center gap-3 min-w-0">
+          <?= $item['svg'] ?>
+          <span class="nav-label"><?= htmlspecialchars($item['label']) ?></span>
+        </div>
+        <?php if ($hasBadge): ?>
+          <span class="nav-badge ml-auto flex items-center justify-center shrink-0 <?= $isActive ? 'text-amber-400' : 'text-amber-500' ?>" title="Pending items requiring attention">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="9" stroke-width="2"/>
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01"/>
+            </svg>
+          </span>
+        <?php endif; ?>
       </a>
     <?php endforeach; ?>
   </nav>

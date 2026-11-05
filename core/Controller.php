@@ -16,6 +16,52 @@ abstract class Controller {
      * @param string|null $layout Layout name within views/layouts/ (e.g., 'main', 'admin', 'owner', 'tenant'), or null for no layout
      */
     protected function render(string $viewPath, array $data = [], ?string $layout = null): void {
+        // Auto-inject global admin sidebar badge counts for all admin views if not explicitly provided
+        if (str_starts_with($viewPath, 'admin/')) {
+            if (!isset($data['pendingInquiries']) || !isset($data['pendingReservations'])) {
+                try {
+                    require_once dirname(__DIR__) . '/models/Analytics.php';
+                    $analyticsModel = new Analytics();
+                    $pendingCounts = $analyticsModel->getPendingCounts();
+                    if (!isset($data['pendingInquiries'])) {
+                        $data['pendingInquiries'] = (int)($pendingCounts['pending_inquiries'] ?? 0);
+                    }
+                    if (!isset($data['pendingReservations'])) {
+                        $data['pendingReservations'] = (int)($pendingCounts['pending_reservations'] ?? 0);
+                    }
+                } catch (Throwable $e) {
+                    $data['pendingInquiries'] = $data['pendingInquiries'] ?? 0;
+                    $data['pendingReservations'] = $data['pendingReservations'] ?? 0;
+                }
+            }
+        }
+
+        // Auto-inject global unit owner sidebar badge flags for all unit owner views if not explicitly provided
+        if (str_starts_with($viewPath, 'owner/')) {
+            if (!isset($data['pendingInquiries']) || !isset($data['pendingReservations'])) {
+                try {
+                    $ownerId = (int)($_SESSION['user_id'] ?? 0);
+                    if ($ownerId > 0) {
+                        require_once dirname(__DIR__) . '/models/UnitOwner.php';
+                        $ownerModel = new UnitOwner();
+                        $ownerPendingCounts = $ownerModel->getPendingCounts($ownerId);
+                        if (!isset($data['pendingInquiries'])) {
+                            $data['pendingInquiries'] = (int)($ownerPendingCounts['pending_inquiries'] ?? 0);
+                        }
+                        if (!isset($data['pendingReservations'])) {
+                            $data['pendingReservations'] = (int)($ownerPendingCounts['pending_reservations'] ?? 0);
+                        }
+                    } else {
+                        $data['pendingInquiries'] = $data['pendingInquiries'] ?? 0;
+                        $data['pendingReservations'] = $data['pendingReservations'] ?? 0;
+                    }
+                } catch (Throwable $e) {
+                    $data['pendingInquiries'] = $data['pendingInquiries'] ?? 0;
+                    $data['pendingReservations'] = $data['pendingReservations'] ?? 0;
+                }
+            }
+        }
+
         // Extract variables into local scope for the view
         extract($data, EXTR_SKIP);
 
