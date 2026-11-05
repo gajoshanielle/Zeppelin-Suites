@@ -1018,6 +1018,9 @@ class Reservation extends Model
             }
 
             if ($isLease) {
+                $effectiveMoveIn = (!empty($moveInDate) && $moveInDate !== '0000-00-00') ? $moveInDate : date('Y-m-d');
+                $effectiveMoveOut = (!empty($moveOutDate) && $moveOutDate !== '0000-00-00') ? $moveOutDate : $effectiveMoveIn;
+
                 // 1. Overlap check against existing reservations
                 $overlapStmt = $this->db->prepare("
                     SELECT reservation_id
@@ -1027,10 +1030,10 @@ class Reservation extends Model
                       AND (transaction_type IN ('Unit Leasing', 'Lease Inquiry', 'Unit Reservation', 'lease', 'Lease') OR LOWER(transaction_type) LIKE '%leas%' OR LOWER(transaction_type) LIKE '%rent%')
                       AND move_in_date IS NOT NULL
                       AND move_in_date <= ?
-                      AND COALESCE(NULLIF(move_out_date, '0000-00-00'), move_in_date) >= ?
+                      AND COALESCE(CASE WHEN move_out_date IS NOT NULL AND CAST(move_out_date AS CHAR) NOT IN ('0000-00-00', '') THEN move_out_date ELSE NULL END, move_in_date) >= ?
                     FOR UPDATE
                 ");
-                $overlapStmt->execute([(int) $data['unit_id'], $moveOutDate, $moveInDate]);
+                $overlapStmt->execute([(int) $data['unit_id'], $effectiveMoveOut, $effectiveMoveIn]);
                 if ($overlapStmt->fetch()) {
                     throw new RuntimeException("Those move-in/move-out dates overlap with an existing reservation on this unit.");
                 }
@@ -1041,10 +1044,10 @@ class Reservation extends Model
                     FROM unit_blocked_dates_table
                     WHERE unit_id = ?
                       AND start_date <= ?
-                      AND COALESCE(NULLIF(end_date, '0000-00-00'), start_date) >= ?
+                      AND COALESCE(CASE WHEN end_date IS NOT NULL AND CAST(end_date AS CHAR) NOT IN ('0000-00-00', '') THEN end_date ELSE NULL END, start_date) >= ?
                     LIMIT 1
                 ");
-                $calBlockStmt->execute([(int) $data['unit_id'], $moveOutDate, $moveInDate]);
+                $calBlockStmt->execute([(int) $data['unit_id'], $effectiveMoveOut, $effectiveMoveIn]);
                 $calBlock = $calBlockStmt->fetch(PDO::FETCH_ASSOC);
                 if ($calBlock) {
                     $blockType = !empty($calBlock['block_type']) ? $calBlock['block_type'] : 'scheduled maintenance or unavailability';
@@ -1104,6 +1107,9 @@ class Reservation extends Model
                 )
             ";
 
+            $cleanMoveIn = (!empty($moveInDate) && $moveInDate !== '0000-00-00') ? $moveInDate : null;
+            $cleanMoveOut = (!empty($moveOutDate) && $moveOutDate !== '0000-00-00') ? $moveOutDate : null;
+
             $stmt = $this->db->prepare($insertSql);
             $stmt->execute([
                 (int) $data['inq_id'],
@@ -1114,8 +1120,8 @@ class Reservation extends Model
                 $clientSex,
                 $clientNationality,
                 $transactionType,
-                $moveInDate,
-                $moveOutDate,
+                $cleanMoveIn,
+                $cleanMoveOut,
                 $leaseSigningDate,
                 $isFlexibleSigning,
                 $priceBasis,
