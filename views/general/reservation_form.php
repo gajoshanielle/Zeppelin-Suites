@@ -73,11 +73,14 @@ $clientEmail = !empty($selectedUnitData['sender_email']) ? (string) $selectedUni
 $clientContact = !empty($selectedUnitData['sender_contact']) ? (string) $selectedUnitData['sender_contact'] : (!empty($client_contact) ? (string) $client_contact : (string) ($data['client_contact'] ?? ''));
 
 // Format lease duration display
-$inqLeaseDuration = !empty($selectedUnitData['lease_duration']) ? htmlspecialchars((string) $selectedUnitData['lease_duration']) : '1 year';
+$rawLeaseDuration = !empty($selectedUnitData['lease_duration']) ? (string) $selectedUnitData['lease_duration'] : '1 year';
+$isDurationNotSure = (stripos($rawLeaseDuration, 'not sure') !== false || empty($selectedUnitData['lease_duration']));
+$inqLeaseDuration = htmlspecialchars($rawLeaseDuration);
 if (stripos($inqLeaseDuration, 'longer') !== false || stripos($inqLeaseDuration, '3 year') !== false) {
   $inqLeaseDuration = '1 year';
 }
 $inqPreferredMoveIn = !empty($selectedUnitData['preferred_move_in_time']) ? htmlspecialchars((string) $selectedUnitData['preferred_move_in_time']) : 'Immediately';
+$isMoveInFlexible = (stripos($inqPreferredMoveIn, 'flexible') !== false || stripos($inqPreferredMoveIn, 'not sure') !== false);
 
 // Expiry date for date limits and move-in lead time
 $maxSigningDate = !empty($max_signing_date) ? $max_signing_date : date('Y-m-d', strtotime('+30 days'));
@@ -673,12 +676,32 @@ $signing_min = !$is_lease ? date('Y-m-d', strtotime('+3 days')) : date('Y-m-d');
                       <label class="block text-xs font-semibold text-slate-600 mb-1">Preferred move-in time</label>
                       <input type="text" name="preferred_move_in_time" value="<?= $inqPreferredMoveIn ?>" readonly
                         class="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-700 focus:outline-none">
+                      <?php if ($isMoveInFlexible): ?>
+                        <p class="text-[10px] text-blue-600 mt-1 flex items-center gap-1 font-medium">
+                          <svg class="w-3 h-3 text-blue-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" stroke-width="2"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01"/></svg>
+                          <span>Flexible schedule: please select your official move-in date below.</span>
+                        </p>
+                      <?php endif; ?>
                     </div>
                     <div>
                       <label class="block text-xs font-semibold text-slate-600 mb-1">Lease Duration</label>
-                      <input type="text" id="leaseDurationDisplay" name="lease_duration" value="<?= $inqLeaseDuration ?>"
-                        readonly
-                        class="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-700 focus:outline-none">
+                      <?php if ($isDurationNotSure): ?>
+                        <select id="leaseDurationDisplay" name="lease_duration" onchange="handleDurationChange(this.value)"
+                          class="w-full px-3.5 py-2 bg-white border border-blue-400 rounded-lg text-xs text-slate-800 font-semibold focus:outline-none focus:border-slate-900 cursor-pointer shadow-xs">
+                          <option value="1 year" selected>1 year (Standard)</option>
+                          <option value="6 months">6 months</option>
+                          <option value="3 months">3 months</option>
+                          <option value="2 years">2 years</option>
+                        </select>
+                        <p class="text-[10px] text-blue-600 mt-1 flex items-center gap-1 font-medium">
+                          <svg class="w-3 h-3 text-blue-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" stroke-width="2"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01"/></svg>
+                          <span>You selected "Not sure yet" on inquiry. Please choose your lease term.</span>
+                        </p>
+                      <?php else: ?>
+                        <input type="text" id="leaseDurationDisplay" name="lease_duration" value="<?= $inqLeaseDuration ?>"
+                          readonly
+                          class="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-700 focus:outline-none">
+                      <?php endif; ?>
                     </div>
 
                     <div>
@@ -1246,7 +1269,15 @@ $signing_min = !$is_lease ? date('Y-m-d', strtotime('+3 days')) : date('Y-m-d');
     const isLease = <?= json_encode((bool) $is_lease) ?>;
     let currentPriceBasis = <?= (float) $price_basis ?>;
     let currentUnitId = <?= $selectedUnitId ?>;
-    const leaseDurationStr = <?= json_encode($inqLeaseDuration) ?>;
+    let leaseDurationStr = <?= json_encode($isDurationNotSure ? '1 year' : $inqLeaseDuration) ?>;
+
+    function handleDurationChange(val) {
+      leaseDurationStr = val;
+      const moveInInput = document.getElementById('moveInDate');
+      if (moveInInput && moveInInput.value) {
+        handleMoveInChange(moveInInput.value);
+      }
+    }
 
     function parseDurationToMonths(str) {
       if (!str) return 12;

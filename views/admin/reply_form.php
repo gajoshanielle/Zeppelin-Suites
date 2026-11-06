@@ -123,6 +123,16 @@ $is_lease_flow = str_contains($type_lower, 'lease') || str_contains($type_lower,
 
 $reply_subject = "Update on your inquiry with Zeppelin Suites - " . ($sender_name ?: 'Valued Client');
 
+// Check if inquiry move-in or duration was flexible / open
+$isMoveInFlexible = (stripos($preferred_move_in_time, 'flexible') !== false || stripos($preferred_move_in_time, 'not sure') !== false);
+$isDurationNotSure = (stripos($lease_duration, 'not sure') !== false || empty($lease_duration) || $lease_duration === '—');
+
+$moveInDisplay = $isMoveInFlexible ? 'Flexible / Open (Select your preferred date on the reservation form)' : $preferred_move_in_time;
+$durationDisplay = $isDurationNotSure ? 'Open for selection (Choose 3, 6, 12, or 24 months on the reservation form)' : $lease_duration;
+$flexibleScheduleNote = ($isMoveInFlexible || $isDurationNotSure)
+    ? "• Note: Since your schedule or lease term is flexible, you may select your exact move-in date and desired lease duration directly on the reservation form.\n"
+    : "";
+
 // Pre-filled email body
 $email_body = "Dear " . ($sender_name ?: 'Client') . ",\n\n";
 $email_body .= "Thank you for contacting Zeppelin Suites. We have received your inquiry regarding our properties.\n\n";
@@ -151,10 +161,13 @@ if ($approval_status === 'approved' && $approved_count > 1) {
 
     $email_body .= "Inquiry Details:\n";
     if ($preferred_move_in_time && $preferred_move_in_time !== '—') {
-        $email_body .= "• Move-in Date: " . $preferred_move_in_time . "\n";
+        $email_body .= "• Move-in Timeline: " . $moveInDisplay . "\n";
     }
     if ($lease_duration && $lease_duration !== '—') {
-        $email_body .= "• Lease Term: " . $lease_duration . "\n";
+        $email_body .= "• Lease Term: " . $durationDisplay . "\n";
+    }
+    if ($flexibleScheduleNote) {
+        $email_body .= $flexibleScheduleNote;
     }
     $email_body .= "\n";
 
@@ -190,10 +203,13 @@ if ($approval_status === 'approved' && $approved_count > 1) {
     $email_body .= "• Owner Contact: {$uContact}\n";
     $email_body .= "• Monthly Rate: {$uRate}\n";
     if ($preferred_move_in_time && $preferred_move_in_time !== '—') {
-        $email_body .= "• Move-in Date: " . $preferred_move_in_time . "\n";
+        $email_body .= "• Move-in Timeline: " . $moveInDisplay . "\n";
     }
     if ($lease_duration && $lease_duration !== '—') {
-        $email_body .= "• Lease Term: " . $lease_duration . "\n";
+        $email_body .= "• Lease Term: " . $durationDisplay . "\n";
+    }
+    if ($flexibleScheduleNote) {
+        $email_body .= $flexibleScheduleNote;
     }
     $email_body .= "\n";
 
