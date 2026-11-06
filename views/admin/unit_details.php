@@ -80,7 +80,7 @@ $leaseRate = (float)($unit['lease_rate'] ?? 0);
 $resellingPrice = (float)($unit['reselling_price'] ?? 0);
 $currentOwnerId = $unit['unit_owner_id'] !== null ? (int)$unit['unit_owner_id'] : null;
 $isResale = (strcasecmp($listingType, 'Resale') === 0 || strcasecmp($currentStatus, 'Resale') === 0 || strcasecmp($currentStatus, 'For Resale') === 0 || stripos($listingType, 'resell') !== false);
-$isNotAvailable = (strcasecmp($listingType, 'Not Available') === 0);
+$isNotAvailable = (strcasecmp($listingType, 'Not Available') === 0 || strcasecmp($currentStatus, 'Not Available') === 0);
 
 $statusLower = strtolower($currentStatus);
 if ($isNotAvailable) {

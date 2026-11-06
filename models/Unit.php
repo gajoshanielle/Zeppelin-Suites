@@ -513,7 +513,7 @@ class Unit extends Model {
     public function create(array $data): int {
         $unitType = trim((string)($data['unit_type'] ?? ''));
         $floorNumber = isset($data['floor_number']) ? max(1, min(10, (int)$data['floor_number'])) : 1;
-        $unitCurrentStatus = trim((string)($data['unit_current_status'] ?? 'Ready for Occupancy'));
+        $unitCurrentStatus = trim((string)($data['unit_current_status'] ?? 'Not Available'));
         $ownerAssignment = trim((string)($data['owner_assignment'] ?? 'none'));
 
         $nextInfo = $this->getNextUnitNumber($unitType);
@@ -550,6 +550,11 @@ class Unit extends Model {
                 $unitOwnerId = (int)$this->db->lastInsertId();
             }
 
+            $listingType = ($unitCurrentStatus === 'Not Available') ? 'Not Available' : 'For Lease';
+            if ($unitCurrentStatus === 'For Resale' || $unitCurrentStatus === 'Resale') {
+                $listingType = 'Resale';
+            }
+
             $stmtUnit = $this->db->prepare("
                 INSERT INTO units_table (
                     unit_number, 
@@ -558,8 +563,9 @@ class Unit extends Model {
                     sqm, 
                     unit_owner_id, 
                     unit_current_status, 
+                    listing_type,
                     created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, NOW())
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, NOW())
             ");
             $stmtUnit->execute([
                 $unitNumber,
@@ -568,6 +574,7 @@ class Unit extends Model {
                 $sqm,
                 $unitOwnerId,
                 $unitCurrentStatus,
+                $listingType,
             ]);
             $unitId = (int)$this->db->lastInsertId();
 

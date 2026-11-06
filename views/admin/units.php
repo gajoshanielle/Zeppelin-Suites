@@ -322,6 +322,9 @@ tailwind.config = {
                                 } elseif ($status_lower === 'under maintenance') {
                                     $status_class = 'bg-orange-50 text-orange-700 border-orange-200';
                                     $dot_class = 'bg-orange-500';
+                                } elseif ($status_lower === 'not available') {
+                                    $status_class = 'bg-rose-50 text-rose-700 border-rose-200';
+                                    $dot_class = 'bg-rose-500';
                                 } elseif ($status_lower === 'archived') {
                                     $status_class = 'bg-slate-100 text-slate-600 border-slate-300';
                                     $dot_class = 'bg-slate-400';
@@ -334,14 +337,14 @@ tailwind.config = {
 
                                 $listing_type = strtolower(trim((string)($row['listing_type'] ?? 'for lease')));
                                 $is_resale = ($listing_type === 'resale' || $status_lower === 'resale' || $status_lower === 'for resale');
-                                $is_not_available = ($listing_type === 'not available');
+                                $is_not_available = ($listing_type === 'not available' || $status_lower === 'not available');
                                 $display_status = $is_not_available ? 'Not Available' : (($status_lower === 'resale' || $status_lower === 'for resale') ? 'For Resale' : $unit_current_status);
                                 $resale_val = (float)($row['reselling_price'] ?? 0);
 
                                 if ($is_not_available) {
                                     $price_value = '—';
                                     $status_class = 'bg-rose-50 text-rose-700 border-rose-200';
-                                    $status_dot = 'bg-rose-500';
+                                    $dot_class = 'bg-rose-500';
                                     $listing_badge_html = '<span class="inline-block text-xs font-semibold px-2.5 py-1 rounded-md bg-rose-50 text-rose-700 border border-rose-200">Not Available</span>';
                                 } elseif ($is_resale && $resale_val > 0) {
                                     $price_value = peso($resale_val);
@@ -512,7 +515,6 @@ tailwind.config = {
               class="w-full border border-slate-200 rounded-xl px-3.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900 bg-white">
               <option value="none">No owner yet</option>
               <option value="existing">Select existing user</option>
-              <option value="new">Create new unit owner</option>
           </select>
         </div>
 
@@ -535,42 +537,12 @@ tailwind.config = {
             </select>
         </div>
 
-        <!-- New Owner Box -->
-        <div id="newOwnerBox" class="hidden space-y-3 p-3.5 bg-slate-50 border border-slate-200 rounded-xl">
-            <p class="text-xs font-bold text-slate-700 uppercase tracking-wider">New Unit Owner Details</p>
-            <div>
-                <label class="block text-xs font-semibold text-slate-600 mb-1">Full Name</label>
-                <input 
-                    type="text" 
-                    name="new_owner_name" 
-                    id="newOwnerName"
-                    class="w-full border border-slate-200 rounded-xl px-3 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-slate-900">
-            </div>
-
-            <div>
-                <label class="block text-xs font-semibold text-slate-600 mb-1">Email</label>
-                <input 
-                    type="email" 
-                    name="new_owner_email" 
-                    id="newOwnerEmail"
-                    class="w-full border border-slate-200 rounded-xl px-3 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-slate-900">
-            </div>
-
-            <div>
-                <label class="block text-xs font-semibold text-slate-600 mb-1">Contact</label>
-                <input 
-                    type="text" 
-                    name="new_owner_contact" 
-                    id="newOwnerContact"
-                    class="w-full border border-slate-200 rounded-xl px-3 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-slate-900">
-            </div>
-        </div>
-
         <!-- Unit Status -->
         <div>
           <label class="block text-sm font-semibold text-slate-700 mb-1">Unit Status</label>
-          <select name="unit_current_status" required
+          <select name="unit_current_status" id="unitCurrentStatus" required
               class="w-full border border-slate-200 rounded-xl px-3.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900 bg-white">
+              <option value="Not Available" selected>Not Available</option>
               <option value="Ready for Occupancy">Ready for Occupancy</option>
               <option value="For Resale">For Resale</option>
               <option value="On Hold">On Hold</option>
@@ -699,6 +671,14 @@ openAddUnitModal?.addEventListener('click', () => {
 function closeAddModal() {
     addUnitModal?.classList.add('hidden');
     addUnitModal?.classList.remove('flex');
+    if (ownerAssignment) ownerAssignment.value = 'none';
+    if (existingOwnerBox) existingOwnerBox.classList.add('hidden');
+    if (existingOwnerId) {
+        existingOwnerId.required = false;
+        existingOwnerId.value = '';
+    }
+    const unitStatusSelect = document.getElementById('unitCurrentStatus');
+    if (unitStatusSelect) unitStatusSelect.value = 'Not Available';
 }
 
 closeAddUnitModal?.addEventListener('click', closeAddModal);
@@ -745,30 +725,14 @@ unitType?.addEventListener('change', async () => {
 const ownerAssignment = document.getElementById('ownerAssignment');
 const existingOwnerBox = document.getElementById('existingOwnerBox');
 const existingOwnerId = document.getElementById('existingOwnerId');
-const newOwnerBox = document.getElementById('newOwnerBox');
-const newOwnerName = document.getElementById('newOwnerName');
-const newOwnerEmail = document.getElementById('newOwnerEmail');
-const newOwnerContact = document.getElementById('newOwnerContact');
 
 ownerAssignment?.addEventListener('change', () => {
     existingOwnerBox?.classList.add('hidden');
-    newOwnerBox?.classList.add('hidden');
-
     if (existingOwnerId) existingOwnerId.required = false;
-    if (newOwnerName) newOwnerName.required = false;
-    if (newOwnerEmail) newOwnerEmail.required = false;
-    if (newOwnerContact) newOwnerContact.required = false;
 
     if (ownerAssignment.value === 'existing') {
         existingOwnerBox?.classList.remove('hidden');
         if (existingOwnerId) existingOwnerId.required = true;
-    }
-
-    if (ownerAssignment.value === 'new') {
-        newOwnerBox?.classList.remove('hidden');
-        if (newOwnerName) newOwnerName.required = true;
-        if (newOwnerEmail) newOwnerEmail.required = true;
-        if (newOwnerContact) newOwnerContact.required = true;
     }
 });
 </script>

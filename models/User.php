@@ -204,14 +204,6 @@ class User extends Model {
     }
 
     /**
-     * Activate resident status upon first login.
-     */
-    public function activateResidentStatus(int $userId): bool {
-        $sql = "UPDATE users_table SET resident_status = 'Active' WHERE user_id = ?";
-        return $this->execute($sql, [$userId]);
-    }
-
-    /**
      * Create a password reset verification code entry directly on users_table.
      * Enforces rate limiting: Max 1 code request per 60 seconds per email.
      */

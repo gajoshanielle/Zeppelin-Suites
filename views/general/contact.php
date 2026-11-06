@@ -78,7 +78,7 @@ declare(strict_types=1);
 
           <!-- Name -->
           <div>
-            <label for="sender_name" class="block text-sm font-semibold text-zinc-800 mb-2">Name:</label>
+            <label for="sender_name" class="block text-sm font-semibold text-zinc-800 mb-2">Name <span class="text-rose-500">*</span></label>
             <input type="text" name="sender_name" id="sender_name" placeholder="Your full name" required
               class="zep-input w-full border border-zinc-300 rounded-xl bg-white px-4 py-3 text-sm text-zinc-800 placeholder-zinc-400 focus:border-zinc-900 transition-colors outline-none">
           </div>
@@ -86,7 +86,7 @@ declare(strict_types=1);
           <!-- Email + Phone -->
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
             <div>
-              <label for="sender_email" class="block text-sm font-semibold text-zinc-800 mb-2">Email:</label>
+              <label for="sender_email" class="block text-sm font-semibold text-zinc-800 mb-2">Email <span class="text-rose-500">*</span></label>
               <input type="email" name="sender_email" id="sender_email" placeholder="your@email.com" required
                 class="zep-input w-full border border-zinc-300 rounded-xl bg-white px-4 py-3 text-sm text-zinc-800 placeholder-zinc-400 focus:border-zinc-900 transition-colors outline-none">
               <p id="emailError"
@@ -99,7 +99,7 @@ declare(strict_types=1);
               </p>
             </div>
             <div>
-              <label for="contact_phone_input" class="block text-sm font-semibold text-zinc-800 mb-2">Phone:</label>
+              <label for="contact_phone_input" class="block text-sm font-semibold text-zinc-800 mb-2">Phone <span class="text-rose-500">*</span></label>
               <div id="contactPhoneWrapper"
                 class="relative flex items-center rounded-xl border border-zinc-300 bg-white focus-within:border-zinc-900 transition-all shadow-2xs">
                 <!-- Country Code Dropdown Trigger -->
@@ -142,7 +142,7 @@ declare(strict_types=1);
 
           <!-- Inquiry Type -->
           <div>
-            <label class="block text-sm font-semibold text-zinc-800 mb-2">Inquiry Type:</label>
+            <label class="block text-sm font-semibold text-zinc-800 mb-2">Inquiry Type <span class="text-rose-500">*</span></label>
             <div class="relative">
               <select name="inquiry_type" id="inquiry_type"
                 class="zep-select w-full border border-zinc-300 rounded-xl bg-white px-4 py-3 text-sm text-zinc-600 appearance-none cursor-pointer focus:border-zinc-900 outline-none transition-colors"
@@ -164,7 +164,7 @@ declare(strict_types=1);
 
           <!-- Unit Preference -->
           <div id="unit-preference" style="display: none;">
-            <label class="block text-sm font-semibold text-zinc-800 mb-2">Unit Preference:</label>
+            <label class="block text-sm font-semibold text-zinc-800 mb-2">Unit Preference <span class="text-rose-500">*</span></label>
             <div class="relative">
               <select name="Preferred_unit_id" id="preferred_unit_id" disabled
                 class="zep-select w-full border border-zinc-300 rounded-xl bg-white px-4 py-3 text-sm text-zinc-600 appearance-none cursor-pointer focus:border-zinc-900 outline-none transition-colors">
@@ -186,7 +186,7 @@ declare(strict_types=1);
           <!-- When do you plan to move in? -->
           <div id="preferred-move-in-container" style="display: none;">
             <label for="preferred_move_in_time" class="block text-sm font-semibold text-zinc-800 mb-2">When do you plan
-              to move in?</label>
+              to move in? <span class="text-rose-500">*</span></label>
             <div class="relative">
               <select name="preferred_move_in_time" id="preferred_move_in_time" disabled
                 class="zep-select w-full border border-zinc-300 rounded-xl bg-white px-4 py-3 text-sm text-zinc-600 appearance-none cursor-pointer focus:border-zinc-900 outline-none transition-colors">
@@ -209,7 +209,7 @@ declare(strict_types=1);
           <!-- Preferred Lease Duration -->
           <div id="lease-duration-container" style="display: none;">
             <label for="lease_duration" class="block text-sm font-semibold text-zinc-800 mb-2">Preferred Lease
-              Duration:</label>
+              Duration <span class="text-rose-500">*</span></label>
             <div class="relative">
               <select name="lease_duration" id="lease_duration" disabled
                 class="zep-select w-full border border-zinc-300 rounded-xl bg-white px-4 py-3 text-sm text-zinc-600 appearance-none cursor-pointer focus:border-zinc-900 outline-none transition-colors">
@@ -231,8 +231,8 @@ declare(strict_types=1);
 
           <!-- Message -->
           <div>
-            <label class="block text-sm font-semibold text-zinc-800 mb-2">Message:</label>
-            <textarea name="Message" rows="5" placeholder="Write your message here..." required
+            <label class="block text-sm font-semibold text-zinc-800 mb-2">Message <span class="text-xs font-normal text-zinc-400">(Optional)</span></label>
+            <textarea name="Message" rows="5" placeholder="Write your message here (optional)..."
               class="zep-input w-full border border-zinc-300 rounded-xl bg-white px-4 py-3 text-sm text-zinc-800 placeholder-zinc-400 focus:border-zinc-900 transition-colors outline-none resize-none"></textarea>
           </div>
 
@@ -640,10 +640,7 @@ declare(strict_types=1);
         leaseSelect.classList.remove("border-rose-500");
       }
 
-      if (messageInput && !messageInput.value.trim()) {
-        firstInvalid = firstInvalid || messageInput;
-        messageInput.classList.add("border-rose-500");
-      } else if (messageInput) {
+      if (messageInput) {
         messageInput.classList.remove("border-rose-500");
       }
 
