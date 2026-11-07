@@ -1,0 +1,173 @@
+<?php
+declare(strict_types=1);
+
+require_once __DIR__ . '/../core/Controller.php';
+require_once __DIR__ . '/../core/Middleware.php';
+require_once __DIR__ . '/../models/Tenant.php';
+require_once __DIR__ . '/../models/User.php';
+
+/**
+ * Zeppelin Suites - Tenant Controller
+ * Manages tenant portal workflows: overview dashboard, profile/account settings, and maintenance tickets.
+ * Pure MVC: strictly NO SQL queries in this controller.
+ */
+class TenantController extends Controller {
+    private Tenant $tenantModel;
+    private User $userModel;
+
+    public function __construct() {
+        $this->tenantModel = new Tenant();
+        $this->userModel = new User();
+    }
+
+    /**
+     * Display Tenant Home Overview.
+     */
+    public function home(): void {
+        $userSession = Middleware::requireRole(['tenant']);
+        $baseUrl = rtrim((string)env('APP_URL', '/Zeppelin-Suites'), '/');
+
+        $tenantId = (int)$userSession['user_id'];
+        $email = (string)($userSession['email'] ?? '');
+        $name = (string)$userSession['full_name'];
+
+        $overview = $this->tenantModel->getOverviewData($tenantId, $email, $name);
+
+        $this->render('tenant/home', [
+            'pageTitle'              => 'Zeppelin Suites — Tenant Home',
+            'activeTab'              => 'home',
+            'baseUrl'                => $baseUrl,
+            'tenantUser'             => $overview['user'],
+            'leaseInfo'              => $overview['lease'],
+            'activeMaintenanceCount' => $overview['activeMaintenanceCount'],
+            'recentTickets'          => $overview['recentTickets'],
+            'tenantName'             => $name,
+            'tenantEmail'            => $email,
+            'tenantInitials'         => $userSession['initial'],
+        ]);
+    }
+
+    /**
+     * Display and handle Tenant Account/Profile updates.
+     */
+    public function account(): void {
+        $userSession = Middleware::requireRole(['tenant']);
+        $baseUrl = rtrim((string)env('APP_URL', '/Zeppelin-Suites'), '/');
+
+        $tenantId = (int)$userSession['user_id'];
+        $toast = null;
+        $activeSubTab = (string)$this->getQuery('tab', 'profile');
+        if (!in_array($activeSubTab, ['profile', 'documents', 'request', 'password'], true)) {
+            $activeSubTab = 'profile';
+        }
+
+        if ($this->isPost()) {
+            $this->validateCsrf();
+            $action = (string)$this->getPost('action', '');
+            if ($action === 'change_password') {
+                $activeSubTab = 'password';
+                $result = $this->userModel->changePassword(
+                    $tenantId,
+                    (string)$this->getPost('current_password', ''),
+                    (string)$this->getPost('new_password', ''),
+                    (string)$this->getPost('confirm_password', '')
+                );
+                $toast = ['type' => $result['success'] ? 'success' : 'error', 'msg' => $result['message']];
+            } elseif ($action === 'update_profile') {
+                $activeSubTab = 'profile';
+                $result = $this->tenantModel->updateProfile($tenantId, $_POST);
+                $toast = [
+                    'type' => $result['success'] ? 'success' : 'error',
+                    'msg'  => $result['message'],
+                ];
+                if ($result['success'] && !empty($_POST['full_name'])) {
+                    $_SESSION['full_name'] = trim((string)$_POST['full_name']);
+                }
+            }
+        }
+
+        $accountData = $this->tenantModel->getAccountData($tenantId);
+        $tenant = $accountData['tenant'] ?? null;
+        $leases = $accountData['leases'] ?? [];
+        $documents = $accountData['documents'] ?? [];
+        $maintenance = $accountData['maintenance'] ?? [];
+
+        $name = (string)($tenant['full_name'] ?? $userSession['full_name']);
+        $initials = strtoupper(substr(trim($name ?: 'T'), 0, 1));
+
+        $this->render('tenant/account', [
+            'pageTitle'         => 'Zeppelin Suites — Account Settings',
+            'activeTab'         => 'account',
+            'activeSubTab'      => $activeSubTab,
+            'baseUrl'           => $baseUrl,
+            'tenant'            => $tenant,
+            'leases'            => $leases,
+            'documents'         => $documents,
+            'maintenance'       => $maintenance,
+            'passwordCsrfToken' => Csrf::token(),
+            'tenantName'        => $name,
+            'tenantEmail'       => (string)($tenant['email'] ?? $userSession['email'] ?? ''),
+            'tenantInitials'    => $initials,
+            'toast'             => $toast,
+        ]);
+    }
+
+    /**
+     * Display Tenant Maintenance Ticket List & Request Form.
+     */
+    public function maintenance(): void {
+        $userSession = Middleware::requireRole(['tenant']);
+        $baseUrl = rtrim((string)env('APP_URL', '/Zeppelin-Suites'), '/');
+
+        $tenantId = (int)$userSession['user_id'];
+        $email = (string)($userSession['email'] ?? '');
+        $name = (string)$userSession['full_name'];
+
+        $units = $this->tenantModel->getTenantUnits($tenantId);
+        $tickets = $this->tenantModel->getMaintenanceTickets($tenantId, $name);
+
+        $successMessage = $_SESSION['success_message'] ?? null;
+        $errorMessage = $_SESSION['error_message'] ?? null;
+        unset($_SESSION['success_message'], $_SESSION['error_message']);
+
+        $this->render('tenant/maintenance', [
+            'pageTitle'       => 'Zeppelin Suites — Maintenance',
+            'activeTab'       => 'maintenance',
+            'baseUrl'         => $baseUrl,
+            'tenantName'      => $name,
+            'tenantEmail'     => $email,
+            'tenantInitials'  => $userSession['initial'],
+            'tenantUnits'     => $units,
+            'tickets'         => $tickets,
+            'successMessage'  => $successMessage,
+            'errorMessage'    => $errorMessage,
+        ]);
+    }
+
+    /**
+     * Process Tenant Maintenance Request Submission (POST).
+     */
+    public function storeMaintenance(): void {
+        $userSession = Middleware::requireRole(['tenant']);
+        $baseUrl = rtrim((string)env('APP_URL', '/Zeppelin-Suites'), '/');
+
+        if (!$this->isPost()) {
+            $this->redirect("{$baseUrl}/tenant/maintenance");
+            return;
+        }
+
+        $tenantId = (int)$userSession['user_id'];
+        $email = (string)($userSession['email'] ?? '');
+        $name = (string)$userSession['full_name'];
+
+        $result = $this->tenantModel->createMaintenanceRequest($tenantId, $email, $name, $_POST, $_FILES);
+
+        if ($result['success']) {
+            $_SESSION['success_message'] = $result['message'];
+        } else {
+            $_SESSION['error_message'] = $result['message'];
+        }
+
+        $this->redirect("{$baseUrl}/tenant/maintenance");
+    }
+}
