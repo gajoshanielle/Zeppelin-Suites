@@ -39,7 +39,7 @@ include __DIR__ . '/../components/public_navbar.php';
                         d="M0 .55.571 0H15.43l.57.55v9.9l-.571.55H.57L0 10.45zm1.143 1.138V9.9h13.714V1.69l-6.503 4.8h-.697zM13.749 1.1H2.25L8 5.356z"
                         fill="currentColor" />
                 </svg>
-                <input type="email" name="email" placeholder="email@gmail.com"
+                <input type="text" inputmode="email" name="email" placeholder="email@gmail.com"
                     class="bg-transparent text-slate-800 placeholder-slate-400 outline-none text-sm w-full h-full"
                     required autofocus>
             </div>
