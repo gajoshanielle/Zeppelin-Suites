@@ -29,6 +29,8 @@ declare(strict_types=1);
     .btn-primary { transition: all 0.15s ease; }
     .btn-primary:active { transform: scale(0.95); }
     .carousel-track { display: flex; transition: transform 0.4s ease; }
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
   </style>
 </head>
 <body class="bg-white text-zinc-900 overflow-x-hidden">
@@ -184,18 +186,22 @@ declare(strict_types=1);
       </div>
 
       <div class="relative group">
-        <div id="amenityWrapper" class="overflow-hidden rounded-3xl">
-          <div id="amenityTrack" class="flex gap-4 md:gap-6 transition-transform duration-700 ease-out px-4 md:px-0">
+        <div id="amenityWrapper" class="overflow-x-auto no-scrollbar scroll-smooth rounded-3xl pb-4 snap-x snap-mandatory">
+          <div id="amenityTrack" class="flex gap-4 md:gap-6 px-4 md:px-0 min-w-max">
           </div>
         </div>
 
-        <button onclick="prevAmenity()"
-          class="absolute left-3 md:left-8 top-1/2 -translate-y-1/2 z-30 bg-white/95 hover:bg-white shadow-lg text-zinc-900 w-10 h-10 md:w-12 md:h-12 rounded-2xl flex items-center justify-center text-3xl transition-all hover:scale-110 active:scale-95 border border-zinc-100">
-          ‹
+        <button id="amenityPrevBtn" onclick="prevAmenity()" aria-label="Previous amenity"
+          class="absolute left-2 sm:left-4 md:left-6 top-1/2 -translate-y-1/2 z-30 bg-white/95 hover:bg-white shadow-lg text-zinc-900 w-10 h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center transition-all hover:scale-110 active:scale-95 border border-zinc-200/80 backdrop-blur-xs">
+          <svg class="w-5 h-5 text-zinc-800" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7" />
+          </svg>
         </button>
-        <button onclick="nextAmenity()"
-          class="absolute right-3 md:right-8 top-1/2 -translate-y-1/2 z-30 bg-white/95 hover:bg-white shadow-lg text-zinc-900 w-10 h-10 md:w-12 md:h-12 rounded-2xl flex items-center justify-center text-3xl transition-all hover:scale-110 active:scale-95 border border-zinc-100">
-          ›
+        <button id="amenityNextBtn" onclick="nextAmenity()" aria-label="Next amenity"
+          class="absolute right-2 sm:right-4 md:right-6 top-1/2 -translate-y-1/2 z-30 bg-white/95 hover:bg-white shadow-lg text-zinc-900 w-10 h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center transition-all hover:scale-110 active:scale-95 border border-zinc-200/80 backdrop-blur-xs">
+          <svg class="w-5 h-5 text-zinc-800" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7" />
+          </svg>
         </button>
       </div>
     </div>
@@ -292,12 +298,9 @@ declare(strict_types=1);
       }
     ];
 
-    let currentAmenityIndex = 0;
-    let isTransitioning = false;
-
     function createAmenityCard(amenity) {
       const card = document.createElement('div');
-      card.className = `flex-none w-[85vw] max-w-[340px] sm:w-[340px] md:w-[380px] bg-white rounded-3xl overflow-hidden shadow-sm border border-zinc-100 group hover:shadow-xl transition-all duration-500`;
+      card.className = `amenity-card snap-start flex-none w-[85vw] max-w-[340px] sm:w-[340px] md:w-[380px] bg-white rounded-3xl overflow-hidden shadow-sm border border-zinc-100 group hover:shadow-xl transition-all duration-300`;
 
       card.innerHTML = `
       <div class="relative aspect-[4/3] overflow-hidden">
@@ -326,48 +329,72 @@ declare(strict_types=1);
       const track = document.getElementById('amenityTrack');
       if (!track) return;
       track.innerHTML = '';
-      [...amenitiesData, ...amenitiesData].forEach(amenity => {
+      amenitiesData.forEach(amenity => {
         track.appendChild(createAmenityCard(amenity));
       });
-    }
-
-    function updateCarouselPosition() {
-      if (isTransitioning) return;
-      isTransitioning = true;
-
-      const track = document.getElementById('amenityTrack');
-      if (!track) return;
-      const isMobile = window.innerWidth < 640;
-      const cardWidth = isMobile ? 340 + 16 : 380 + 24;
-      const offset = -currentAmenityIndex * cardWidth;
-
-      track.style.transform = `translateX(${offset}px)`;
-
-      setTimeout(() => {
-        isTransitioning = false;
-        if (currentAmenityIndex >= amenitiesData.length) {
-          currentAmenityIndex = 0;
-          track.style.transition = 'none';
-          track.style.transform = `translateX(0px)`;
-          void track.offsetWidth;
-          track.style.transition = 'transform 700ms cubic-bezier(0.4, 0, 0.2, 1)';
-        }
-      }, 700);
+      updateAmenityArrowStates();
     }
 
     function nextAmenity() {
-      currentAmenityIndex++;
-      updateCarouselPosition();
+      const wrapper = document.getElementById('amenityWrapper');
+      if (!wrapper) return;
+      const card = wrapper.querySelector('.amenity-card');
+      const scrollStep = card ? card.offsetWidth + 24 : 360;
+      wrapper.scrollBy({ left: scrollStep, behavior: 'smooth' });
     }
 
     function prevAmenity() {
-      if (currentAmenityIndex <= 0) return;
-      currentAmenityIndex--;
-      updateCarouselPosition();
+      const wrapper = document.getElementById('amenityWrapper');
+      if (!wrapper) return;
+      const card = wrapper.querySelector('.amenity-card');
+      const scrollStep = card ? card.offsetWidth + 24 : 360;
+      wrapper.scrollBy({ left: -scrollStep, behavior: 'smooth' });
+    }
+
+    function updateAmenityArrowStates() {
+      const wrapper = document.getElementById('amenityWrapper');
+      const prevBtn = document.getElementById('amenityPrevBtn');
+      const nextBtn = document.getElementById('amenityNextBtn');
+      if (!wrapper || !prevBtn || !nextBtn) return;
+
+      const atStart = wrapper.scrollLeft <= 10;
+      const atEnd = wrapper.scrollLeft + wrapper.clientWidth >= wrapper.scrollWidth - 10;
+
+      prevBtn.style.opacity = atStart ? '0.35' : '1';
+      prevBtn.style.pointerEvents = atStart ? 'none' : 'auto';
+
+      nextBtn.style.opacity = atEnd ? '0.35' : '1';
+      nextBtn.style.pointerEvents = atEnd ? 'none' : 'auto';
     }
 
     window.addEventListener('DOMContentLoaded', () => {
       renderAmenities();
+
+      const wrapper = document.getElementById('amenityWrapper');
+      if (wrapper) {
+        wrapper.addEventListener('scroll', updateAmenityArrowStates, { passive: true });
+        window.addEventListener('resize', updateAmenityArrowStates, { passive: true });
+        updateAmenityArrowStates();
+
+        // Optional mouse drag-to-scroll for desktop
+        let isDown = false;
+        let startX, scrollLeft;
+        wrapper.addEventListener('mousedown', (e) => {
+          isDown = true;
+          startX = e.pageX - wrapper.offsetLeft;
+          scrollLeft = wrapper.scrollLeft;
+        });
+        wrapper.addEventListener('mouseleave', () => { isDown = false; });
+        wrapper.addEventListener('mouseup', () => { isDown = false; });
+        wrapper.addEventListener('mousemove', (e) => {
+          if (!isDown) return;
+          e.preventDefault();
+          const x = e.pageX - wrapper.offsetLeft;
+          const walk = (x - startX) * 1.5;
+          wrapper.scrollLeft = scrollLeft - walk;
+        });
+      }
+
       const images = [
         baseUrl + '/images/condo_photos/zeppelin-suites-slider-exterior-2.jpg',
         baseUrl + '/images/condo_photos/zeppelin-suites-slider-pool-area.jpg',
