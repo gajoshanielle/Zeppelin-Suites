@@ -23,8 +23,10 @@ declare(strict_types=1);
     .faq-answer.open { max-height: 500px; }
     .faq-chevron { transition: transform 0.3s ease; }
     .faq-chevron.rotated { transform: rotate(180deg); }
-    .tab-btn { transition: all 0.2s ease; }
+    .tab-btn { transition: all 0.2s ease; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
     .tab-btn.active { border-bottom: 2px solid #18181b; color: #18181b; }
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     .btn-primary { transition: all 0.15s ease; }
     .btn-primary:active { transform: scale(0.95); }
   </style>
@@ -44,25 +46,31 @@ declare(strict_types=1);
 <section class="px-6 md:px-16 lg:px-24 xl:px-32 py-16 max-w-5xl mx-auto w-full">
 
   <!-- Category tabs with arrows -->
-  <div class="flex items-center gap-3 border-b border-zinc-200 mb-10">
-    <button type="button" onclick="slideFaqTabs(-1)" class="shrink-0 pb-3 text-zinc-400 hover:text-zinc-900 transition-colors">
-      🠘
+  <div class="flex items-center gap-2 sm:gap-3 border-b border-zinc-200 mb-10 relative">
+    <button type="button" id="faqScrollLeftBtn" onclick="slideFaqTabs(-1)" aria-label="Scroll tabs left"
+      class="shrink-0 mb-3 w-8 h-8 rounded-full flex items-center justify-center text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 transition-all active:scale-90">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7" />
+      </svg>
     </button>
 
-    <div class="overflow-hidden flex-1">
-      <div id="faqTabsTrack" class="flex gap-8 transition-transform duration-300">
-        <button onclick="switchTab('reserving')" id="tab-reserving" class="tab-btn active pb-3 text-sm font-bold uppercase tracking-wide text-zinc-900 whitespace-nowrap border-b-2 border-zinc-900">Reserving a Unit</button>
-        <button onclick="switchTab('payment')" id="tab-payment" class="tab-btn pb-3 text-sm font-bold uppercase tracking-wide text-zinc-400 hover:text-zinc-700 whitespace-nowrap border-b-2 border-transparent">Payment</button>
-        <button onclick="switchTab('attorney')" id="tab-attorney" class="tab-btn pb-3 text-sm font-bold uppercase tracking-wide text-zinc-400 hover:text-zinc-700 whitespace-nowrap border-b-2 border-transparent">Power of Attorney</button>
-        <button onclick="switchTab('association')" id="tab-association" class="tab-btn pb-3 text-sm font-bold uppercase tracking-wide text-zinc-400 hover:text-zinc-700 whitespace-nowrap border-b-2 border-transparent">Association Due</button>
-        <button onclick="switchTab('homeowner')" id="tab-homeowner" class="tab-btn pb-3 text-sm font-bold uppercase tracking-wide text-zinc-400 hover:text-zinc-700 whitespace-nowrap border-b-2 border-transparent">Homeowner Rights & Responsibilities</button>
-        <button onclick="switchTab('parking')" id="tab-parking" class="tab-btn pb-3 text-sm font-bold uppercase tracking-wide text-zinc-400 hover:text-zinc-700 whitespace-nowrap border-b-2 border-transparent">Parking</button>
-        <button onclick="switchTab('pets')" id="tab-pets" class="tab-btn pb-3 text-sm font-bold uppercase tracking-wide text-zinc-400 hover:text-zinc-700 whitespace-nowrap border-b-2 border-transparent">Pets</button>
+    <div id="faqTabsContainer" class="overflow-x-auto no-scrollbar scroll-smooth flex-1 -mb-px">
+      <div id="faqTabsTrack" class="flex gap-6 sm:gap-8 pb-3 min-w-max">
+        <button onclick="switchTab('reserving')" id="tab-reserving" class="tab-btn active text-sm font-bold uppercase tracking-wide text-zinc-900 whitespace-nowrap border-b-2 border-zinc-900">Reserving a Unit</button>
+        <button onclick="switchTab('payment')" id="tab-payment" class="tab-btn text-sm font-bold uppercase tracking-wide text-zinc-400 hover:text-zinc-700 whitespace-nowrap border-b-2 border-transparent">Payment</button>
+        <button onclick="switchTab('attorney')" id="tab-attorney" class="tab-btn text-sm font-bold uppercase tracking-wide text-zinc-400 hover:text-zinc-700 whitespace-nowrap border-b-2 border-transparent">Power of Attorney</button>
+        <button onclick="switchTab('association')" id="tab-association" class="tab-btn text-sm font-bold uppercase tracking-wide text-zinc-400 hover:text-zinc-700 whitespace-nowrap border-b-2 border-transparent">Association Due</button>
+        <button onclick="switchTab('homeowner')" id="tab-homeowner" class="tab-btn text-sm font-bold uppercase tracking-wide text-zinc-400 hover:text-zinc-700 whitespace-nowrap border-b-2 border-transparent">Homeowner Rights &amp; Responsibilities</button>
+        <button onclick="switchTab('parking')" id="tab-parking" class="tab-btn text-sm font-bold uppercase tracking-wide text-zinc-400 hover:text-zinc-700 whitespace-nowrap border-b-2 border-transparent">Parking</button>
+        <button onclick="switchTab('pets')" id="tab-pets" class="tab-btn text-sm font-bold uppercase tracking-wide text-zinc-400 hover:text-zinc-700 whitespace-nowrap border-b-2 border-transparent">Pets</button>
       </div>
     </div>
 
-    <button type="button" onclick="slideFaqTabs(1)" class="shrink-0 pb-3 text-zinc-400 hover:text-zinc-900 transition-colors">
-      🠚
+    <button type="button" id="faqScrollRightBtn" onclick="slideFaqTabs(1)" aria-label="Scroll tabs right"
+      class="shrink-0 mb-3 w-8 h-8 rounded-full flex items-center justify-center text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 transition-all active:scale-90">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7" />
+      </svg>
     </button>
   </div>
 
@@ -238,7 +246,6 @@ function toggleFaq(btn) {
 }
 
 const faqPanels = ['reserving', 'payment', 'attorney', 'association', 'homeowner', 'parking', 'pets'];
-let faqTabIndex = 0;
 
 function switchTab(tab) {
   faqPanels.forEach(panel => {
@@ -258,26 +265,50 @@ function switchTab(tab) {
   if (activeBtn) {
     activeBtn.classList.add('active', 'border-zinc-900', 'text-zinc-900');
     activeBtn.classList.remove('text-zinc-400', 'border-transparent');
-  }
 
-  faqTabIndex = faqPanels.indexOf(tab);
+    // Smoothly scroll active tab into view
+    activeBtn.scrollIntoView({
+      behavior: 'smooth',
+      inline: 'center',
+      block: 'nearest'
+    });
+  }
 }
 
 function slideFaqTabs(direction) {
-  const track = document.getElementById('faqTabsTrack');
-  if (!track) return;
-  const viewport = track.parentElement;
-  const tabs = track.querySelectorAll('button');
-
-  faqTabIndex += direction;
-  if (faqTabIndex < 0) faqTabIndex = 0;
-  if (faqTabIndex > tabs.length - 1) faqTabIndex = tabs.length - 1;
-
-  const selectedTab = tabs[faqTabIndex];
-  const maxMove = track.scrollWidth - viewport.clientWidth;
-  const moveAmount = Math.min(selectedTab.offsetLeft, maxMove);
-  track.style.transform = `translateX(-${moveAmount}px)`;
+  const container = document.getElementById('faqTabsContainer');
+  if (!container) return;
+  const scrollAmount = Math.max(container.clientWidth * 0.65, 180);
+  container.scrollBy({
+    left: direction * scrollAmount,
+    behavior: 'smooth'
+  });
 }
+
+function updateFaqArrowStates() {
+  const container = document.getElementById('faqTabsContainer');
+  const leftBtn = document.getElementById('faqScrollLeftBtn');
+  const rightBtn = document.getElementById('faqScrollRightBtn');
+  if (!container || !leftBtn || !rightBtn) return;
+
+  const atStart = container.scrollLeft <= 5;
+  const atEnd = container.scrollLeft + container.clientWidth >= container.scrollWidth - 5;
+
+  leftBtn.style.opacity = atStart ? '0.35' : '1';
+  leftBtn.style.pointerEvents = atStart ? 'none' : 'auto';
+
+  rightBtn.style.opacity = atEnd ? '0.35' : '1';
+  rightBtn.style.pointerEvents = atEnd ? 'none' : 'auto';
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  const container = document.getElementById('faqTabsContainer');
+  if (container) {
+    container.addEventListener('scroll', updateFaqArrowStates, { passive: true });
+    window.addEventListener('resize', updateFaqArrowStates, { passive: true });
+    updateFaqArrowStates();
+  }
+});
 </script>
 </body>
 </html>
