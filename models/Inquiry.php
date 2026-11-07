@@ -282,11 +282,13 @@ class Inquiry extends Model {
             $emailBody = preg_replace('#(?<!https://)(?<!http://)(?<!/)((?:/Zeppelin-Suites)?/reservation\?token=)#i', "{$domainUrl}/reservation?token=", $emailBody);
         }
 
-        // Require email config and PHPMailer
+        // Require email config and notification helpers
         $emailConfigFile = dirname(__DIR__) . '/config/email_config.php';
         if (file_exists($emailConfigFile)) {
             require_once $emailConfigFile;
         }
+
+        require_once dirname(__DIR__) . '/config/owner_notifications.php';
 
         $mailerDir = dirname(__DIR__) . '/phpmailer/src';
         if (file_exists($mailerDir . '/PHPMailer.php')) {
@@ -295,33 +297,6 @@ class Inquiry extends Model {
             require_once $mailerDir . '/SMTP.php';
         }
 
-        $username = defined('SMTP_USERNAME') ? SMTP_USERNAME : (string)env('SMTP_USERNAME', '');
-        $password = defined('SMTP_PASSWORD') ? SMTP_PASSWORD : (string)env('SMTP_PASSWORD', '');
-
-        // If credentials are blank (common in local XAMPP/development environments),
-        // simulate the email send and update the inquiry status to 'responded'.
-        if (empty($username) || empty($password)) {
-            error_log("[Zeppelin Suites Dev Mail] Simulating email delivery to {$replyTo} for Inquiry #{$inqId}. Subject: {$subject}");
-
-            $updateSql = "
-                UPDATE inquiry_table
-                SET status = 'responded'
-                WHERE inq_id = ?
-            ";
-            $this->execute($updateSql, [$inqId]);
-
-            return [
-                'success' => true,
-                'simulated' => true,
-                'message' => 'Email simulated successfully (SMTP credentials are not configured in .env for local testing). Inquiry status updated to Responded.'
-            ];
-        }
-
-        if (!class_exists(\PHPMailer\PHPMailer\PHPMailer::class)) {
-            return ['success' => false, 'error' => 'PHPMailer library unavailable.'];
-        }
-
-        require_once dirname(__DIR__) . '/config/owner_notifications.php';
         $clientName = trim((string)($inquiry['sender_name'] ?? 'Valued Client'));
         $unitType = trim((string)($inquiry['inquiry_type'] ?? 'Condominium Unit'));
         $moveIn = trim((string)($inquiry['preferred_move_in_time'] ?? ''));
@@ -379,7 +354,7 @@ class Inquiry extends Model {
             if (sendEmailViaBrevoApi($brevoApiKey, $replyTo, $clientName, $subject, $htmlBody, $emailBody, $fromEmail, $fromName)) {
                 $updateSql = "UPDATE inquiry_table SET status = 'responded' WHERE inq_id = ?";
                 $this->execute($updateSql, [$inqId]);
-                return ['success' => true, 'message' => 'Reply email sent successfully.'];
+                return ['success' => true, 'message' => 'Reply email sent successfully via Brevo.'];
             }
         }
 
@@ -399,6 +374,21 @@ class Inquiry extends Model {
                 $this->execute($updateSql, [$inqId]);
                 return ['success' => true, 'message' => 'Reply email sent successfully.'];
             }
+        }
+
+        $username = defined('SMTP_USERNAME') ? SMTP_USERNAME : (string)env('SMTP_USERNAME', '');
+        $password = defined('SMTP_PASSWORD') ? SMTP_PASSWORD : (string)env('SMTP_PASSWORD', '');
+
+        if (empty($username) || empty($password)) {
+            error_log("[Zeppelin Suites Dev Mail] All API services failed and SMTP credentials not configured. Email could not be sent to {$replyTo}.");
+            return [
+                'success' => false,
+                'error'   => "Could not deliver email to {$replyTo}. Brevo API failed or was rejected, and SMTP credentials are not configured in .env."
+            ];
+        }
+
+        if (!class_exists(\PHPMailer\PHPMailer\PHPMailer::class)) {
+            return ['success' => false, 'error' => 'PHPMailer library unavailable.'];
         }
 
         $primaryPort = defined('SMTP_PORT') ? (int)SMTP_PORT : (int)env('SMTP_PORT', 587);
@@ -512,20 +502,10 @@ class Inquiry extends Model {
         }
 
         if (!$emailSent) {
-            // All SMTP and native mail() transports failed (e.g. Railway container blocking SMTP).
-            // Update status so the admin workflow is not trapped, and notify how to enable live delivery.
-            error_log("[Zeppelin Suites Mail Notice] Outbound SMTP is blocked by host (Railway). Set BREVO_API_KEY or GOOGLE_SCRIPT_URL in config/email_config.php for live inbox delivery.");
-
-            $updateSql = "
-                UPDATE inquiry_table
-                SET status = 'responded'
-                WHERE inq_id = ?
-            ";
-            $this->execute($updateSql, [$inqId]);
-
+            error_log("[Zeppelin Suites Mail Error] All email transports (Brevo, Resend, GoogleScript, SMTP) failed for inquiry #{$inqId} to {$replyTo}.");
             return [
-                'success' => true,
-                'message' => 'Inquiry status updated to Responded. (Notice: Live email delivery on Railway requires setting a free Brevo key in config/email_config.php because Railway blocks standard SMTP ports).'
+                'success' => false,
+                'error'   => "Could not deliver email to {$replyTo}. Please check that the email address is valid, not blocked or in spam, and confirm your Brevo API key is active."
             ];
         }
 

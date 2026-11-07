@@ -23,11 +23,9 @@ function sendEmailViaBrevoApi(string $apiKey, string $to, string $toName, string
     }
 
     // Brevo requires the sender email to be an active, verified sender on the Brevo account.
-    // The verified email address for this Brevo account is maddysilvano@gmail.com.
-    // We send using this verified email while keeping the display name as 'Zeppelin Suites (No-Reply)'
-    // and replyTo set to 'noreply@zeppelinsuites.com' so customer replies go to no-reply.
-    $senderEmail = 'maddysilvano@gmail.com';
-    $displayName = 'Zeppelin Suites (No-Reply)';
+    // Defaults to the verified account email maddysilvano@gmail.com, or can be set via BREVO_SENDER_EMAIL in .env.
+    $senderEmail = (string)env('BREVO_SENDER_EMAIL', 'maddysilvano@gmail.com');
+    $displayName = !empty($fromName) ? $fromName : 'Zeppelin Suites (No-Reply)';
 
     $payload = json_encode([
         'sender' => [
@@ -41,7 +39,7 @@ function sendEmailViaBrevoApi(string $apiKey, string $to, string $toName, string
             ],
         ],
         'replyTo' => [
-            'email' => 'noreply@zeppelinsuites.com',
+            'email' => !empty($fromEmail) ? $fromEmail : 'noreply@zeppelinsuites.com',
             'name'  => $displayName,
         ],
         'subject'     => $subject,
@@ -65,10 +63,13 @@ function sendEmailViaBrevoApi(string $apiKey, string $to, string $toName, string
     curl_close($ch);
 
     if ($httpCode >= 200 && $httpCode < 300) {
+        $resData = json_decode((string)$response, true);
+        $msgId = $resData['messageId'] ?? 'unknown';
+        error_log("[Brevo API] Email queued successfully for {$to}. MessageID: {$msgId}");
         return true;
     }
 
-    error_log("Brevo API HTTP error ({$httpCode}): " . (string)$response);
+    error_log("Brevo API HTTP error ({$httpCode}) for {$to}: " . (string)$response);
     return false;
 }
 
@@ -80,9 +81,7 @@ function sendEmailViaGoogleScript(string $webhookUrl, string $to, string $subjec
 {
     $webhookUrl = trim($webhookUrl);
     if (empty($webhookUrl) || !function_exists('curl_init')) {
-        // If all SMTP and mail() transports failed (e.g. Railway container blocking SMTP), log notice and allow workflow to proceed safely
-    error_log("[Zeppelin Suites Dev Mail] Owner notification email simulated for {$ownerEmail}. Configure BREVO_API_KEY or GOOGLE_SCRIPT_URL in config/email_config.php for live inbox delivery on Railway.");
-    return true;
+        return false;
     }
 
     $payload = json_encode([
@@ -109,18 +108,15 @@ function sendEmailViaGoogleScript(string $webhookUrl, string $to, string $subjec
         return true;
     }
 
-    error_log("Google Script Webhook error ({$httpCode}): " . (string)$response);
-    // If all SMTP and mail() transports failed (e.g. Railway container blocking SMTP), log notice and allow workflow to proceed safely
-    error_log("[Zeppelin Suites Dev Mail] Owner notification email simulated for {$ownerEmail}. Configure BREVO_API_KEY or GOOGLE_SCRIPT_URL in config/email_config.php for live inbox delivery on Railway.");
-    return true;
+    error_log("Google Script Webhook error ({$httpCode}) for {$to}: " . (string)$response);
+    return false;
 }
+
 function sendEmailViaResendApi(string $apiKey, string $to, string $toName, string $subject, string $htmlBody, string $textBody, string $fromEmail, string $fromName): bool
 {
     $apiKey = trim($apiKey);
     if (empty($apiKey) || !function_exists('curl_init')) {
-        // If all SMTP and mail() transports failed (e.g. Railway container blocking SMTP), log notice and allow workflow to proceed safely
-    error_log("[Zeppelin Suites Dev Mail] Owner notification email simulated for {$ownerEmail}. Configure BREVO_API_KEY or GOOGLE_SCRIPT_URL in config/email_config.php for live inbox delivery on Railway.");
-    return true;
+        return false;
     }
 
     $sender = !empty($fromEmail) ? "{$fromName} <{$fromEmail}>" : "Zeppelin Suites <onboarding@resend.dev>";
@@ -154,10 +150,8 @@ function sendEmailViaResendApi(string $apiKey, string $to, string $toName, strin
         return true;
     }
 
-    error_log("Resend API HTTP error ({$httpCode}): " . (string)$response);
-    // If all SMTP and mail() transports failed (e.g. Railway container blocking SMTP), log notice and allow workflow to proceed safely
-    error_log("[Zeppelin Suites Dev Mail] Owner notification email simulated for {$ownerEmail}. Configure BREVO_API_KEY or GOOGLE_SCRIPT_URL in config/email_config.php for live inbox delivery on Railway.");
-    return true;
+    error_log("Resend API HTTP error ({$httpCode}) for {$to}: " . (string)$response);
+    return false;
 }
 
 /**
