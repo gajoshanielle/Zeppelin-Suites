@@ -1284,7 +1284,12 @@ class Reservation extends Model
                 }
 
                 if (function_exists('notifyClientOfReservationSubmission')) {
-                    $appUrl = rtrim((string)env('APP_URL', 'http://localhost/Zeppelin-Suites'), '/');
+                    $appUrl = function_exists('getAbsoluteEmailBaseUrl') 
+                        ? getAbsoluteEmailBaseUrl() 
+                        : (function() {
+                            $u = rtrim((string)env('APP_URL', ''), '/');
+                            return (!empty($u) && (str_starts_with($u, 'http://') || str_starts_with($u, 'https://'))) ? $u : 'https://zeppelin-suites.beulahlabs.com';
+                        })();
                     $cancellationLink = $appUrl . '/cancel-reservation?token=' . urlencode($clientCancelToken);
                     $unitDisplay = trim(($data['unit_type'] ?? '') . ' ' . (!empty($data['unit_number']) ? 'Unit ' . $data['unit_number'] : ''));
                     if ($unitDisplay === '') {
@@ -2413,7 +2418,12 @@ class Reservation extends Model
                 $unitDisplay = 'Unit #' . $unitId;
             }
 
-            $appUrl = rtrim((string) env('APP_URL', 'http://localhost/Zeppelin-Suites'), '/');
+            $appUrl = function_exists('getAbsoluteEmailBaseUrl') 
+                ? getAbsoluteEmailBaseUrl() 
+                : (function() {
+                    $u = rtrim((string)env('APP_URL', ''), '/');
+                    return (!empty($u) && (str_starts_with($u, 'http://') || str_starts_with($u, 'https://'))) ? $u : 'https://zeppelin-suites.beulahlabs.com';
+                })();
 
             foreach ($otherApplicants as $applicant) {
                 $email = trim((string) ($applicant['sender_email'] ?? ''));
@@ -2496,7 +2506,12 @@ class Reservation extends Model
                 $unitDisplay = 'Unit #' . $unitId;
             }
 
-            $appUrl = rtrim((string) env('APP_URL', 'http://localhost/Zeppelin-Suites'), '/');
+            $appUrl = function_exists('getAbsoluteEmailBaseUrl') 
+                ? getAbsoluteEmailBaseUrl() 
+                : (function() {
+                    $u = rtrim((string)env('APP_URL', ''), '/');
+                    return (!empty($u) && (str_starts_with($u, 'http://') || str_starts_with($u, 'https://'))) ? $u : 'https://zeppelin-suites.beulahlabs.com';
+                })();
 
             foreach ($otherApplicants as $applicant) {
                 $email = trim((string) ($applicant['sender_email'] ?? ''));

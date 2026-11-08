@@ -47,7 +47,20 @@ if (!defined('MAIL_FROM_NAME')) {
 
 // Used in owner notification emails as the link to log in and respond.
 if (!defined('OWNER_PORTAL_LOGIN_URL')) {
-    $appUrl = rtrim((string)env('APP_URL', 'http://localhost/Zeppelin-Suites'), '/');
+    $envAppUrl = trim((string)env('APP_URL', ''));
+    if (!empty($envAppUrl) && (str_starts_with($envAppUrl, 'http://') || str_starts_with($envAppUrl, 'https://'))) {
+        $appUrl = rtrim($envAppUrl, '/');
+    } elseif (!empty($_SERVER['HTTP_HOST'])) {
+        $isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+            || (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https')
+            || (isset($_SERVER['SERVER_PORT']) && (int)$_SERVER['SERVER_PORT'] === 443);
+        $proto = $isHttps ? 'https' : 'http';
+        $host = $_SERVER['HTTP_HOST'];
+        $cleanHost = strtolower(explode(':', $host)[0]);
+        $appUrl = in_array($cleanHost, ['localhost', '127.0.0.1', '::1'], true) ? "{$proto}://{$host}/Zeppelin-Suites" : "{$proto}://{$host}";
+    } else {
+        $appUrl = 'https://zeppelin-suites.beulahlabs.com';
+    }
     define('OWNER_PORTAL_LOGIN_URL', (string)env('OWNER_PORTAL_LOGIN_URL', $localConfig['OWNER_PORTAL_LOGIN_URL'] ?? "{$appUrl}/login"));
 }
 // Resend HTTP API Key (Allows sending emails via HTTPS Port 443 on hosts like Railway that block raw SMTP ports)

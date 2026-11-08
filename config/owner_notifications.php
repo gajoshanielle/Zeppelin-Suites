@@ -8,6 +8,34 @@ use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception as PHPMailerException;
 
 /**
+ * Resolve absolute domain URL for email links (supports local XAMPP and live hosting).
+ */
+function getAbsoluteEmailBaseUrl(): string
+{
+    $envAppUrl = trim((string)env('APP_URL', ''));
+    if (!empty($envAppUrl) && (str_starts_with($envAppUrl, 'http://') || str_starts_with($envAppUrl, 'https://'))) {
+        return rtrim($envAppUrl, '/');
+    }
+
+    if (!empty($_SERVER['HTTP_HOST'])) {
+        $isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+            || (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https')
+            || (isset($_SERVER['SERVER_PORT']) && (int)$_SERVER['SERVER_PORT'] === 443);
+        $proto = $isHttps ? 'https' : 'http';
+        $host = $_SERVER['HTTP_HOST'];
+        $cleanHost = strtolower(explode(':', $host)[0]);
+
+        if (in_array($cleanHost, ['localhost', '127.0.0.1', '::1'], true)) {
+            return "{$proto}://{$host}/Zeppelin-Suites";
+        }
+
+        return "{$proto}://{$host}";
+    }
+
+    return 'https://zeppelin-suites.beulahlabs.com';
+}
+
+/**
  * Send an email via Resend HTTP REST API over HTTPS (Port 443).
  * Used automatically on cloud platforms like Railway where outbound SMTP ports are firewalled.
  */
@@ -397,10 +425,23 @@ ROW;
     // Callout / Action / Cancel Box
     $calloutHtml = '';
     if (!empty($calloutBox)) {
+        $emailBaseUrl = getAbsoluteEmailBaseUrl();
         $cText = htmlspecialchars($calloutBox['text'] ?? '', ENT_QUOTES, 'UTF-8');
         $cBtnText = htmlspecialchars($calloutBox['btnText'] ?? '', ENT_QUOTES, 'UTF-8');
-        $cBtnUrl = htmlspecialchars($calloutBox['btnUrl'] ?? '#', ENT_QUOTES, 'UTF-8');
-        $cSub = htmlspecialchars($calloutBox['subtext'] ?? '', ENT_QUOTES, 'UTF-8');
+
+        $rawBtnUrl = (string)($calloutBox['btnUrl'] ?? '#');
+        if (!empty($rawBtnUrl) && $rawBtnUrl !== '#' && !str_starts_with($rawBtnUrl, 'http://') && !str_starts_with($rawBtnUrl, 'https://')) {
+            $rawBtnUrl = $emailBaseUrl . '/' . ltrim($rawBtnUrl, '/');
+        }
+        $cBtnUrl = htmlspecialchars($rawBtnUrl, ENT_QUOTES, 'UTF-8');
+
+        $rawSub = (string)($calloutBox['subtext'] ?? '');
+        if (!empty($rawSub)) {
+            $rawSub = preg_replace_callback('#(?<!https://)(?<!http://)(/(?:cancel-reservation|reservation|login)[^\s<"\'\)]*)#i', function($m) use ($emailBaseUrl) {
+                return $emailBaseUrl . '/' . ltrim($m[1], '/');
+            }, $rawSub);
+        }
+        $cSub = htmlspecialchars($rawSub, ENT_QUOTES, 'UTF-8');
         $cType = $calloutBox['type'] ?? 'rose';
 
         $cBg = $cType === 'rose' ? '#fff1f2' : '#f0f9ff';
@@ -424,8 +465,13 @@ HTML;
     // Single Action Button
     $actionBtnHtml = '';
     if (!empty($actionButton) && !empty($actionButton['text']) && !empty($actionButton['url'])) {
+        $emailBaseUrl = getAbsoluteEmailBaseUrl();
         $abText = htmlspecialchars($actionButton['text'], ENT_QUOTES, 'UTF-8');
-        $abUrl = htmlspecialchars($actionButton['url'], ENT_QUOTES, 'UTF-8');
+        $rawAbUrl = (string)($actionButton['url'] ?? '#');
+        if (!empty($rawAbUrl) && $rawAbUrl !== '#' && !str_starts_with($rawAbUrl, 'http://') && !str_starts_with($rawAbUrl, 'https://')) {
+            $rawAbUrl = $emailBaseUrl . '/' . ltrim($rawAbUrl, '/');
+        }
+        $abUrl = htmlspecialchars($rawAbUrl, ENT_QUOTES, 'UTF-8');
         $actionBtnHtml = <<<HTML
       <div style="text-align: center; margin: 24px 0;">
         <a href="{$abUrl}" class="action-btn">{$abText}</a>
@@ -454,7 +500,7 @@ HTML;
     $escapedReassurance = !empty($reassuranceText) ? "<p class=\"message\" style=\"margin-bottom:0;\">" . htmlspecialchars($reassuranceText, ENT_QUOTES, 'UTF-8') . "</p>" : "";
     $escapedFooterNote = htmlspecialchars($footerSubtext, ENT_QUOTES, 'UTF-8');
 
-    return <<<HTML
+    $finalHtml = <<<HTML
 <!DOCTYPE html>
 <html>
 <head>
@@ -521,6 +567,13 @@ HTML;
 </body>
 </html>
 HTML;
+
+    $emailBaseUrl = getAbsoluteEmailBaseUrl();
+    $finalHtml = preg_replace_callback('#href=["\'](/[^"\']*)["\']#i', function($matches) use ($emailBaseUrl) {
+        return 'href="' . $emailBaseUrl . '/' . ltrim($matches[1], '/') . '"';
+    }, $finalHtml);
+
+    return $finalHtml;
 }
 
 /**
@@ -672,7 +725,7 @@ function notifyTenantOfHandover(string $tenantEmail, string $tenantName, string 
         ? "Zeppelin Suites - Unit Ownership Handover Completed & Owner Account Credentials"
         : "Zeppelin Suites - Unit Handover Completed & Tenant Account Credentials";
 
-    $appUrl = rtrim((string)env('APP_URL', 'http://localhost/Zeppelin-Suites'), '/');
+    $appUrl = getAbsoluteEmailBaseUrl();
     $loginUrl = $appUrl . '/login';
 
     $portalDescription = $isOwner
@@ -975,7 +1028,7 @@ function notifyCancellationDeclined(
 function notifyResidentOfPasswordReset(string $recipientEmail, string $recipientName, string $tempPassword): bool {
     $subject = "Zeppelin Suites - Temporary Password Reset Notification";
 
-    $loginUrl = rtrim((string)env('APP_URL', 'http://localhost/Zeppelin-Suites'), '/') . '/login';
+    $loginUrl = getAbsoluteEmailBaseUrl() . '/login';
 
     $plainBody = "Dear {$recipientName},\n\n"
         . "Please be advised that your account password for Zeppelin Suites has been reset by the system administrator.\n\n"
@@ -1036,6 +1089,10 @@ function notifyClientOfReservationSubmission(
     string $cancellationLink,
     int $reservationId = 0
 ): bool {
+    if (!str_starts_with($cancellationLink, 'http://') && !str_starts_with($cancellationLink, 'https://')) {
+        $cancellationLink = getAbsoluteEmailBaseUrl() . '/' . ltrim($cancellationLink, '/');
+    }
+
     $subject = "Zeppelin Suites - Reservation Submission Received";
 
     $refIdText = $reservationId > 0 ? " (Reference #{$reservationId})" : "";
@@ -1255,6 +1312,10 @@ function notifyOtherApplicantsOfUnitHold(
     ?string $expiresAt = null,
     bool $hasOtherUnits = false
 ): bool {
+    if (!str_starts_with($reservationLink, 'http://') && !str_starts_with($reservationLink, 'https://')) {
+        $reservationLink = getAbsoluteEmailBaseUrl() . '/' . ltrim($reservationLink, '/');
+    }
+
     $subject = "Zeppelin Suites - Status Update: {$unitDisplay} is on Tentative Hold";
     $expiresFormatted = !empty($expiresAt) ? date('F j, Y, g:i A', strtotime($expiresAt)) : 'within your link validity period';
 
@@ -1319,6 +1380,10 @@ function notifyOtherApplicantsOfUnitReleased(
     string $reservationLink,
     ?string $expiresAt = null
 ): bool {
+    if (!str_starts_with($reservationLink, 'http://') && !str_starts_with($reservationLink, 'https://')) {
+        $reservationLink = getAbsoluteEmailBaseUrl() . '/' . ltrim($reservationLink, '/');
+    }
+
     $subject = "Zeppelin Suites - Good News: {$unitDisplay} is Available Again!";
     $expiresFormatted = !empty($expiresAt) ? date('F j, Y, g:i A', strtotime($expiresAt)) : 'within your link validity period';
 
