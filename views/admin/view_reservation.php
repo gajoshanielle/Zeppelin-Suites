@@ -571,7 +571,7 @@ $isInHousePayment = strtolower((string)$paymentMethod) === 'in-house';
 
               <div class="bg-white border border-red-100 rounded-xl p-4 mb-5">
                 <p class="text-xs font-semibold text-red-400 uppercase tracking-wide">Reason for Cancellation</p>
-                <p id="cancel_reason_display" class="text-sm text-red-900 mt-1 leading-relaxed"><?= e($res['cancellation_reason'] ?: 'No reason provided.') ?></p>
+                <p id="cancel_reason_display" class="text-sm text-red-900 mt-1 leading-relaxed"><?= e(preg_replace('/^\[PREV_STATUS:[^\]]+\]\s*/i', '', (string)($res['cancellation_reason'] ?? '')) ?: 'No reason provided.') ?></p>
               </div>
 
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -606,7 +606,7 @@ $isInHousePayment = strtolower((string)$paymentMethod) === 'in-house';
               </div>
               <?php if (!empty($res['cancellation_reason'])): ?>
                 <p class="text-xs text-slate-700 mt-2.5 bg-white border border-slate-200 rounded-xl p-3">
-                  <strong>Remarks:</strong> <?= e($res['cancellation_reason']) ?>
+                  <strong>Remarks:</strong> <?= e(preg_replace('/^\[PREV_STATUS:[^\]]+\]\s*/i', '', (string)$res['cancellation_reason'])) ?>
                 </p>
               <?php endif; ?>
             </div>

@@ -344,7 +344,7 @@ $downpaymentAmount = (float) ($res['required_amount'] ?? 0) > 0
               </p>
               <?php if (!empty($res['cancellation_reason'])): ?>
                 <p class="text-xs text-red-800 mt-2 bg-white/70 border border-red-100 rounded-lg p-2.5">
-                  <strong>Reason:</strong> <?= clean($res['cancellation_reason']) ?>
+                  <strong>Reason:</strong> <?= clean(preg_replace('/^\[PREV_STATUS:[^\]]+\]\s*/i', '', (string)$res['cancellation_reason'])) ?>
                 </p>
               <?php endif; ?>
               <?php if ($isOwnerRequester): ?>
@@ -373,7 +373,7 @@ $downpaymentAmount = (float) ($res['required_amount'] ?? 0) > 0
               <p class="text-xs text-amber-700 mt-0.5">Your previous cancellation request was declined by administration. The reservation remains active.</p>
               <?php if (!empty($res['cancellation_reason'])): ?>
                 <p class="text-xs text-amber-800 mt-1.5 bg-white/70 border border-amber-100 rounded-lg p-2 font-medium">
-                  <strong>Admin Remarks:</strong> <?= clean($res['cancellation_reason']) ?>
+                  <strong>Admin Remarks:</strong> <?= clean(preg_replace('/^\[PREV_STATUS:[^\]]+\]\s*/i', '', (string)$res['cancellation_reason'])) ?>
                 </p>
               <?php endif; ?>
             </div>

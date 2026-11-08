@@ -106,7 +106,15 @@ class Reservation extends Model
             ORDER BY COALESCE(r.created_at, '1970-01-01') DESC, r.reservation_id DESC
         ";
 
-        return $this->fetchAll($sql);
+        $rows = $this->fetchAll($sql);
+        foreach ($rows as &$r) {
+            if (!empty($r['cancellation_reason'])) {
+                $r['raw_cancellation_reason'] = $r['cancellation_reason'];
+                $r['cancellation_reason'] = preg_replace('/^\[PREV_STATUS:[^\]]+\]\s*/i', '', (string)$r['cancellation_reason']);
+            }
+        }
+        unset($r);
+        return $rows;
     }
 
     /**
@@ -473,7 +481,12 @@ class Reservation extends Model
             LIMIT 1
         ";
 
-        return $this->fetchOne($sql, [$reservationId]);
+        $row = $this->fetchOne($sql, [$reservationId]);
+        if ($row && !empty($row['cancellation_reason'])) {
+            $row['raw_cancellation_reason'] = $row['cancellation_reason'];
+            $row['cancellation_reason'] = preg_replace('/^\[PREV_STATUS:[^\]]+\]\s*/i', '', (string)$row['cancellation_reason']);
+        }
+        return $row;
     }
 
     /**
@@ -1989,7 +2002,7 @@ class Reservation extends Model
         if ($unitDisplay === '') {
             $unitDisplay = 'Unit not specified';
         }
-        $cancellationReason = trim((string) ($res['cancellation_reason'] ?? ''));
+        $cancellationReason = preg_replace('/^\[PREV_STATUS:[^\]]+\]\s*/i', '', trim((string) ($res['cancellation_reason'] ?? '')));
         $requestedByRole = strtolower(trim((string) ($res['cancellation_requested_by_role'] ?? '')));
         $requestedByName = trim((string) ($res['cancellation_requested_by_name'] ?? ''));
         if ($requestedByRole === 'unit owner' && $requestedByName === '') {
@@ -2276,7 +2289,7 @@ class Reservation extends Model
         }
 
         // Restore accurate pre-cancellation status
-        $rawReason = (string) ($res['cancellation_reason'] ?? '');
+        $rawReason = (string) ($res['raw_cancellation_reason'] ?? $res['cancellation_reason'] ?? '');
         $restoredStatus = null;
         if (preg_match('/\[PREV_STATUS:([a-z_ ]+)\]/i', $rawReason, $matches)) {
             $candidate = trim($matches[1]);

@@ -269,7 +269,15 @@ class UnitOwner extends Model {
             WHERE u.unit_owner_id = ?
             ORDER BY COALESCE(r.created_at, '1970-01-01') DESC, r.reservation_id DESC
         ";
-        return $this->fetchAll($sql, [$ownerId]);
+        $rows = $this->fetchAll($sql, [$ownerId]);
+        foreach ($rows as &$r) {
+            if (!empty($r['cancellation_reason'])) {
+                $r['raw_cancellation_reason'] = $r['cancellation_reason'];
+                $r['cancellation_reason'] = preg_replace('/^\[PREV_STATUS:[^\]]+\]\s*/i', '', (string)$r['cancellation_reason']);
+            }
+        }
+        unset($r);
+        return $rows;
     }
 
     /**
@@ -314,7 +322,12 @@ class UnitOwner extends Model {
             WHERE r.reservation_id = ? AND u.unit_owner_id = ?
             LIMIT 1
         ";
-        return $this->fetchOne($sql, [$reservationId, $ownerId]);
+        $row = $this->fetchOne($sql, [$reservationId, $ownerId]);
+        if ($row && !empty($row['cancellation_reason'])) {
+            $row['raw_cancellation_reason'] = $row['cancellation_reason'];
+            $row['cancellation_reason'] = preg_replace('/^\[PREV_STATUS:[^\]]+\]\s*/i', '', (string)$row['cancellation_reason']);
+        }
+        return $row;
     }
 
     /**
@@ -1336,7 +1349,7 @@ class UnitOwner extends Model {
         }
 
         // Restore accurate prior status
-        $rawReason = (string)($res['cancellation_reason'] ?? '');
+        $rawReason = (string)($res['raw_cancellation_reason'] ?? $res['cancellation_reason'] ?? '');
         $restoredStatus = null;
         if (preg_match('/\[PREV_STATUS:([a-z_ ]+)\]/i', $rawReason, $matches)) {
             $candidate = trim($matches[1]);
