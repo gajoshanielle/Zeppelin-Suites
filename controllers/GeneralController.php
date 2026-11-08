@@ -265,12 +265,14 @@ class GeneralController extends Controller {
     public function reservationConfirmation(): void {
         $baseUrl = rtrim((string)env('APP_URL', '/Zeppelin-Suites'), '/');
         $token = (string)$this->getQuery('token', '');
+        $reservation = ($token !== '') ? $this->reservationModel->getReservationByToken($token) : null;
 
         $this->render('general/reservation_confirmation', [
-            'pageTitle'  => 'Reservation Submitted — Zeppelin Suites',
-            'baseUrl'    => $baseUrl,
-            'token'      => $token,
-            'activePage' => 'reservation',
+            'pageTitle'   => 'Reservation Status — Zeppelin Suites',
+            'baseUrl'     => $baseUrl,
+            'token'       => $token,
+            'reservation' => $reservation,
+            'activePage'  => 'reservation',
         ]);
     }
 
@@ -287,17 +289,46 @@ class GeneralController extends Controller {
         }
 
         $res = $this->reservationModel->getReservationForClientCancellation($token);
+
+        if ($res['status'] === 'already_requested') {
+            $this->render('general/cancel_reservation', [
+                'pageTitle'          => 'Cancellation Request Under Review — Zeppelin Suites',
+                'baseUrl'            => $baseUrl,
+                'reservation'        => $res['reservation'],
+                'token'              => $token,
+                'activePage'         => 'reservation',
+                'isAlreadyRequested' => true,
+                'isAlreadyCancelled' => false,
+            ]);
+            return;
+        }
+
+        if ($res['status'] === 'already_cancelled') {
+            $this->render('general/cancel_reservation', [
+                'pageTitle'          => 'Reservation Cancelled — Zeppelin Suites',
+                'baseUrl'            => $baseUrl,
+                'reservation'        => $res['reservation'],
+                'token'              => $token,
+                'activePage'         => 'reservation',
+                'isAlreadyRequested' => false,
+                'isAlreadyCancelled' => true,
+            ]);
+            return;
+        }
+
         if ($res['status'] !== 'ok') {
             $this->renderError('Cancellation Unavailable', $res['message'] ?? 'This cancellation link is invalid or expired.', 404);
             return;
         }
 
         $this->render('general/cancel_reservation', [
-            'pageTitle'   => 'Cancel Reservation — Zeppelin Suites',
-            'baseUrl'     => $baseUrl,
-            'reservation' => $res['reservation'],
-            'token'       => $token,
-            'activePage'  => 'reservation',
+            'pageTitle'          => 'Cancel Reservation — Zeppelin Suites',
+            'baseUrl'            => $baseUrl,
+            'reservation'        => $res['reservation'],
+            'token'              => $token,
+            'activePage'         => 'reservation',
+            'isAlreadyRequested' => false,
+            'isAlreadyCancelled' => false,
         ]);
     }
 
@@ -324,7 +355,7 @@ class GeneralController extends Controller {
 
         $res = $this->reservationModel->submitClientCancellationRequest($token, $reason);
         if ($res['success']) {
-            $this->redirect("{$baseUrl}/cancellation-confirmation");
+            $this->redirect("{$baseUrl}/cancellation-confirmation?token=" . urlencode($token));
             return;
         }
 
@@ -336,10 +367,15 @@ class GeneralController extends Controller {
      */
     public function cancellationConfirmation(): void {
         $baseUrl = rtrim((string)env('APP_URL', '/Zeppelin-Suites'), '/');
+        $token = (string)$this->getQuery('token', '');
+        $reservation = ($token !== '') ? $this->reservationModel->getReservationByToken($token) : null;
+
         $this->render('general/cancellation_confirmation', [
-            'pageTitle'  => 'Cancellation Request Submitted — Zeppelin Suites',
-            'baseUrl'    => $baseUrl,
-            'activePage' => 'reservation',
+            'pageTitle'   => 'Cancellation Request Submitted — Zeppelin Suites',
+            'baseUrl'     => $baseUrl,
+            'token'       => $token,
+            'reservation' => $reservation,
+            'activePage'  => 'reservation',
         ]);
     }
 

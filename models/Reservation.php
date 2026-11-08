@@ -522,15 +522,18 @@ class Reservation extends Model
 
         // 2. Check if already submitted
         $alreadySubmitted = $this->fetchOne(
-            "SELECT reservation_id FROM reservation_table WHERE inq_id = ? LIMIT 1",
+            "SELECT reservation_id, reservation_status, client_cancel_token FROM reservation_table WHERE inq_id = ? LIMIT 1",
             [(int) $inquiry['inq_id']]
         );
 
         if ($alreadySubmitted) {
             return [
-                'status' => 'already_submitted',
-                'token' => $token,
-                'inq_id' => (int) $inquiry['inq_id']
+                'status'             => 'already_submitted',
+                'token'              => $token,
+                'inq_id'             => (int) $inquiry['inq_id'],
+                'reservation_id'     => (int) $alreadySubmitted['reservation_id'],
+                'reservation_status' => (string) ($alreadySubmitted['reservation_status'] ?? 'submitted'),
+                'client_cancel_token'=> (string) ($alreadySubmitted['client_cancel_token'] ?? ''),
             ];
         }
 
@@ -1370,6 +1373,8 @@ class Reservation extends Model
                 r.payment_status,
                 r.reservation_status,
                 r.client_remarks,
+                r.cancellation_reason,
+                r.cancellation_requested_at,
                 r.created_at,
                 r.client_cancel_token,
                 r.client_cancel_token_expires_at,
@@ -1403,19 +1408,89 @@ class Reservation extends Model
             return ['status' => 'error', 'message' => 'This cancellation link has expired.'];
         }
 
+        if (in_array(strtolower((string) $res['reservation_status']), ['cancelled', 'rejected'], true)) {
+            return [
+                'status'      => 'already_cancelled',
+                'message'     => 'This reservation has already been cancelled or closed.',
+                'reservation' => $res,
+                'token'       => $token
+            ];
+        }
+
+        if (strtolower((string)($res['reservation_status'] ?? '')) === 'cancellation requested') {
+            return [
+                'status'      => 'already_requested',
+                'message'     => 'A cancellation request has already been submitted for this reservation.',
+                'reservation' => $res,
+                'token'       => $token
+            ];
+        }
+
         if (!in_array(strtolower((string) $res['payment_status']), ['pending review', 'verified', 'pending'], true)) {
             return ['status' => 'error', 'message' => 'Cancellation request is not available for this reservation.'];
         }
 
-        if (in_array(strtolower((string) $res['reservation_status']), ['cancelled', 'rejected'], true)) {
-            return ['status' => 'error', 'message' => 'This reservation has already been cancelled or closed.'];
-        }
-
-        if (strtolower((string)($res['reservation_status'] ?? '')) === 'cancellation requested') {
-            return ['status' => 'error', 'message' => 'A cancellation request has already been submitted for this reservation.'];
-        }
-
         return ['status' => 'ok', 'reservation' => $res, 'token' => $token];
+    }
+
+    /**
+     * Look up reservation details by either client cancellation token or inquiry reservation token.
+     */
+    public function getReservationByToken(string $token): ?array
+    {
+        $token = trim($token);
+        if ($token === '') {
+            return null;
+        }
+
+        $sql = "
+            SELECT 
+                r.reservation_id,
+                r.inq_id,
+                r.unit_id,
+                r.client_name,
+                r.client_email,
+                r.client_contact,
+                r.client_sex,
+                r.client_nationality,
+                r.transaction_type,
+                r.move_in_date,
+                r.move_out_date,
+                r.lease_signing_date,
+                r.is_flexible_signing,
+                r.price_basis,
+                r.required_amount,
+                r.payment_method,
+                r.payment_proof,
+                r.payment_status,
+                r.reservation_status,
+                r.client_remarks,
+                r.cancellation_reason,
+                r.cancellation_requested_at,
+                r.created_at,
+                r.client_cancel_token,
+                u.unit_type,
+                u.unit_number,
+                u.floor_number,
+                u.sqm,
+                u.stay_category,
+                u.listing_type,
+                owner.user_id AS owner_id,
+                owner.full_name AS owner_name,
+                owner.email AS owner_email,
+                owner.contact AS owner_contact,
+                inq.lease_duration,
+                inq.inquiry_type
+            FROM reservation_table r
+            LEFT JOIN units_table u ON r.unit_id = u.unit_id
+            LEFT JOIN users_table owner ON u.unit_owner_id = owner.user_id
+            LEFT JOIN inquiry_table inq ON r.inq_id = inq.inq_id
+            WHERE r.client_cancel_token = ? OR inq.reservation_token = ?
+            ORDER BY r.reservation_id DESC
+            LIMIT 1
+        ";
+
+        return $this->fetchOne($sql, [$token, $token]) ?: null;
     }
 
     /**
@@ -1459,16 +1534,16 @@ class Reservation extends Model
                 throw new RuntimeException("This cancellation link has expired.");
             }
 
-            if (!in_array(strtolower((string) $res['payment_status']), ['pending review', 'verified', 'pending'], true)) {
-                throw new RuntimeException("Cancellation request is not available for this reservation.");
-            }
-
             if (in_array(strtolower((string) $res['reservation_status']), ['cancelled', 'rejected'], true)) {
                 throw new RuntimeException("This reservation has already been cancelled or closed.");
             }
 
             if (strtolower((string)($res['reservation_status'] ?? '')) === 'cancellation requested') {
                 throw new RuntimeException("A cancellation request has already been submitted.");
+            }
+
+            if (!in_array(strtolower((string) $res['payment_status']), ['pending review', 'verified', 'pending'], true)) {
+                throw new RuntimeException("Cancellation request is not available for this reservation.");
             }
 
             $prevStatus = strtolower(trim((string)($res['reservation_status'] ?? 'submitted')));
@@ -1482,9 +1557,7 @@ class Reservation extends Model
                 SET reservation_status = 'cancellation requested',
                     cancellation_reason = ?,
                     cancellation_requested_by = NULL,
-                    cancellation_requested_at = NOW(),
-                    client_cancel_token = NULL,
-                    client_cancel_token_expires_at = NULL
+                    cancellation_requested_at = NOW()
                 WHERE reservation_id = ?
             ";
 

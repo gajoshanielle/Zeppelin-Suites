@@ -13,6 +13,8 @@ declare(strict_types=1);
 
 $unitTitle = trim(($reservation['unit_type'] ?? 'Unit') . (!empty($reservation['unit_number']) ? ' — Unit ' . $reservation['unit_number'] : ''));
 $isLease = stripos((string)($reservation['transaction_type'] ?? ''), 'resale') === false;
+$isAlreadyRequested = !empty($isAlreadyRequested) || strtolower((string)($reservation['reservation_status'] ?? '')) === 'cancellation requested';
+$isAlreadyCancelled = !empty($isAlreadyCancelled) || in_array(strtolower((string)($reservation['reservation_status'] ?? '')), ['cancelled', 'rejected'], true);
 $submittedDate = !empty($reservation['created_at']) ? date('M d, Y h:i A', strtotime((string)$reservation['created_at'])) : '—';
 $moveInFormatted = !empty($reservation['move_in_date']) ? date('M d, Y', strtotime((string)$reservation['move_in_date'])) : '—';
 $moveOutFormatted = !empty($reservation['move_out_date']) ? date('M d, Y', strtotime((string)$reservation['move_out_date'])) : '—';
@@ -86,10 +88,16 @@ if (!empty($reservation['payment_proof'])) {
     <!-- PAGE TITLE SECTION -->
     <div class="mb-8">
       <h1 class="text-2xl sm:text-3xl font-bold text-slate-950 tracking-tight">
-        Reservation Cancellation
+        <?= $isAlreadyRequested ? 'Cancellation Request Under Review' : ($isAlreadyCancelled ? 'Reservation Cancelled' : 'Reservation Cancellation') ?>
       </h1>
       <p class="text-sm sm:text-base text-slate-600 mt-1 max-w-2xl">
-        Please provide your cancellation reason below. You can review your submitted reservation details and unit owner information on the right.
+        <?php if ($isAlreadyRequested): ?>
+          A cancellation request for this reservation has already been submitted and is currently under review by our administration team.
+        <?php elseif ($isAlreadyCancelled): ?>
+          This reservation has been cancelled. Below is the record of your reservation and cancellation details.
+        <?php else: ?>
+          Please provide your cancellation reason below. You can review your submitted reservation details and unit owner information on the right.
+        <?php endif; ?>
       </p>
     </div>
 
@@ -99,93 +107,208 @@ if (!empty($reservation['payment_proof'])) {
       <!-- LEFT COLUMN: PRIMARY CANCELLATION REQUEST FORM & WORKFLOW (7 COLS - HIGHLIGHTED) -->
       <div class="lg:col-span-7 space-y-6">
 
-        <!-- CANCELLATION FORM CARD (PRIMARY HIGHLIGHT) -->
-        <div class="bg-white rounded-xl border-t-4 border-t-rose-600 border-x border-b border-slate-200 shadow-md p-6 sm:p-7 relative">
-          <div class="flex items-center justify-between pb-4 border-b border-slate-100 mb-5">
-            <div class="flex items-center gap-3">
-              <div class="w-10 h-10 rounded-lg bg-rose-50 text-rose-600 border border-rose-200 flex items-center justify-center shrink-0">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                </svg>
+        <?php if ($isAlreadyRequested): ?>
+          <!-- ALREADY SUBMITTED CANCELLATION CARD -->
+          <div class="bg-white rounded-xl border-t-4 border-t-amber-500 border-x border-b border-slate-200 shadow-md p-6 sm:p-7 relative">
+            <div class="flex items-center justify-between pb-4 border-b border-slate-100 mb-5">
+              <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-lg bg-amber-50 text-amber-600 border border-amber-200 flex items-center justify-center shrink-0">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <div>
+                  <div class="flex items-center gap-2">
+                    <h2 class="text-base sm:text-lg font-bold text-slate-900 leading-tight">Cancellation Request Under Review</h2>
+                    <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-amber-100 text-amber-800 border border-amber-200">
+                      Pending Review
+                    </span>
+                  </div>
+                  <p class="text-xs text-slate-500 mt-0.5">Your request was received and is being processed by administration</p>
+                </div>
               </div>
-              <div>
-                <div class="flex items-center gap-2">
-                  <h2 class="text-base sm:text-lg font-bold text-slate-900 leading-tight">Request Cancellation</h2>
-                  <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-rose-100 text-rose-800">
-                    Action Required
+            </div>
+
+            <!-- Status Notice -->
+            <div class="rounded-lg bg-amber-50 border border-amber-200 p-4 mb-5 text-xs text-amber-900 leading-relaxed shadow-sm">
+              <div class="flex items-start gap-2.5">
+                <svg class="w-4 h-4 text-amber-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+                <div>
+                  <span class="font-bold text-amber-950 block mb-0.5">Request Already Submitted</span>
+                  You have already submitted a cancellation request for this reservation. Our administration team is currently verifying the status, documents, and payments. You will be notified via email once the review is completed.
+                </div>
+              </div>
+            </div>
+
+            <!-- Submitted Request Summary -->
+            <div class="bg-slate-50 rounded-lg p-4 border border-slate-200 text-xs sm:text-sm space-y-3 mb-6">
+              <div class="flex items-center justify-between pb-2.5 border-b border-slate-200/70">
+                <span class="text-xs text-slate-500">Reservation Reference</span>
+                <span class="font-bold text-slate-900">#<?= htmlspecialchars((string)($reservation['reservation_id'] ?? '—')) ?></span>
+              </div>
+              <div class="flex items-center justify-between pb-2.5 border-b border-slate-200/70">
+                <span class="text-xs text-slate-500">Current Status</span>
+                <span class="font-semibold text-amber-700 bg-amber-100 px-2 py-0.5 rounded text-xs">
+                  Cancellation Requested
+                </span>
+              </div>
+              <?php if (!empty($reservation['cancellation_requested_at'])): ?>
+                <div class="flex items-center justify-between pb-2.5 border-b border-slate-200/70">
+                  <span class="text-xs text-slate-500">Request Date &amp; Time</span>
+                  <span class="font-semibold text-slate-800">
+                    <?= date('M d, Y h:i A', strtotime((string)$reservation['cancellation_requested_at'])) ?>
                   </span>
                 </div>
-                <p class="text-xs text-slate-500 mt-0.5">Provide your reason for administration review</p>
-              </div>
-            </div>
-          </div>
-
-          <!-- Policy Notice -->
-          <div class="rounded-lg bg-amber-50 border border-amber-200 p-4 mb-5 text-xs text-amber-900 leading-relaxed shadow-sm">
-            <div class="flex items-start gap-2.5">
-              <svg class="w-4 h-4 text-amber-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
-              </svg>
+              <?php endif; ?>
               <div>
-                <span class="font-bold text-amber-950 block mb-0.5">Important Notice</span>
-                Submitting this form does not automatically cancel your reservation. It sends a request to administration for review.
-                Reservation fees are <span class="font-bold text-amber-950 underline decoration-amber-400">non-refundable once verified and processed</span>.
+                <span class="text-xs text-slate-500 block mb-1">Submitted Cancellation Reason</span>
+                <div class="p-3 bg-white rounded border border-slate-200 text-xs text-slate-800 leading-relaxed font-medium">
+                  <?php
+                  $cleanReason = preg_replace('/^\[PREV_STATUS:[^\]]+\]\s*/i', '', (string)($reservation['cancellation_reason'] ?? ''));
+                  echo nl2br(htmlspecialchars($cleanReason !== '' ? $cleanReason : 'Cancellation requested by client.'));
+                  ?>
+                </div>
               </div>
             </div>
-          </div>
 
-          <!-- Form -->
-          <form id="cancelRequestForm" action="<?= htmlspecialchars($baseUrl) ?>/cancel-reservation/submit" method="POST" class="space-y-4">
-            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(Csrf::token()) ?>">
-            <input type="hidden" name="token" value="<?= htmlspecialchars($token) ?>">
-
-            <div>
-              <label for="cancellationReason" class="block text-xs font-bold uppercase tracking-wider text-slate-800 mb-1.5">
-                Reason for Cancellation <span class="text-rose-600">*</span>
-              </label>
-              <textarea
-                id="cancellationReason"
-                name="reason"
-                rows="5"
-                required
-                placeholder="Please describe why you would like to cancel this reservation..."
-                class="w-full px-3.5 py-3 rounded-lg border border-slate-300 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-600 resize-none transition-all"
-              ></textarea>
-              <p class="text-[11px] text-slate-500 mt-1">Please provide clear details to assist the administration review.</p>
-            </div>
-
-            <!-- Acknowledgment Checkbox -->
-            <label class="flex items-start gap-2.5 p-3 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100/70 cursor-pointer select-none transition-colors">
-              <input
-                type="checkbox"
-                id="policyCheck"
-                required
-                class="mt-0.5 w-4 h-4 rounded border-slate-300 text-rose-600 focus:ring-rose-500"
-              >
-              <span class="text-xs text-slate-700 leading-relaxed">
-                I confirm that I wish to request cancellation of this reservation, and I understand that reservation fees are non-refundable once verified and processed.
-              </span>
-            </label>
-
-            <!-- Submit Button -->
-            <div class="pt-2 space-y-2">
-              <button
-                type="button"
-                onclick="openConfirmModal()"
-                class="w-full py-3 px-4 rounded-lg bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white font-bold text-sm transition-all shadow-sm hover:shadow text-center flex items-center justify-center gap-2 cursor-pointer"
-              >
-                Submit Cancellation Request
-              </button>
-
+            <!-- Actions -->
+            <div class="pt-2">
               <a
                 href="<?= htmlspecialchars($baseUrl) ?>/"
-                class="block w-full py-2.5 px-4 rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 font-medium text-xs text-center transition-colors"
+                class="block w-full py-2.5 px-4 rounded-lg bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs text-center transition-colors shadow-sm"
               >
-                Keep Reservation &amp; Exit
+                Return to Homepage
               </a>
             </div>
-          </form>
-        </div>
+          </div>
+
+        <?php elseif ($isAlreadyCancelled): ?>
+          <!-- ALREADY CANCELLED CARD -->
+          <div class="bg-white rounded-xl border-t-4 border-t-red-600 border-x border-b border-slate-200 shadow-md p-6 sm:p-7 relative">
+            <div class="flex items-center justify-between pb-4 border-b border-slate-100 mb-5">
+              <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-lg bg-red-50 text-red-600 border border-red-200 flex items-center justify-center shrink-0">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </div>
+                <div>
+                  <div class="flex items-center gap-2">
+                    <h2 class="text-base sm:text-lg font-bold text-slate-900 leading-tight">Reservation Cancelled</h2>
+                    <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-red-100 text-red-800 border border-red-200">
+                      Cancelled
+                    </span>
+                  </div>
+                  <p class="text-xs text-slate-500 mt-0.5">This reservation has been cancelled and closed</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="rounded-lg bg-red-50 border border-red-200 p-4 mb-5 text-xs text-red-900 leading-relaxed">
+              This reservation has already been cancelled. The unit has been released or closed in accordance with Zeppelin Suites leasing policies.
+            </div>
+
+            <div class="pt-2">
+              <a
+                href="<?= htmlspecialchars($baseUrl) ?>/"
+                class="block w-full py-2.5 px-4 rounded-lg bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs text-center transition-colors shadow-sm"
+              >
+                Return to Homepage
+              </a>
+            </div>
+          </div>
+
+        <?php else: ?>
+          <!-- CANCELLATION FORM CARD (PRIMARY HIGHLIGHT) -->
+          <div class="bg-white rounded-xl border-t-4 border-t-rose-600 border-x border-b border-slate-200 shadow-md p-6 sm:p-7 relative">
+            <div class="flex items-center justify-between pb-4 border-b border-slate-100 mb-5">
+              <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-lg bg-rose-50 text-rose-600 border border-rose-200 flex items-center justify-center shrink-0">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </div>
+                <div>
+                  <div class="flex items-center gap-2">
+                    <h2 class="text-base sm:text-lg font-bold text-slate-900 leading-tight">Request Cancellation</h2>
+                    <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-rose-100 text-rose-800">
+                      Action Required
+                    </span>
+                  </div>
+                  <p class="text-xs text-slate-500 mt-0.5">Provide your reason for administration review</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Policy Notice -->
+            <div class="rounded-lg bg-amber-50 border border-amber-200 p-4 mb-5 text-xs text-amber-900 leading-relaxed shadow-sm">
+              <div class="flex items-start gap-2.5">
+                <svg class="w-4 h-4 text-amber-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                </svg>
+                <div>
+                  <span class="font-bold text-amber-950 block mb-0.5">Important Notice</span>
+                  Submitting this form does not automatically cancel your reservation. It sends a request to administration for review.
+                  Reservation fees are <span class="font-bold text-amber-950 underline decoration-amber-400">non-refundable once verified and processed</span>.
+                </div>
+              </div>
+            </div>
+
+            <!-- Form -->
+            <form id="cancelRequestForm" action="<?= htmlspecialchars($baseUrl) ?>/cancel-reservation/submit" method="POST" class="space-y-4">
+              <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(Csrf::token()) ?>">
+              <input type="hidden" name="token" value="<?= htmlspecialchars($token) ?>">
+
+              <div>
+                <label for="cancellationReason" class="block text-xs font-bold uppercase tracking-wider text-slate-800 mb-1.5">
+                  Reason for Cancellation <span class="text-rose-600">*</span>
+                </label>
+                <textarea
+                  id="cancellationReason"
+                  name="reason"
+                  rows="5"
+                  required
+                  placeholder="Please describe why you would like to cancel this reservation..."
+                  class="w-full px-3.5 py-3 rounded-lg border border-slate-300 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-600 resize-none transition-all"
+                ></textarea>
+                <p class="text-[11px] text-slate-500 mt-1">Please provide clear details to assist the administration review.</p>
+              </div>
+
+              <!-- Acknowledgment Checkbox -->
+              <label class="flex items-start gap-2.5 p-3 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100/70 cursor-pointer select-none transition-colors">
+                <input
+                  type="checkbox"
+                  id="policyCheck"
+                  required
+                  class="mt-0.5 w-4 h-4 rounded border-slate-300 text-rose-600 focus:ring-rose-500"
+                >
+                <span class="text-xs text-slate-700 leading-relaxed">
+                  I confirm that I wish to request cancellation of this reservation, and I understand that reservation fees are non-refundable once verified and processed.
+                </span>
+              </label>
+
+              <!-- Submit Button -->
+              <div class="pt-2 space-y-2">
+                <button
+                  type="button"
+                  onclick="openConfirmModal()"
+                  class="w-full py-3 px-4 rounded-lg bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white font-bold text-sm transition-all shadow-sm hover:shadow text-center flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  Submit Cancellation Request
+                </button>
+
+                <a
+                  href="<?= htmlspecialchars($baseUrl) ?>/"
+                  class="block w-full py-2.5 px-4 rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 font-medium text-xs text-center transition-colors"
+                >
+                  Keep Reservation &amp; Exit
+                </a>
+              </div>
+            </form>
+          </div>
+        <?php endif; ?>
 
         <!-- HOW CANCELLATION WORKS CARD -->
         <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-6">

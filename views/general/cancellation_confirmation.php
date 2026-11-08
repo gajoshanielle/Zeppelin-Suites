@@ -149,9 +149,19 @@ declare(strict_types=1);
       <div class="bg-slate-50 rounded-xl p-5 text-left mb-6 space-y-3">
         <p class="text-xs font-semibold tracking-widest text-zinc-400 uppercase mb-2">Cancellation Summary</p>
         <div class="flex items-center justify-between text-sm">
-          <span class="text-zinc-500">Cancellation Ref.</span>
-          <span class="font-mono font-bold text-zinc-900" id="cancel-num">Pending Review</span>
+          <span class="text-zinc-500">Reservation Reference</span>
+          <span class="font-mono font-bold text-zinc-900" id="cancel-num">
+            <?= !empty($reservation['reservation_id']) ? '#' . htmlspecialchars((string)$reservation['reservation_id']) : 'Pending Review' ?>
+          </span>
         </div>
+        <?php if (!empty($reservation['unit_type'])): ?>
+          <div class="flex items-center justify-between text-sm">
+            <span class="text-zinc-500">Assigned Unit</span>
+            <span class="font-semibold text-zinc-800">
+              <?= htmlspecialchars($reservation['unit_type'] . (!empty($reservation['unit_number']) ? ' — Unit ' . $reservation['unit_number'] : '')) ?>
+            </span>
+          </div>
+        <?php endif; ?>
         <div class="flex items-center justify-between text-sm">
           <span class="text-zinc-500">Status</span>
           <span class="text-xs font-semibold text-red-800 bg-red-100 px-3 py-1 rounded-full">Cancellation Requested</span>
@@ -163,14 +173,19 @@ declare(strict_types=1);
       </div>
 
       <p class="text-zinc-500 text-sm leading-relaxed mb-4">
-        A cancellation acknowledgement will be coordinated by our office team.
+        Our administration team is currently reviewing your application and cancellation reason. You will receive an email update once a decision has been reached.
       </p>
 
       <p class="text-amber-600 text-xs font-medium mb-6">
-        If you have questions regarding this request, please contact our support at info@zeppelinsuites.com.
+        If you have questions regarding this request, please contact our support at sales@zeppelinsuites.com.
       </p>
 
-      <div class="pt-4 border-t border-slate-100 flex justify-center">
+      <div class="pt-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-center gap-3">
+        <?php if (!empty($token)): ?>
+          <a href="<?= htmlspecialchars($baseUrl) ?>/cancel-reservation?token=<?= urlencode((string)$token) ?>" class="px-5 py-2.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 text-xs font-bold uppercase tracking-wider rounded-lg transition-all">
+            View Request Details
+          </a>
+        <?php endif; ?>
         <a href="<?= htmlspecialchars($baseUrl) ?>/" class="px-6 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold uppercase tracking-wider rounded-lg transition-all">
           Return to Homepage
         </a>
@@ -179,10 +194,12 @@ declare(strict_types=1);
     </div>
   </div>
 
+  <?php if (empty($reservation['reservation_id'])): ?>
   <script>
     document.getElementById('cancel-num').textContent =
       '#CAN-' + String(Math.floor(100000 + Math.random() * 900000));
   </script>
+  <?php endif; ?>
 
 </body>
 </html>
