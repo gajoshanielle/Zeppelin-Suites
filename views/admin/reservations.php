@@ -45,17 +45,19 @@ if (!function_exists('badge')) {
         $text = trim($value);
         $status = strtolower($text);
 
-        if ($status === 'officially booked') {
-            return "<span class='text-xs font-semibold px-2.5 py-1 rounded-full bg-purple-50 text-purple-700 border border-purple-200'>Officially Booked</span>";
+        if (in_array($status, ['confirmed', 'officially booked', 'handover', 'moved in', 'active', 'completed'], true)) {
+            return "<span class='text-xs font-semibold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200'>Confirmed</span>";
         }
 
-        if (in_array($status, ['verified', 'reserved', 'requirements completed', 'active'], true)) {
+        if (in_array($status, ['reserved', 'verified', 'requirements completed'], true)) {
             $label = ($status === 'verified') ? 'Verified' : 'Reserved';
-            return "<span class='text-xs font-semibold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200'>" . e($label) . "</span>";
+            $cls = ($status === 'verified') ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-blue-50 text-blue-700 border-blue-200';
+            return "<span class='text-xs font-semibold px-2.5 py-1 rounded-full {$cls} border'>" . e($label) . "</span>";
         }
 
-        if (in_array($status, ['pending review', 'under review', 'requirements pending', 'requested', 'flagged for review', 'pending', 'in progress', 'reservation form pending', 'submitted'], true)) {
-            return "<span class='text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200'>Pending</span>";
+        if (in_array($status, ['tentative', 'pending review', 'under review', 'requirements pending', 'requested', 'flagged for review', 'pending', 'in progress', 'reservation form pending', 'submitted'], true)) {
+            $label = in_array($status, ['tentative', 'submitted', 'pending review', 'under review', 'pending'], true) ? 'Tentative' : 'Pending';
+            return "<span class='text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200'>" . e($label) . "</span>";
         }
 
         if (in_array($status, ['rejected', 'cancelled', 'declined'], true)) {
@@ -145,8 +147,8 @@ if (!function_exists('badge')) {
           <div class="flex bg-slate-100 rounded-full p-1 gap-0.5 text-xs font-semibold overflow-x-auto max-w-full">
             <button type="button"
               class="res-filter-btn active px-3.5 py-1.5 rounded-full bg-white text-slate-900 shadow-sm active:scale-95 transition-all cursor-pointer font-semibold whitespace-nowrap"
-              data-filter="pending" onclick="setReservationFilter('pending')">
-              Pending
+              data-filter="tentative" onclick="setReservationFilter('tentative')">
+              Tentative
             </button>
             <button type="button"
               class="res-filter-btn px-3.5 py-1.5 rounded-full text-slate-500 hover:text-slate-900 hover:bg-white/60 active:scale-95 transition-all cursor-pointer font-semibold whitespace-nowrap"
@@ -155,8 +157,8 @@ if (!function_exists('badge')) {
             </button>
             <button type="button"
               class="res-filter-btn px-3.5 py-1.5 rounded-full text-slate-500 hover:text-slate-900 hover:bg-white/60 active:scale-95 transition-all cursor-pointer font-semibold whitespace-nowrap"
-              data-filter="officially booked" onclick="setReservationFilter('officially booked')">
-              Officially Booked
+              data-filter="confirmed" onclick="setReservationFilter('confirmed')">
+              Confirmed
             </button>
             <button type="button"
               class="res-filter-btn px-3.5 py-1.5 rounded-full text-slate-500 hover:text-slate-900 hover:bg-white/60 active:scale-95 transition-all cursor-pointer font-semibold whitespace-nowrap"
@@ -214,15 +216,15 @@ if (!function_exists('badge')) {
                   if (in_array($resStatus, ['rejected', 'cancelled'], true) || strtolower((string)($row['reservation_status'] ?? '')) === 'cancelled') {
                       $resDisplay = 'Cancelled';
                       $filterCategory = 'cancelled';
-                  } elseif ($hasOfficiallyBooked) {
-                      $resDisplay = 'Officially Booked';
-                      $filterCategory = 'officially booked';
-                  } elseif (in_array($resStatus, ['submitted', 'pending review', 'pending', 'under review', 'in progress', 'reservation form pending'], true) || $pStatus === 'pending review') {
-                      $resDisplay = 'Pending';
-                      $filterCategory = 'pending';
-                  } else {
+                  } elseif ($isMovedIn || $hasOfficiallyBooked) {
+                      $resDisplay = 'Confirmed';
+                      $filterCategory = 'confirmed';
+                  } elseif ($resStatus === 'reserved' || $pStatus === 'verified') {
                       $resDisplay = 'Reserved';
                       $filterCategory = 'reserved';
+                  } else {
+                      $resDisplay = 'Tentative';
+                      $filterCategory = 'tentative';
                   }
 
                   $isResale = (stripos((string)($row['transaction_type'] ?? ''), 'resell') !== false || stripos((string)($row['transaction_type'] ?? ''), 'resale') !== false);
@@ -848,13 +850,13 @@ function closeStatusModal() {
 }
 
 // --- Dynamic Filter, Search, and Pagination Logic ---
-let currentReservationFilter = 'pending';
+let currentReservationFilter = 'tentative';
 let currentSearchQuery = '';
 let currentResPage = 1;
 const reservationPageSize = 10;
 
 function setReservationFilter(filter) {
-  currentReservationFilter = (filter || 'pending').toLowerCase().trim();
+  currentReservationFilter = (filter || 'tentative').toLowerCase().trim();
   currentResPage = 1;
   document.querySelectorAll('.res-filter-btn').forEach(btn => {
     const isActive = (btn.dataset.filter || '').toLowerCase() === currentReservationFilter;
@@ -883,7 +885,8 @@ function applyReservationFilters() {
 
     const matchesFilter = (currentReservationFilter === 'all') 
       || (rowStatus === currentReservationFilter)
-      || (currentReservationFilter === 'pending' && (rowStatus === 'pending' || rowStatus === 'reservation form pending' || rowStatus === 'submitted'));
+      || (currentReservationFilter === 'tentative' && (rowStatus === 'tentative' || rowStatus === 'pending' || rowStatus === 'reservation form pending' || rowStatus === 'submitted'))
+      || (currentReservationFilter === 'confirmed' && (rowStatus === 'confirmed' || rowStatus === 'officially booked'));
     const matchesSearch = !currentSearchQuery || searchData.includes(currentSearchQuery);
 
     return matchesFilter && matchesSearch;

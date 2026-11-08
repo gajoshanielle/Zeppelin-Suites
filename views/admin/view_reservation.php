@@ -268,23 +268,19 @@ $isInHousePayment = strtolower((string)$paymentMethod) === 'in-house';
               $hasOfficiallyBooked = !empty($res['officially_booked_at']) || in_array($rStatus, ['officially booked', 'reserved'], true);
 
               if (in_array($rStatus, ['rejected', 'cancelled'], true)) {
-                  $displayResStatus = ucwords($rStatus);
+                  $displayResStatus = 'Cancelled';
                   $resBadgeClass = 'bg-red-100 text-red-700';
                   $dotClass = 'bg-red-500';
               } elseif ($isHandedOverStatus) {
-                  $displayResStatus = $isResale ? 'Ownership Transferred' : 'Moved In';
+                  $displayResStatus = 'Confirmed';
                   $resBadgeClass = 'bg-emerald-100 text-emerald-700';
                   $dotClass = 'bg-emerald-500';
-              } elseif ($hasOfficiallyBooked) {
-                  $displayResStatus = 'Officially Booked';
-                  $resBadgeClass = 'bg-emerald-100 text-emerald-700';
-                  $dotClass = 'bg-emerald-500';
-              } elseif ($pStatus === 'verified' || in_array($rStatus, ['pending', 'requirements pending', 'requirements completed', 'in progress', 'under review', 'pending review', 'submitted', 'reservation form pending'], true)) {
-                  $displayResStatus = 'Pending';
-                  $resBadgeClass = 'bg-amber-100 text-amber-700';
-                  $dotClass = 'bg-amber-500';
+              } elseif ($hasOfficiallyBooked || $rStatus === 'reserved' || $pStatus === 'verified') {
+                  $displayResStatus = 'Reserved';
+                  $resBadgeClass = 'bg-blue-100 text-blue-700';
+                  $dotClass = 'bg-blue-500';
               } else {
-                  $displayResStatus = 'Pending';
+                  $displayResStatus = 'Tentative';
                   $resBadgeClass = 'bg-amber-100 text-amber-700';
                   $dotClass = 'bg-amber-500';
               }

@@ -157,7 +157,7 @@ declare(strict_types=1);
         </div>
         <div class="flex items-center justify-between text-sm">
           <span class="text-zinc-500">Status</span>
-          <span class="text-xs font-semibold text-emerald-800 bg-emerald-100 px-3 py-1 rounded-full">Reservation Submitted!</span>
+          <span class="text-xs font-semibold text-amber-800 bg-amber-100 px-3 py-1 rounded-full">Tentative (Awaiting Review)</span>
         </div>
       </div>
 
