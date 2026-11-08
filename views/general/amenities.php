@@ -40,10 +40,21 @@ declare(strict_types=1);
       transform: scale(0.96);
     }
 
-    .filter-btn.active {
-      background-color: #0f172a;
-      color: #ffffff;
-      border-color: #0f172a;
+    .filter-btn {
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .filter-btn:not(.active):hover {
+      background-color: #f4f4f5;
+    }
+
+    .filter-btn.active,
+    .filter-btn.active:hover,
+    .filter-btn.active:focus {
+      background-color: #0f172a !important;
+      color: #ffffff !important;
+      border-color: #0f172a !important;
     }
   </style>
 </head>
@@ -95,20 +106,20 @@ declare(strict_types=1);
 
       <!-- Category Filter Tabs -->
       <div class="flex flex-wrap items-center justify-center gap-2 mb-12">
-        <button type="button" onclick="filterAmenities('all')"
+        <button type="button" onclick="filterAmenities('all', this)"
           class="filter-btn active px-5 py-2.5 rounded-full text-xs font-semibold border border-zinc-200 transition-all">
           All Amenities
         </button>
-        <button type="button" onclick="filterAmenities('building')"
-          class="filter-btn px-5 py-2.5 rounded-full text-xs font-semibold text-zinc-600 border border-zinc-200 hover:bg-zinc-100 transition-all">
+        <button type="button" onclick="filterAmenities('building', this)"
+          class="filter-btn px-5 py-2.5 rounded-full text-xs font-semibold text-zinc-600 border border-zinc-200 transition-all">
           Building &amp; Environment
         </button>
-        <button type="button" onclick="filterAmenities('suite')"
-          class="filter-btn px-5 py-2.5 rounded-full text-xs font-semibold text-zinc-600 border border-zinc-200 hover:bg-zinc-100 transition-all">
+        <button type="button" onclick="filterAmenities('suite', this)"
+          class="filter-btn px-5 py-2.5 rounded-full text-xs font-semibold text-zinc-600 border border-zinc-200 transition-all">
           In-Suite Luxury
         </button>
-        <button type="button" onclick="filterAmenities('services')"
-          class="filter-btn px-5 py-2.5 rounded-full text-xs font-semibold text-zinc-600 border border-zinc-200 hover:bg-zinc-100 transition-all">
+        <button type="button" onclick="filterAmenities('services', this)"
+          class="filter-btn px-5 py-2.5 rounded-full text-xs font-semibold text-zinc-600 border border-zinc-200 transition-all">
           Exclusive Services
         </button>
       </div>
@@ -447,13 +458,19 @@ declare(strict_types=1);
 
   <!-- ── SCRIPTS ───────────────────────────────────────────────── -->
   <script>
-    function filterAmenities(category) {
+    function filterAmenities(category, clickedBtn) {
+      const activeBtn = clickedBtn || (typeof event !== 'undefined' ? (event.currentTarget || event.target) : null);
+
       // Toggle button active classes
       document.querySelectorAll('.filter-btn').forEach(btn => {
         btn.classList.remove('active', 'bg-slate-900', 'text-white', 'border-slate-900');
         btn.classList.add('text-zinc-600', 'border-zinc-200');
       });
-      event.currentTarget.classList.add('active');
+
+      if (activeBtn) {
+        activeBtn.classList.add('active', 'bg-slate-900', 'text-white', 'border-slate-900');
+        activeBtn.classList.remove('text-zinc-600', 'border-zinc-200');
+      }
 
       // Filter cards
       const cards = document.querySelectorAll('.amenity-card');
