@@ -725,7 +725,9 @@ class Reservation extends Model
                 WHERE unit_id IN ({$placeholders})
                   AND reservation_status NOT IN ('cancelled', 'rejected')
                   AND move_in_date IS NOT NULL
+                  AND (move_out_date >= CURDATE() OR move_out_date IS NULL)
                   AND {$blockedTypeFilter}
+                ORDER BY move_in_date ASC
             ", $allUnitIds);
 
             foreach ($blockedRows as $row) {
@@ -743,6 +745,7 @@ class Reservation extends Model
                 WHERE unit_id IN ({$placeholders})
                   AND start_date IS NOT NULL
                   AND (end_date >= CURDATE() OR end_date IS NULL)
+                ORDER BY start_date ASC
             ", $allUnitIds);
 
             foreach ($calBlockedRows as $bRow) {
@@ -758,6 +761,9 @@ class Reservation extends Model
         $today = date('Y-m-d');
         foreach ($processedUnits as $uId => &$pUnit) {
             $ranges = $unitBlockedRanges[$uId] ?? [];
+            usort($ranges, function ($a, $b) {
+                return strcmp((string)$a['start'], (string)$b['start']);
+            });
             $pUnit['blocked_ranges'] = $ranges;
 
             $latestMoveOut = '';
@@ -778,14 +784,54 @@ class Reservation extends Model
             $pUnit['earliest_move_in_date'] = $earliestMoveIn;
             $pUnit['earliest_move_in_formatted'] = date('M j, Y', strtotime($earliestMoveIn));
 
-            if (!empty($ranges)) {
-                $firstRange = $ranges[0];
-                $pUnit['current_lease_period'] = date('M j, Y', strtotime($firstRange['start'])) . ' – ' . date('M j, Y', strtotime($firstRange['end']));
-                $pUnit['available_from'] = date('M j, Y', strtotime($firstRange['end'] . ' +1 day'));
+            // Determine active lease period and chain contiguous/consecutive bookings
+            $activeRange = null;
+            foreach ($ranges as $rng) {
+                $rStart = $rng['start'];
+                $rEnd = !empty($rng['end']) ? $rng['end'] : $rng['start'];
+                if ($rStart <= $today && $rEnd >= $today) {
+                    $activeRange = ['start' => $rStart, 'end' => $rEnd];
+                    break;
+                }
+            }
+
+            if ($activeRange) {
+                // Check if subsequent ranges are contiguous (chained / extended occupancy)
+                $chainEnd = $activeRange['end'];
+                foreach ($ranges as $rng) {
+                    $rStart = $rng['start'];
+                    $rEnd = !empty($rng['end']) ? $rng['end'] : $rng['start'];
+                    if ($rStart > $activeRange['start']) {
+                        $diffDays = (strtotime($rStart) - strtotime($chainEnd)) / 86400;
+                        if ($diffDays >= 0 && $diffDays <= 2 && $rEnd > $chainEnd) {
+                            $chainEnd = $rEnd;
+                        }
+                    }
+                }
+                $pUnit['current_lease_period'] = date('M j, Y', strtotime($activeRange['start'])) . ' – ' . date('M j, Y', strtotime($chainEnd));
+            } elseif (!empty($ranges)) {
+                $firstUpcoming = null;
+                foreach ($ranges as $rng) {
+                    $rStart = $rng['start'];
+                    if ($rStart > $today) {
+                        $firstUpcoming = $rng;
+                        break;
+                    }
+                }
+                if ($firstUpcoming) {
+                    $uStart = date('M j, Y', strtotime($firstUpcoming['start']));
+                    $uEnd = date('M j, Y', strtotime(!empty($firstUpcoming['end']) ? $firstUpcoming['end'] : $firstUpcoming['start']));
+                    $pUnit['current_lease_period'] = "No active lease (Upcoming: {$uStart} – {$uEnd})";
+                } else {
+                    $pUnit['current_lease_period'] = 'No active lease';
+                }
             } else {
                 $pUnit['current_lease_period'] = 'No active lease';
-                $pUnit['available_from'] = 'Available Immediately';
             }
+
+            $pUnit['available_from'] = ($latestMoveOut !== '')
+                ? date('M j, Y', strtotime($earliestMoveIn))
+                : 'Available Immediately';
         }
         unset($pUnit);
 

@@ -87,9 +87,17 @@ $maxSigningDate = !empty($max_signing_date) ? $max_signing_date : date('Y-m-d', 
 $move_in_min = !empty($selectedUnitData['earliest_move_in_date']) ? $selectedUnitData['earliest_move_in_date'] : (!empty($earliest_move_in_date) ? $earliest_move_in_date : date('Y-m-d', strtotime('+3 days')));
 $move_in_min_formatted = !empty($selectedUnitData['earliest_move_in_formatted']) ? $selectedUnitData['earliest_move_in_formatted'] : (!empty($earliest_move_in_formatted) ? $earliest_move_in_formatted : date('M j, Y', strtotime($move_in_min)));
 
-// Calculate maximum allowed move-in date based on preferred timeline
+// Calculate maximum allowed move-in date based on earliest availability and preferred timeline
 $prefMoveLower = strtolower(trim((string) $inqPreferredMoveIn));
-$moveMaxDate = new DateTime('today');
+
+// The move-in window must be anchored to the unit's earliest available date
+$baseMoveStart = new DateTime($move_in_min);
+$todayDate = new DateTime('today');
+if ($baseMoveStart < $todayDate) {
+  $baseMoveStart = clone $todayDate;
+}
+
+$moveMaxDate = clone $baseMoveStart;
 if (strpos($prefMoveLower, 'immediate') !== false) {
   $moveMaxDate->modify('+30 days');
 } elseif (strpos($prefMoveLower, '1 month') !== false) {
@@ -102,6 +110,12 @@ if (strpos($prefMoveLower, 'immediate') !== false) {
   $moveMaxDate->modify('+180 days');
 } else {
   $moveMaxDate->modify('+180 days');
+}
+
+// Guarantee move_in_max is at least move_in_min + 30 days so the date picker range is always valid
+$minAllowedMax = (clone $baseMoveStart)->modify('+30 days');
+if ($moveMaxDate < $minAllowedMax) {
+  $moveMaxDate = $minAllowedMax;
 }
 
 $move_in_max = $moveMaxDate->format('Y-m-d');
@@ -1827,15 +1841,28 @@ $signing_min = !$is_lease ? date('Y-m-d', strtotime('+3 days')) : date('Y-m-d');
         blockedRanges = [];
       }
 
-      // 6. Dynamically lock move-in datepicker min to unit's earliest available date
+      // 6. Dynamically lock move-in datepicker min to unit's earliest available date and update max
       const moveInInput = document.getElementById('moveInDate');
       const dispEarliestDate = document.getElementById('dispEarliestMoveInDate');
       if (unit.earliest_move_in_date) {
         if (moveInInput) {
           moveInInput.min = unit.earliest_move_in_date;
-          // If the currently selected date is earlier than the unit's opening, automatically clamp it
+
+          // Dynamically compute and update moveInInput.max based on unit's earliest available date
+          const [uY, uM, uD] = unit.earliest_move_in_date.split('-').map(Number);
+          const unitStartDate = new Date(uY, uM - 1, uD);
+          const maxDate = new Date(unitStartDate);
+          maxDate.setDate(maxDate.getDate() + 180);
+          const yOut = maxDate.getFullYear();
+          const mOut = String(maxDate.getMonth() + 1).padStart(2, '0');
+          const dOut = String(maxDate.getDate()).padStart(2, '0');
+          moveInInput.max = `${yOut}-${mOut}-${dOut}`;
+
+          // If the currently selected date is earlier than opening or beyond max, clamp it
           if (moveInInput.value && moveInInput.value < unit.earliest_move_in_date) {
             moveInInput.value = unit.earliest_move_in_date;
+          } else if (moveInInput.value && moveInInput.value > moveInInput.max) {
+            moveInInput.value = moveInInput.max;
           }
         }
         if (dispEarliestDate) {

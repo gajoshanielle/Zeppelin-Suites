@@ -664,12 +664,10 @@ class Inquiry extends Model {
             LEFT JOIN reservation_table r
                 ON u.unit_id = r.unit_id
                 AND LOWER(r.reservation_status) NOT IN ('cancelled','rejected')
-                AND r.move_in_date <= CURDATE()
-                AND r.move_out_date >= CURDATE()
+                AND (r.move_out_date >= CURDATE() OR r.move_out_date IS NULL)
             LEFT JOIN unit_blocked_dates_table b
                 ON u.unit_id = b.unit_id
-                AND b.start_date <= CURDATE()
-                AND b.end_date >= CURDATE()
+                AND (b.end_date >= CURDATE() OR b.end_date IS NULL)
             WHERE u.unit_type = ?
             AND u.unit_current_status NOT IN ('For Resale', 'Resale', 'On Hold', 'Under maintenance', 'Archived')
             AND u.unit_owner_id IS NOT NULL
