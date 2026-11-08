@@ -32,6 +32,12 @@ $is_lease = isset($is_lease)
 $approvedUnitsList = !empty($approved_units) ? $approved_units : (!empty($data['approved_units']) ? $data['approved_units'] : []);
 $selectedUnitId = (int) ($selectedUnitData['unit_id'] ?? ($selectedUnitData['approved_unit_id'] ?? 0));
 
+$allUnitsHeld = !empty($all_units_held) || !empty($data['all_units_held']);
+$hasTentativeUnits = !empty($has_tentative_units) || !empty($data['has_tentative_units']);
+$availableUnitsCount = isset($available_units_count) ? (int) $available_units_count : (isset($data['available_units_count']) ? (int) $data['available_units_count'] : count($approvedUnitsList));
+$tokenExpiresAt = !empty($token_expires_at) ? (string) $token_expires_at : (!empty($data['token_expires_at']) ? (string) $data['token_expires_at'] : (!empty($max_signing_date) ? (string) $max_signing_date : date('Y-m-d H:i:s', strtotime('+30 days'))));
+$tokenExpiresFormatted = date('F j, Y, g:i A', strtotime($tokenExpiresAt));
+
 if (empty($approvedUnitsList)) {
   $approvedUnitsList[] = [
     'unit_id' => $selectedUnitId,
@@ -50,6 +56,8 @@ if (empty($approvedUnitsList)) {
     'dp_amount_35' => number_format((float) $price_basis * 0.35, 2),
     'owner_has_qr' => (bool) $owner_has_qr,
     'owner_qr_path' => (string) $owner_qr_path,
+    'is_available' => true,
+    'is_tentative' => false,
     'dropdown_label' => ($selectedUnitData['unit_number'] ?? 'Unit') . ' (' . ($selectedUnitData['unit_type'] ?? 'Unit') . ') - ₱' . number_format((float) $price_basis, 0) . ' (' . ($selectedUnitData['owner_name'] ?? 'Owner') . ')',
   ];
 }
@@ -457,11 +465,80 @@ $signing_min = !$is_lease ? date('Y-m-d', strtotime('+3 days')) : date('Y-m-d');
           <!-- Form Card Header -->
           <div class="form-card-header px-7 py-6 text-white">
             <h2 class="text-xl sm:text-2xl font-bold tracking-tight" id="formCardTitle">
-              <?= $is_lease ? 'Unit Lease Reservation Form' : 'Unit Resale Reservation Form' ?>
+              <?= $allUnitsHeld ? 'Unit Reservation Status' : ($is_lease ? 'Unit Lease Reservation Form' : 'Unit Resale Reservation Form') ?>
             </h2>
-            <p class="text-slate-300 text-xs sm:text-sm mt-1">Zeppelin Suites — Please fill in all required fields</p>
+            <p class="text-slate-300 text-xs sm:text-sm mt-1">
+              <?= $allUnitsHeld ? 'Zeppelin Suites — First-Come, First-Served Status Notice' : 'Zeppelin Suites — Please fill in all required fields' ?>
+            </p>
           </div>
 
+          <?php if ($allUnitsHeld): ?>
+            <!-- TENTATIVE HOLD NOTICE FOR APPLICANT -->
+            <div class="p-8 sm:p-12 text-center space-y-6">
+              <div class="w-16 h-16 rounded-2xl bg-amber-50 border border-amber-200/80 flex items-center justify-center mx-auto text-amber-600 shadow-sm">
+                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+
+              <div class="max-w-md mx-auto space-y-2">
+                <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-amber-100 text-amber-800">
+                  <span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
+                  Tentative Hold (FCFS)
+                </span>
+                <h3 class="text-2xl font-bold text-slate-900 tracking-tight">
+                  <?= count($approvedUnitsList) > 1 ? 'Approved Units on Tentative Hold' : 'Unit Currently on Tentative Hold' ?>
+                </h3>
+                <p class="text-sm text-slate-600 leading-relaxed">
+                  Another prospective client has tentatively submitted a reservation for <strong><?= $unitNum ?></strong> under our <strong>First-Come, First-Served</strong> policy.
+                </p>
+              </div>
+
+              <!-- Unit & Status Card -->
+              <div class="max-w-lg mx-auto bg-slate-50 border border-slate-200 rounded-2xl p-5 text-left space-y-3.5 shadow-xs">
+                <div class="flex items-center justify-between pb-3 border-b border-slate-200/70 text-xs">
+                  <span class="font-semibold text-slate-500">Unit</span>
+                  <span class="font-bold text-slate-900"><?= $unitNum ?> — <?= $unitTypeUpper ?></span>
+                </div>
+                <div class="flex items-center justify-between pb-3 border-b border-slate-200/70 text-xs">
+                  <span class="font-semibold text-slate-500">Transaction</span>
+                  <span class="font-bold text-slate-900"><?= htmlspecialchars($transactionType ?? 'Unit Resale') ?></span>
+                </div>
+                <div class="flex items-center justify-between pb-3 border-b border-slate-200/70 text-xs">
+                  <span class="font-semibold text-slate-500">Reservation Status</span>
+                  <span class="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-bold bg-amber-100 text-amber-800">Tentative Hold (Pending Review)</span>
+                </div>
+                <div class="flex items-center justify-between text-xs">
+                  <span class="font-semibold text-slate-500">Your Link Remains Valid Until</span>
+                  <span class="font-bold text-slate-900"><?= htmlspecialchars($tokenExpiresFormatted) ?></span>
+                </div>
+              </div>
+
+              <!-- Explanatory Box -->
+              <div class="max-w-lg mx-auto bg-blue-50/70 border border-blue-200/80 rounded-2xl p-4 text-left flex items-start gap-3">
+                <svg class="w-5 h-5 text-blue-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <div class="text-xs text-slate-700 leading-relaxed space-y-1">
+                  <p class="font-bold text-blue-900">What happens next?</p>
+                  <p>Because reservations are tentative pending administrative review of the payment proof and documents, your reservation link remains active. If the current applicant's reservation is cancelled or rejected, this unit will <strong>automatically reopen</strong> on this page.</p>
+                </div>
+              </div>
+
+              <!-- Action Buttons -->
+              <div class="flex flex-wrap items-center justify-center gap-3 pt-2">
+                <button type="button" onclick="window.location.reload()" class="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition shadow-xs flex items-center gap-2 cursor-pointer">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  Check Again / Refresh
+                </button>
+                <a href="<?= htmlspecialchars($baseUrl) ?>/" class="px-5 py-2.5 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 rounded-xl text-xs font-bold transition shadow-xs">
+                  Return to Home
+                </a>
+              </div>
+            </div>
+          <?php else: ?>
           <!-- Form Body with exact requested layout -->
           <div class="p-6 sm:p-7 space-y-7" id="formBody">
             <form id="reservationForm" action="<?= htmlspecialchars($baseUrl) ?>/reservation/submit" method="POST"
@@ -489,6 +566,9 @@ $signing_min = !$is_lease ? date('Y-m-d', strtotime('+3 days')) : date('Y-m-d');
                     class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
                     <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
                     <?= count($approvedUnitsList) ?> Approved <?= count($approvedUnitsList) === 1 ? 'Unit' : 'Units' ?>
+                    <?php if ($availableUnitsCount < count($approvedUnitsList)): ?>
+                      <span class="text-slate-500 font-normal">(<?= $availableUnitsCount ?> Available)</span>
+                    <?php endif; ?>
                   </span>
                 </div>
 
@@ -501,7 +581,13 @@ $signing_min = !$is_lease ? date('Y-m-d', strtotime('+3 days')) : date('Y-m-d');
                     <select id="approvedUnitSelect" onchange="handleUnitSelectionChange(this.value)"
                       class="w-full text-xs font-semibold text-slate-900 bg-slate-50 hover:bg-slate-100 border border-slate-300 rounded-xl py-2 pl-3.5 pr-10 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:bg-white cursor-pointer shadow-xs transition-all appearance-none">
                       <?php foreach ($approvedUnitsList as $au): ?>
-                        <option value="<?= (int) $au['unit_id'] ?>" <?= ((int) $au['unit_id'] === $selectedUnitId) ? 'selected' : '' ?>>
+                        <?php 
+                          $isAvail = !isset($au['is_available']) || (bool)$au['is_available'];
+                          $isTent = !empty($au['is_tentative']);
+                        ?>
+                        <option value="<?= (int) $au['unit_id'] ?>" 
+                                <?= ((int) $au['unit_id'] === $selectedUnitId) ? 'selected' : '' ?>
+                                <?= !$isAvail ? 'disabled class="text-slate-400 bg-slate-100"' : '' ?>>
                           <?= htmlspecialchars($au['dropdown_label'] ?? ($au['unit_number'] . ' - ' . $au['unit_type'])) ?>
                         </option>
                       <?php endforeach; ?>
@@ -1056,6 +1142,7 @@ $signing_min = !$is_lease ? date('Y-m-d', strtotime('+3 days')) : date('Y-m-d');
 
             </form>
           </div><!-- /formBody -->
+          <?php endif; ?>
 
           <!-- Expired overlay -->
           <div id="expiredOverlay" class="hidden p-10 text-center">
@@ -1761,6 +1848,20 @@ $signing_min = !$is_lease ? date('Y-m-d', strtotime('+3 days')) : date('Y-m-d');
       const unit = approvedUnitsData.find(u => parseInt(u.unit_id, 10) === unitId);
       if (!unit) return;
 
+      if (unit.is_available === false) {
+        const msg = unit.is_tentative 
+          ? 'This unit is currently on tentative hold by another applicant under our First-Come, First-Served policy.' 
+          : 'This unit is no longer available.';
+        if (typeof showFormModal === 'function') {
+          showFormModal(false, 'Unit Unavailable', msg);
+        } else {
+          alert(msg);
+        }
+        const selectElem = document.getElementById('approvedUnitSelect');
+        if (selectElem) selectElem.value = currentUnitId;
+        return;
+      }
+
       currentUnitId = unitId;
       currentPriceBasis = parseFloat(unit.price_basis) || 0;
 
@@ -1909,6 +2010,15 @@ $signing_min = !$is_lease ? date('Y-m-d', strtotime('+3 days')) : date('Y-m-d');
     // ======= Form submit and validation =======
     function handleFormSubmit(e) {
       e.preventDefault();
+
+      const currentUnitObj = (Array.isArray(approvedUnitsData) ? approvedUnitsData.find(u => parseInt(u.unit_id, 10) === currentUnitId) : null) || {};
+      if (currentUnitObj.is_available === false) {
+        const msg = currentUnitObj.is_tentative 
+          ? 'This unit is currently on tentative hold by another applicant under our First-Come, First-Served policy.' 
+          : 'This unit is no longer available.';
+        showFormModal(false, 'Unit Unavailable', msg);
+        return false;
+      }
 
       const agreeTerms = document.getElementById('agreeTerms');
       if (!agreeTerms.checked) {

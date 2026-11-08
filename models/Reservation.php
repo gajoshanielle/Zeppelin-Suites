@@ -637,6 +637,27 @@ class Reservation extends Model
                 }
             }
 
+            $currentStatus = (string) ($u['unit_current_status'] ?? 'Ready for Occupancy');
+            $isAvailable = false;
+            $isTentative = false;
+
+            if ($currentStatus === 'On Hold') {
+                $isTentative = true;
+                $isAvailable = false;
+            } elseif (in_array($currentStatus, ['Ready for Occupancy', 'Resale', 'For Resale'], true)) {
+                $isAvailable = true;
+            } else {
+                $isAvailable = false;
+            }
+
+            if ($isTentative) {
+                $dropdownLabel = (string) $u['unit_number'] . ' (' . (string) $u['unit_type'] . ') — Tentative (On Hold)';
+            } elseif (!$isAvailable) {
+                $dropdownLabel = (string) $u['unit_number'] . ' (' . (string) $u['unit_type'] . ') — Unavailable (' . $currentStatus . ')';
+            } else {
+                $dropdownLabel = (string) $u['unit_number'] . ' (' . (string) $u['unit_type'] . ') - ₱' . number_format($priceBasis, 0) . ' (' . (string) ($u['owner_name'] ?? 'Owner') . ')';
+            }
+
             $processedUnits[$uid] = [
                 'unit_id' => $uid,
                 'unit_number' => (string) $u['unit_number'],
@@ -647,6 +668,9 @@ class Reservation extends Model
                 'listing_type' => (string) ($u['listing_type'] ?? ($isLease ? 'For Lease' : 'Resale')),
                 'stay_category' => (string) ($u['stay_category'] ?? 'Long term'),
                 'unit_current_status' => (string) ($u['unit_current_status'] ?? 'Ready for Occupancy'),
+                'is_available' => $isAvailable,
+                'is_tentative' => $isTentative,
+                'availability_status' => $isTentative ? 'tentative' : ($isAvailable ? 'available' : 'unavailable'),
                 'lease_rate' => (float) ($u['lease_rate'] ?? 0),
                 'reselling_price' => !empty($u['reselling_price']) ? (float) $u['reselling_price'] : null,
                 'owner_name' => (string) ($u['owner_name'] ?? 'Assigned Owner'),
@@ -663,16 +687,36 @@ class Reservation extends Model
                 'downpayment_50_raw' => round($priceBasis * 0.50, 2),
                 'downpayment_75' => number_format($priceBasis * 0.75, 2),
                 'downpayment_75_raw' => round($priceBasis * 0.75, 2),
-                'dropdown_label' => (string) $u['unit_number'] . ' (' . (string) $u['unit_type'] . ') - ₱' . number_format($priceBasis, 0) . ' (' . (string) ($u['owner_name'] ?? 'Owner') . ')',
+                'dropdown_label' => $dropdownLabel,
             ];
         }
 
-        // Determine currently selected unit
-        $selectedUnitId = !empty($inquiry['approved_unit_id']) && isset($processedUnits[(int) $inquiry['approved_unit_id']])
-            ? (int) $inquiry['approved_unit_id']
-            : (int) array_key_first($processedUnits);
+        // Determine currently selected unit: prioritize available units
+        $availableUnitIds = [];
+        foreach ($processedUnits as $uId => $pUnit) {
+            if (!empty($pUnit['is_available'])) {
+                $availableUnitIds[] = $uId;
+            }
+        }
+
+        $preferredUnitId = !empty($inquiry['approved_unit_id']) ? (int) $inquiry['approved_unit_id'] : 0;
+        if ($preferredUnitId > 0 && isset($processedUnits[$preferredUnitId]) && !empty($processedUnits[$preferredUnitId]['is_available'])) {
+            $selectedUnitId = $preferredUnitId;
+        } elseif (!empty($availableUnitIds)) {
+            $selectedUnitId = $availableUnitIds[0];
+        } else {
+            $selectedUnitId = (int) array_key_first($processedUnits);
+        }
 
         $selectedUnit = $processedUnits[$selectedUnitId];
+        $allUnitsHeld = empty($availableUnitIds);
+        $hasTentativeUnits = false;
+        foreach ($processedUnits as $pUnit) {
+            if (!empty($pUnit['is_tentative'])) {
+                $hasTentativeUnits = true;
+                break;
+            }
+        }
 
         // Status metadata
         if ($isLease) {
@@ -860,6 +904,11 @@ class Reservation extends Model
             'earliest_move_in_date' => $selectedUnit['earliest_move_in_date'],
             'earliest_move_in_formatted' => $selectedUnit['earliest_move_in_formatted'],
             'token' => $token,
+            'token_expires_at' => $tokenExpiresAt,
+            'all_units_held' => $allUnitsHeld,
+            'has_tentative_units' => $hasTentativeUnits,
+            'available_units_count' => count($availableUnitIds),
+            'total_approved_units_count' => count($processedUnits),
         ];
     }
 
@@ -972,11 +1021,24 @@ class Reservation extends Model
         if ($selectedUnitId > 0 && !empty($formDetails['approved_units'])) {
             foreach ($formDetails['approved_units'] as $au) {
                 if ((int) $au['unit_id'] === $selectedUnitId) {
+                    if (empty($au['is_available'])) {
+                        $errorMsg = !empty($au['is_tentative'])
+                            ? "Unit " . ($au['unit_number'] ?? '') . " is currently on tentative hold by another applicant under our First-Come, First-Served policy."
+                            : "Unit " . ($au['unit_number'] ?? '') . " is currently unavailable.";
+                        return ['success' => false, 'error' => $errorMsg];
+                    }
                     $data = array_merge($data, $au);
                     $priceBasis = (float) $au['price_basis'];
                     break;
                 }
             }
+        }
+
+        if (!empty($formDetails['all_units_held'])) {
+            return [
+                'success' => false,
+                'error' => 'All approved units for this reservation link are currently on tentative hold under our First-Come, First-Served policy.'
+            ];
         }
 
         if (!$isLease) {
@@ -1103,6 +1165,9 @@ class Reservation extends Model
                 }
             } else {
                 if (!in_array($lockedUnit['unit_current_status'], ['Ready for Occupancy', 'Resale', 'For Resale'], true)) {
+                    if ($lockedUnit['unit_current_status'] === 'On Hold') {
+                        throw new RuntimeException("This unit was tentatively reserved by another applicant moments ago under our First-Come, First-Served policy.");
+                    }
                     throw new RuntimeException("This unit is no longer available.");
                 }
 
@@ -1234,6 +1299,14 @@ class Reservation extends Model
                         $reservationId
                     );
                 }
+
+                // Notify other applicants who had this same unit approved about the tentative hold
+                $this->notifyOtherApplicantsOfUnitHold(
+                    (int) $data['unit_id'],
+                    (int) $data['inq_id'],
+                    (string) ($data['unit_number'] ?? ''),
+                    (string) ($data['unit_type'] ?? '')
+                );
             }
 
             return ['success' => true, 'token' => $token, 'reservation_id' => $reservationId];
@@ -1640,6 +1713,7 @@ class Reservation extends Model
                 $releasedStatus,
                 (int) $res['unit_id']
             ]);
+            $this->notifyOtherApplicantsOfUnitRelease((int) $res['unit_id'], (string) ($res['unit_number'] ?? ''), (string) ($res['unit_type'] ?? ''));
         }
 
         return [
@@ -1898,6 +1972,7 @@ class Reservation extends Model
                 "UPDATE units_table SET unit_current_status = ? WHERE unit_id = ?",
                 [$releasedStatus, (int) $res['unit_id']]
             );
+            $this->notifyOtherApplicantsOfUnitRelease((int) $res['unit_id'], (string) ($res['unit_number'] ?? ''), (string) ($res['unit_type'] ?? ''));
         }
 
         // Send email notifications to client and owner
@@ -2278,6 +2353,172 @@ class Reservation extends Model
             'client_email_sent' => $clientEmailSent,
             'owner_email_sent' => $ownerEmailSent,
         ];
+    }
+
+    /**
+     * Notify other applicants who have this unit approved that it is now on tentative hold under FCFS.
+     */
+    public function notifyOtherApplicantsOfUnitHold(int $unitId, int $currentInqId, string $unitNumber, string $unitType): void
+    {
+        if ($unitId <= 0) {
+            return;
+        }
+
+        try {
+            $ownerNotificationsFile = dirname(__DIR__) . '/config/owner_notifications.php';
+            if (!file_exists($ownerNotificationsFile)) {
+                return;
+            }
+            require_once $ownerNotificationsFile;
+            if (!function_exists('notifyOtherApplicantsOfUnitHold')) {
+                return;
+            }
+
+            $sql = "
+                SELECT DISTINCT 
+                    i.inq_id,
+                    i.sender_name,
+                    i.sender_email,
+                    i.reservation_token,
+                    i.reservation_token_expires_at,
+                    (
+                        SELECT COUNT(*)
+                        FROM owner_approval_table o2
+                        INNER JOIN units_table u2 ON o2.unit_id = u2.unit_id
+                        WHERE o2.inq_id = i.inq_id 
+                          AND o2.request_status = 'approved'
+                          AND u2.unit_id != ?
+                          AND u2.unit_current_status IN ('Ready for Occupancy', 'For Resale', 'Resale')
+                    ) AS other_available_units_count
+                FROM inquiry_table i
+                LEFT JOIN owner_approval_table o ON o.inq_id = i.inq_id AND o.request_status = 'approved'
+                WHERE (o.unit_id = ? OR i.approved_unit_id = ?)
+                  AND i.inq_id != ?
+                  AND i.approval_status = 'approved'
+                  AND i.reservation_token IS NOT NULL
+                  AND i.reservation_token != ''
+                  AND (i.reservation_token_expires_at IS NULL OR i.reservation_token_expires_at > NOW())
+                  AND NOT EXISTS (
+                      SELECT 1 FROM reservation_table r WHERE r.inq_id = i.inq_id
+                  )
+            ";
+            $otherApplicants = $this->fetchAll($sql, [$unitId, $unitId, $unitId, $currentInqId]);
+
+            if (empty($otherApplicants)) {
+                return;
+            }
+
+            $unitDisplay = trim($unitType . ' ' . (!empty($unitNumber) ? 'Unit ' . $unitNumber : ''));
+            if ($unitDisplay === '') {
+                $unitDisplay = 'Unit #' . $unitId;
+            }
+
+            $appUrl = rtrim((string) env('APP_URL', 'http://localhost/Zeppelin-Suites'), '/');
+
+            foreach ($otherApplicants as $applicant) {
+                $email = trim((string) ($applicant['sender_email'] ?? ''));
+                if ($email === '') {
+                    continue;
+                }
+                $name = trim((string) ($applicant['sender_name'] ?? 'Valued Client'));
+                $token = trim((string) ($applicant['reservation_token'] ?? ''));
+                $resLink = $appUrl . '/reservation?token=' . urlencode($token);
+                $hasOtherUnits = ((int) ($applicant['other_available_units_count'] ?? 0)) > 0;
+                $expiresAt = !empty($applicant['reservation_token_expires_at']) ? (string) $applicant['reservation_token_expires_at'] : null;
+
+                notifyOtherApplicantsOfUnitHold(
+                    $email,
+                    $name,
+                    $unitDisplay,
+                    $resLink,
+                    $expiresAt,
+                    $hasOtherUnits
+                );
+            }
+        } catch (\Throwable $e) {
+            error_log('Error notifying other applicants of unit hold: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Notify other applicants with active links for this unit that it is now available again.
+     */
+    public function notifyOtherApplicantsOfUnitRelease(int $unitId, string $unitNumber = '', string $unitType = ''): void
+    {
+        if ($unitId <= 0) {
+            return;
+        }
+
+        try {
+            $ownerNotificationsFile = dirname(__DIR__) . '/config/owner_notifications.php';
+            if (!file_exists($ownerNotificationsFile)) {
+                return;
+            }
+            require_once $ownerNotificationsFile;
+            if (!function_exists('notifyOtherApplicantsOfUnitReleased')) {
+                return;
+            }
+
+            $sql = "
+                SELECT DISTINCT 
+                    i.inq_id,
+                    i.sender_name,
+                    i.sender_email,
+                    i.reservation_token,
+                    i.reservation_token_expires_at
+                FROM inquiry_table i
+                LEFT JOIN owner_approval_table o ON o.inq_id = i.inq_id AND o.request_status = 'approved'
+                WHERE (o.unit_id = ? OR i.approved_unit_id = ?)
+                  AND i.approval_status = 'approved'
+                  AND i.reservation_token IS NOT NULL
+                  AND i.reservation_token != ''
+                  AND (i.reservation_token_expires_at IS NULL OR i.reservation_token_expires_at > NOW())
+                  AND NOT EXISTS (
+                      SELECT 1 FROM reservation_table r WHERE r.inq_id = i.inq_id
+                  )
+            ";
+            $otherApplicants = $this->fetchAll($sql, [$unitId, $unitId]);
+
+            if (empty($otherApplicants)) {
+                return;
+            }
+
+            if ($unitNumber === '' || $unitType === '') {
+                $u = $this->fetchOne("SELECT unit_number, unit_type FROM units_table WHERE unit_id = ? LIMIT 1", [$unitId]);
+                if ($u) {
+                    $unitNumber = (string) ($u['unit_number'] ?? '');
+                    $unitType = (string) ($u['unit_type'] ?? '');
+                }
+            }
+
+            $unitDisplay = trim($unitType . ' ' . (!empty($unitNumber) ? 'Unit ' . $unitNumber : ''));
+            if ($unitDisplay === '') {
+                $unitDisplay = 'Unit #' . $unitId;
+            }
+
+            $appUrl = rtrim((string) env('APP_URL', 'http://localhost/Zeppelin-Suites'), '/');
+
+            foreach ($otherApplicants as $applicant) {
+                $email = trim((string) ($applicant['sender_email'] ?? ''));
+                if ($email === '') {
+                    continue;
+                }
+                $name = trim((string) ($applicant['sender_name'] ?? 'Valued Client'));
+                $token = trim((string) ($applicant['reservation_token'] ?? ''));
+                $resLink = $appUrl . '/reservation?token=' . urlencode($token);
+                $expiresAt = !empty($applicant['reservation_token_expires_at']) ? (string) $applicant['reservation_token_expires_at'] : null;
+
+                notifyOtherApplicantsOfUnitReleased(
+                    $email,
+                    $name,
+                    $unitDisplay,
+                    $resLink,
+                    $expiresAt
+                );
+            }
+        } catch (\Throwable $e) {
+            error_log('Error notifying other applicants of unit release: ' . $e->getMessage());
+        }
     }
 }
 

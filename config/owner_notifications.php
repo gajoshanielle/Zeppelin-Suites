@@ -1243,3 +1243,123 @@ function notifyClientOfOfficiallyBooked(
 
     return sendOwnerNotificationEmail($clientEmail, $clientName, $subject, $plainBody, $htmlBody);
 }
+
+/**
+ * Notify an applicant that an approved unit on their reservation link is currently on tentative hold.
+ */
+function notifyOtherApplicantsOfUnitHold(
+    string $clientEmail,
+    string $clientName,
+    string $unitDisplay,
+    string $reservationLink,
+    ?string $expiresAt = null,
+    bool $hasOtherUnits = false
+): bool {
+    $subject = "Zeppelin Suites - Status Update: {$unitDisplay} is on Tentative Hold";
+    $expiresFormatted = !empty($expiresAt) ? date('F j, Y, g:i A', strtotime($expiresAt)) : 'within your link validity period';
+
+    if ($hasOtherUnits) {
+        $messageHtml = "Please be advised that <strong>" . htmlspecialchars($unitDisplay, ENT_QUOTES, 'UTF-8') . "</strong> has been tentatively reserved by another prospective client under our <strong>First-Come, First-Served</strong> policy.<br><br>Good news: You still have other approved unit(s) available on your reservation link. You can choose from the other approved units and proceed with your reservation.";
+        $btnText = 'Choose Another Unit';
+    } else {
+        $messageHtml = "Please be advised that <strong>" . htmlspecialchars($unitDisplay, ENT_QUOTES, 'UTF-8') . "</strong> has been tentatively reserved by another prospective client under our <strong>First-Come, First-Served</strong> policy.<br><br>Because reservations are tentative pending payment and document review, your reservation link remains active until <strong>" . htmlspecialchars($expiresFormatted, ENT_QUOTES, 'UTF-8') . "</strong>. If the current applicant's reservation is cancelled or rejected, this unit will automatically reopen for you.";
+        $btnText = 'Check Reservation Link';
+    }
+
+    $plainBody = "Hi {$clientName},\n\n"
+        . "Please be advised that {$unitDisplay} has been tentatively reserved by another applicant under our First-Come, First-Served policy.\n\n"
+        . ($hasOtherUnits 
+            ? "You still have other approved units available on your reservation link. You may view and select them here:\n{$reservationLink}\n\n"
+            : "Your reservation link remains valid until {$expiresFormatted}. If the current reservation is cancelled or rejected, this unit will automatically reopen for you:\n{$reservationLink}\n\n")
+        . "Thank you,\nZeppelin Suites Management Team";
+
+    $details = [
+        ['label' => 'Unit:', 'value' => $unitDisplay],
+        ['label' => 'Current Status:', 'value' => 'Tentative Hold (FCFS)', 'color' => '#d97706'],
+        ['label' => 'Link Valid Until:', 'value' => $expiresFormatted],
+    ];
+
+    $htmlBody = buildZeppelinEmailHtml([
+        'badgeText'       => 'Tentative Hold (FCFS)',
+        'badgeType'       => 'amber',
+        'recipientName'   => $clientName,
+        'greeting'        => "Hi " . htmlspecialchars($clientName, ENT_QUOTES, 'UTF-8') . ",",
+        'messageHtml'     => $messageHtml,
+        'details'         => $details,
+        'calloutBox'      => [
+            'text'    => $hasOtherUnits 
+                ? 'Your reservation link is still active. Click below to view your other approved units:'
+                : 'Your link remains valid. You may check the link periodically to see if the unit reopens:',
+            'btnText' => $btnText,
+            'btnUrl'  => $reservationLink,
+            'subtext' => 'Or copy this link into your browser: ' . $reservationLink,
+            'type'    => $hasOtherUnits ? 'blue' : 'amber',
+        ],
+        'reminders'       => [
+            'title' => 'First-Come, First-Served Policy',
+            'items' => [
+                'Units with multiple approved inquiries are awarded to the first applicant who completes submission and verification.',
+                'If a tentative reservation is cancelled or payment verification fails, the unit is immediately released back to other approved applicants.',
+            ],
+        ],
+        'reassuranceText' => 'If you have any questions, our leasing office is happy to assist you.',
+        'footerSubtext'   => 'Automated notification regarding unit availability under FCFS policy.',
+    ]);
+
+    return sendOwnerNotificationEmail($clientEmail, $clientName, $subject, $plainBody, $htmlBody);
+}
+
+/**
+ * Notify an applicant that a previously held unit has been released and is available again.
+ */
+function notifyOtherApplicantsOfUnitReleased(
+    string $clientEmail,
+    string $clientName,
+    string $unitDisplay,
+    string $reservationLink,
+    ?string $expiresAt = null
+): bool {
+    $subject = "Zeppelin Suites - Good News: {$unitDisplay} is Available Again!";
+    $expiresFormatted = !empty($expiresAt) ? date('F j, Y, g:i A', strtotime($expiresAt)) : 'within your link validity period';
+
+    $messageHtml = "Great news! <strong>" . htmlspecialchars($unitDisplay, ENT_QUOTES, 'UTF-8') . "</strong> is now <strong>available again</strong> for reservation under our First-Come, First-Served policy.<br><br>The previous tentative reservation was not completed, so the unit has reopened. Because other clients may also have received approval, we encourage you to submit your reservation promptly.";
+
+    $plainBody = "Hi {$clientName},\n\n"
+        . "Great news! {$unitDisplay} is now available again for reservation at Zeppelin Suites.\n\n"
+        . "The previous tentative hold was released. You can complete your reservation at:\n{$reservationLink}\n\n"
+        . "Your reservation link is valid until {$expiresFormatted}.\n\n"
+        . "Thank you,\nZeppelin Suites Management Team";
+
+    $details = [
+        ['label' => 'Unit:', 'value' => $unitDisplay],
+        ['label' => 'Current Status:', 'value' => 'Available for Reservation', 'color' => '#059669'],
+        ['label' => 'Link Valid Until:', 'value' => $expiresFormatted],
+    ];
+
+    $htmlBody = buildZeppelinEmailHtml([
+        'badgeText'       => 'Unit Available Again',
+        'badgeType'       => 'emerald',
+        'recipientName'   => $clientName,
+        'greeting'        => "Hi " . htmlspecialchars($clientName, ENT_QUOTES, 'UTF-8') . ",",
+        'messageHtml'     => $messageHtml,
+        'details'         => $details,
+        'calloutBox'      => [
+            'text'    => 'Complete your reservation now before another client reserves this unit:',
+            'btnText' => 'Reserve This Unit Now',
+            'btnUrl'  => $reservationLink,
+            'subtext' => 'Or copy this link into your browser: ' . $reservationLink,
+            'type'    => 'emerald',
+        ],
+        'reminders'       => [
+            'title' => 'Important Reminder',
+            'items' => [
+                'Reservations remain strictly First-Come, First-Served.',
+                'Ensure you have your valid IDs and payment proof ready for a smooth submission.',
+            ],
+        ],
+        'reassuranceText' => 'Need help? Contact our leasing administration office.',
+        'footerSubtext'   => 'Automated notification regarding unit availability under FCFS policy.',
+    ]);
+
+    return sendOwnerNotificationEmail($clientEmail, $clientName, $subject, $plainBody, $htmlBody);
+}
