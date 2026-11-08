@@ -1,186 +1,122 @@
-<mxfile host="app.diagrams.net" modified="2026-11-08T14:15:00.000Z" agent="Antigravity" version="21.0.0" type="device">
-  <diagram id="fcfs-upfront-and-final-lock" name="Zeppelin Suites FCFS Algorithm">
-    <mxGraphModel dx="1200" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="950" pageHeight="1150" math="0" shadow="0">
+<mxfile host="app.diagrams.net" modified="2026-11-08T14:20:00.000Z" agent="Antigravity" version="21.0.0" type="device">
+  <diagram id="fcfs-super-simple" name="FCFS Process (Simple)">
+    <mxGraphModel dx="1000" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1050" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
 
-        <!-- Title Banner -->
-        <mxCell id="title" value="Zeppelin Suites - First-Come, First-Served (FCFS) Allocation Architecture" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=18;fontStyle=1;fontColor=#0f172a;" vertex="1" parent="1">
-          <mxGeometry x="100" y="15" width="750" height="30" as="geometry" />
-        </mxCell>
-        <mxCell id="subtitle" value="Two-Tier Verification: (1) Upfront Availability Check &amp; Form Lockout  ➔  (2) Final Concurrency Lock at Submission" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=12;fontStyle=2;fontColor=#475569;" vertex="1" parent="1">
-          <mxGeometry x="100" y="42" width="750" height="20" as="geometry" />
+        <!-- Title -->
+        <mxCell id="title" value="Zeppelin Suites - First-Come, First-Served (FCFS) Reservation Process" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=17;fontStyle=1;fontColor=#0f172a;" vertex="1" parent="1">
+          <mxGeometry x="75" y="20" width="700" height="30" as="geometry" />
         </mxCell>
 
         <!-- 1. Start -->
-        <mxCell id="node_start" value="START: Client Opens&#xa;Reservation Link" style="ellipse;whiteSpace=wrap;html=1;fillColor=#10b981;strokeColor=#059669;fontColor=#ffffff;fontStyle=1;fontSize=12;" vertex="1" parent="1">
-          <mxGeometry x="380" y="80" width="160" height="42" as="geometry" />
+        <mxCell id="step_start" value="START" style="ellipse;whiteSpace=wrap;html=1;fillColor=#10b981;strokeColor=#059669;fontColor=#ffffff;fontStyle=1;fontSize=14;" vertex="1" parent="1">
+          <mxGeometry x="360" y="80" width="130" height="45" as="geometry" />
         </mxCell>
 
-        <!-- ========================================== -->
-        <!-- TIER 1: UPFRONT PAGE-LOAD AVAILABILITY     -->
-        <!-- ========================================== -->
-
-        <!-- 2. Diamond: Upfront Check on Load -->
-        <mxCell id="node_check_upfront" value="UPFRONT CHECK (On Load):&#xa;Are any approved units&#xa;currently available?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fef3c7;strokeColor=#d97706;fontColor=#78350f;fontStyle=1;fontSize=11;" vertex="1" parent="1">
-          <mxGeometry x="350" y="150" width="220" height="90" as="geometry" />
+        <!-- 2. Pick Unit -->
+        <mxCell id="step_pick" value="Client selects a target unit&#xa;and preferred move-in dates" style="shape=parallelogram;perimeter=parallelogramPerimeter;whiteSpace=wrap;html=1;fixedSize=1;fillColor=#e0f2fe;strokeColor=#0284c7;fontColor=#0369a1;fontStyle=1;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="285" y="155" width="280" height="55" as="geometry" />
         </mxCell>
 
-        <!-- 2a. Upfront No: Form Closed -->
-        <mxCell id="node_form_closed" value="CLOSE FORM IMMEDIATELY:&#xa;Display 'Tentative Hold (FCFS) Notice'&#xa;• Client cannot submit or pay deposit&#xa;• Shows 'Check Again / Refresh' button&#xa;• Automatically reopens if earlier hold cancels" style="shape=parallelogram;perimeter=parallelogramPerimeter;whiteSpace=wrap;html=1;fixedSize=1;fillColor=#fee2e2;strokeColor=#dc2626;fontColor=#7f1d1d;fontStyle=1;fontSize=10;align=left;spacingLeft=15;" vertex="1" parent="1">
-          <mxGeometry x="30" y="270" width="270" height="75" as="geometry" />
+        <!-- 3. Diamond: Is unit free? -->
+        <mxCell id="step_check_free" value="Is the unit free&#xa;on those dates?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fef3c7;strokeColor=#d97706;fontColor=#78350f;fontStyle=1;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="335" y="245" width="180" height="85" as="geometry" />
         </mxCell>
 
-        <!-- End Form Closed -->
-        <mxCell id="node_end_closed" value="END: Waiting for&#xa;Hold Release" style="ellipse;whiteSpace=wrap;html=1;fillColor=#f8fafc;strokeColor=#94a3b8;fontColor=#64748b;fontSize=10;" vertex="1" parent="1">
-          <mxGeometry x="90" y="380" width="150" height="38" as="geometry" />
+        <!-- 4a. Left: Diamond: Other units? -->
+        <mxCell id="step_other_units" value="Are other units&#xa;available?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fef3c7;strokeColor=#d97706;fontColor=#78350f;fontStyle=1;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="70" y="340" width="170" height="85" as="geometry" />
         </mxCell>
 
-        <!-- 2b. Upfront Yes: Display Form with Available Units -->
-        <mxCell id="node_show_form" value="Display Reservation Form:&#xa;• Filter dropdown to show ONLY available units&#xa;• Client selects unit, dates, and attaches 35% deposit proof" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e0f2fe;strokeColor=#0284c7;fontColor=#0369a1;fontStyle=1;fontSize=11;align=center;" vertex="1" parent="1">
-          <mxGeometry x="320" y="275" width="280" height="60" as="geometry" />
+        <!-- 4b. Rejection -->
+        <mxCell id="step_reject" value="Booking Rejected:&#xa;Unit is taken and no other&#xa;units are available" style="shape=parallelogram;perimeter=parallelogramPerimeter;whiteSpace=wrap;html=1;fixedSize=1;fillColor=#fee2e2;strokeColor=#dc2626;fontColor=#7f1d1d;fontStyle=1;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="50" y="470" width="210" height="60" as="geometry" />
         </mxCell>
 
-        <!-- 3. Client Submits Form -->
-        <mxCell id="node_submit" value="Client Clicks &quot;Submit Reservation&quot;" style="shape=parallelogram;perimeter=parallelogramPerimeter;whiteSpace=wrap;html=1;fixedSize=1;fillColor=#e0e7ff;strokeColor=#6366f1;fontColor=#312e81;fontStyle=1;fontSize=11;" vertex="1" parent="1">
-          <mxGeometry x="330" y="365" width="260" height="50" as="geometry" />
+        <!-- End Rejected -->
+        <mxCell id="step_end_reject" value="END&#xa;(Request Closed)" style="ellipse;whiteSpace=wrap;html=1;fillColor=#ef4444;strokeColor=#b91c1c;fontColor=#ffffff;fontStyle=1;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="85" y="565" width="140" height="40" as="geometry" />
         </mxCell>
 
-        <!-- ========================================== -->
-        <!-- TIER 2: FINAL CONCURRENCY LOCK CHECK       -->
-        <!-- ========================================== -->
-
-        <!-- 4. Diamond: Final FCFS Concurrency Check -->
-        <mxCell id="node_check_concurrency" value="FINAL FCFS CHECK (At Submit):&#xa;Is selected unit still free?&#xa;(Pessimistic lock: SELECT FOR UPDATE)" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fef3c7;strokeColor=#d97706;fontColor=#78350f;fontStyle=1;fontSize=11;" vertex="1" parent="1">
-          <mxGeometry x="345" y="445" width="230" height="90" as="geometry" />
+        <!-- 5. Unit On Hold -->
+        <mxCell id="step_hold" value="Put unit &quot;ON HOLD&quot;&#xa;(Locked so no one else can take it)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ede9fe;strokeColor=#8b5cf6;fontColor=#3b0764;fontStyle=1;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="300" y="365" width="250" height="55" as="geometry" />
         </mxCell>
 
-        <!-- 4a. Concurrency Collision -> Check Other Units -->
-        <mxCell id="node_check_alt" value="Are other approved units&#xa;still available in queue?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fef3c7;strokeColor=#d97706;fontColor=#78350f;fontStyle=1;fontSize=10;" vertex="1" parent="1">
-          <mxGeometry x="635" y="445" width="180" height="85" as="geometry" />
+        <!-- 6. Diamond: Did client pay? -->
+        <mxCell id="step_check_pay" value="Did client pay deposit&#xa;&amp; submit requirements?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fef3c7;strokeColor=#d97706;fontColor=#78350f;fontStyle=1;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="325" y="455" width="200" height="90" as="geometry" />
         </mxCell>
 
-        <!-- Redirect to Alternative Unit -->
-        <mxCell id="node_redirect_alt" value="Redirect Client to Alternative Unit:&#xa;Prompt client to pick another approved unit" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dbeafe;strokeColor=#3b82f6;fontColor=#1d4ed8;fontStyle=1;fontSize=10;" vertex="1" parent="1">
-          <mxGeometry x="625" y="365" width="200" height="50" as="geometry" />
+        <!-- 7a. Payment NO: Cancel hold -->
+        <mxCell id="step_cancel" value="Hold is CANCELLED:&#xa;Unit becomes free again for&#xa;the next person in line" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fef2f2;strokeColor=#ef4444;fontColor=#991b1b;fontStyle=1;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="590" y="470" width="210" height="60" as="geometry" />
         </mxCell>
 
-        <!-- Collision End: No other units -->
-        <mxCell id="node_collision_reject" value="Block Submission:&#xa;Redirect to Tentative Hold Notice" style="shape=parallelogram;perimeter=parallelogramPerimeter;whiteSpace=wrap;html=1;fixedSize=1;fillColor=#fee2e2;strokeColor=#dc2626;fontColor=#7f1d1d;fontSize=10;" vertex="1" parent="1">
-          <mxGeometry x="630" y="565" width="190" height="48" as="geometry" />
+        <!-- End Cancel -->
+        <mxCell id="step_end_cancel" value="END&#xa;(Hold Dropped)" style="ellipse;whiteSpace=wrap;html=1;fillColor=#f8fafc;strokeColor=#94a3b8;fontColor=#64748b;fontStyle=1;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="630" y="565" width="130" height="40" as="geometry" />
         </mxCell>
 
-        <!-- 4b. Concurrency Free -> Place On Hold -->
-        <mxCell id="node_hold" value="STAGE 1: TENTATIVE (Unit On Hold)&#xa;• Unit current status updated to 'On Hold'&#xa;• Dates locked in database for this applicant" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ede9fe;strokeColor=#8b5cf6;fontColor=#3b0764;fontStyle=1;fontSize=10;align=left;spacingLeft=12;" vertex="1" parent="1">
-          <mxGeometry x="330" y="565" width="260" height="55" as="geometry" />
+        <!-- 7b. Payment YES: Officially Reserved -->
+        <mxCell id="step_reserved" value="Unit is Officially RESERVED!&#xa;(Lease confirmed &amp; key assigned)" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=12;fillColor=#dcfce7;strokeColor=#16a34a;fontColor=#14532d;fontStyle=1;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="300" y="585" width="250" height="65" as="geometry" />
         </mxCell>
 
-        <!-- 5. Admin Verification -->
-        <mxCell id="node_verify" value="Admin / Owner Verifies:&#xa;Audit 35% payment proof &amp; valid IDs" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8fafc;strokeColor=#64748b;fontColor=#0f172a;fontSize=10;" vertex="1" parent="1">
-          <mxGeometry x="330" y="645" width="260" height="45" as="geometry" />
+        <!-- 8. End Success -->
+        <mxCell id="step_end_success" value="SUCCESS&#xa;(Reservation Complete)" style="ellipse;whiteSpace=wrap;html=1;fillColor=#10b981;strokeColor=#059669;fontColor=#ffffff;fontStyle=1;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="330" y="685" width="190" height="45" as="geometry" />
         </mxCell>
 
-        <!-- 6. Diamond: Payment Approved? -->
-        <mxCell id="node_check_pay" value="Is Payment &amp; Docs&#xa;Approved?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fef3c7;strokeColor=#d97706;fontColor=#78350f;fontStyle=1;fontSize=11;" vertex="1" parent="1">
-          <mxGeometry x="375" y="715" width="170" height="75" as="geometry" />
-        </mxCell>
+        <!-- ============================================== -->
+        <!-- CONNECTORS                                     -->
+        <!-- ============================================== -->
 
-        <!-- 6a. Branch No: Release Hold -->
-        <mxCell id="node_release" value="Release Hold (Cancelled / Failed):&#xa;• Unit reverts to 'Ready for Occupancy'&#xa;• Automatically opens for waiting applicants" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fef2f2;strokeColor=#ef4444;fontColor=#991b1b;fontStyle=1;fontSize=10;" vertex="1" parent="1">
-          <mxGeometry x="80" y="725" width="230" height="55" as="geometry" />
-        </mxCell>
+        <!-- Start -> Pick -->
+        <mxCell id="c1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#475569;" edge="1" parent="1" source="step_start" target="step_pick"><mxGeometry relative="1" as="geometry" /></mxCell>
 
-        <!-- End Release -->
-        <mxCell id="node_end_release" value="END: Hold Released" style="ellipse;whiteSpace=wrap;html=1;fillColor=#f8fafc;strokeColor=#94a3b8;fontColor=#64748b;fontSize=10;" vertex="1" parent="1">
-          <mxGeometry x="125" y="810" width="140" height="35" as="geometry" />
-        </mxCell>
+        <!-- Pick -> Check Free -->
+        <mxCell id="c2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#475569;" edge="1" parent="1" source="step_pick" target="step_check_free"><mxGeometry relative="1" as="geometry" /></mxCell>
 
-        <!-- 6b. Branch Yes: Stage 2 Confirmed -->
-        <mxCell id="node_confirmed" value="STAGE 2: CONFIRMED&#xa;Payment verified; lease signing appointment set" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dbeafe;strokeColor=#3b82f6;fontColor=#1d4ed8;fontStyle=1;fontSize=10;" vertex="1" parent="1">
-          <mxGeometry x="330" y="815" width="260" height="45" as="geometry" />
-        </mxCell>
-
-        <!-- 7. Stage 3 Reserved -->
-        <mxCell id="node_reserved" value="STAGE 3: RESERVED (Officially Booked)&#xa;• Unit status updated to 'Reserved' / 'Occupied'&#xa;• Permanent lease record &amp; key handover" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=10;fillColor=#dcfce7;strokeColor=#16a34a;fontColor=#14532d;fontStyle=1;fontSize=10;align=left;spacingLeft=12;" vertex="1" parent="1">
-          <mxGeometry x="330" y="885" width="260" height="60" as="geometry" />
-        </mxCell>
-
-        <!-- 8. Confirmation Output -->
-        <mxCell id="node_output" value="Issue Official Confirmation:&#xa;Dispatch lease agreement &amp; move-in clearance" style="shape=parallelogram;perimeter=parallelogramPerimeter;whiteSpace=wrap;html=1;fixedSize=1;fillColor=#dcfce7;strokeColor=#16a34a;fontColor=#14532d;fontStyle=1;fontSize=10;" vertex="1" parent="1">
-          <mxGeometry x="325" y="970" width="270" height="45" as="geometry" />
-        </mxCell>
-
-        <!-- End Success -->
-        <mxCell id="node_end_success" value="END: Reservation Confirmed" style="ellipse;whiteSpace=wrap;html=1;fillColor=#10b981;strokeColor=#059669;fontColor=#ffffff;fontStyle=1;fontSize=11;" vertex="1" parent="1">
-          <mxGeometry x="365" y="1040" width="190" height="38" as="geometry" />
-        </mxCell>
-
-        <!-- Side Principle Box -->
-        <mxCell id="legend_box" value="Core FCFS Principles:&#xa;1. Upfront UX Protection: Form closes if all units are&#xa;   already held. Clients never pay for unavailable rooms.&#xa;2. Concurrency Safety: Final database lock catches&#xa;   split-second simultaneous submissions.&#xa;3. Automatic Reopening: Released holds immediately&#xa;   reopen on the page for waiting clients." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#cbd5e1;fontColor=#475569;fontSize=10;align=left;spacingLeft=12;" vertex="1" parent="1">
-          <mxGeometry x="615" y="150" width="270" height="90" as="geometry" />
-        </mxCell>
-
-        <!-- ========================================== -->
-        <!-- CONNECTORS                                 -->
-        <!-- ========================================== -->
-        <mxCell id="e1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#475569;" edge="1" parent="1" source="node_start" target="node_check_upfront"><mxGeometry relative="1" as="geometry" /></mxCell>
-
-        <!-- Upfront -> No (Closed) -->
-        <mxCell id="e_upfront_no" value="No (All Held / Taken)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#dc2626;fontColor=#dc2626;fontStyle=1;" edge="1" parent="1" source="node_check_upfront" target="node_form_closed">
-          <mxGeometry relative="1" as="geometry">
-            <Array as="points"><mxPoint x="165" y="195" /></Array>
-          </mxGeometry>
-        </mxCell>
-        <mxCell id="e_closed_end" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#dc2626;" edge="1" parent="1" source="node_form_closed" target="node_end_closed"><mxGeometry relative="1" as="geometry" /></mxCell>
-
-        <!-- Upfront -> Yes (Show Form) -->
-        <mxCell id="e_upfront_yes" value="Yes (Available)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#16a34a;fontColor=#16a34a;fontStyle=1;" edge="1" parent="1" source="node_check_upfront" target="node_show_form"><mxGeometry relative="1" as="geometry" /></mxCell>
-
-        <!-- Show Form -> Submit -->
-        <mxCell id="e2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#475569;" edge="1" parent="1" source="node_show_form" target="node_submit"><mxGeometry relative="1" as="geometry" /></mxCell>
-
-        <!-- Submit -> Concurrency Check -->
-        <mxCell id="e3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#475569;" edge="1" parent="1" source="node_submit" target="node_check_concurrency"><mxGeometry relative="1" as="geometry" /></mxCell>
-
-        <!-- Concurrency -> No (Collision) -->
-        <mxCell id="e_concur_no" value="No (Collision)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#dc2626;fontColor=#dc2626;fontStyle=1;" edge="1" parent="1" source="node_check_concurrency" target="node_check_alt"><mxGeometry relative="1" as="geometry" /></mxCell>
-        <mxCell id="e_alt_yes" value="Yes" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#2563eb;fontColor=#1d4ed8;fontStyle=1;" edge="1" parent="1" source="node_check_alt" target="node_redirect_alt"><mxGeometry relative="1" as="geometry" /></mxCell>
-        <mxCell id="e_redirect_form" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#2563eb;" edge="1" parent="1" source="node_redirect_alt" target="node_show_form"><mxGeometry relative="1" as="geometry" /></mxCell>
-        <mxCell id="e_alt_no" value="No" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#dc2626;fontColor=#dc2626;fontStyle=1;" edge="1" parent="1" source="node_check_alt" target="node_collision_reject"><mxGeometry relative="1" as="geometry" /></mxCell>
-        <mxCell id="e_reject_to_closed" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;dashed=1;strokeColor=#dc2626;" edge="1" parent="1" source="node_collision_reject" target="node_end_closed">
+        <!-- Check Free -> NO (Taken) -> Check other units -->
+        <mxCell id="c_free_no" value="NO (Taken)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#dc2626;fontColor=#dc2626;fontStyle=1;" edge="1" parent="1" source="step_check_free" target="step_other_units">
           <mxGeometry relative="1" as="geometry">
             <Array as="points">
-              <mxPoint x="725" y="630" />
-              <mxPoint x="165" y="630" />
+              <mxPoint x="155" y="287" />
             </Array>
           </mxGeometry>
         </mxCell>
 
-        <!-- Concurrency -> Yes (Hold) -->
-        <mxCell id="e_concur_yes" value="Yes (Free)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#16a34a;fontColor=#16a34a;fontStyle=1;" edge="1" parent="1" source="node_check_concurrency" target="node_hold"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <!-- Other units -> YES -> Loop back to Pick Unit -->
+        <mxCell id="c_other_yes" value="YES (Pick another unit)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#2563eb;fontColor=#1d4ed8;fontStyle=1;" edge="1" parent="1" source="step_other_units" target="step_pick">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="155" y="182" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
 
-        <!-- Hold -> Verify -->
-        <mxCell id="e4" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#8b5cf6;" edge="1" parent="1" source="node_hold" target="node_verify"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <!-- Other units -> NO -> Reject -->
+        <mxCell id="c_other_no" value="NO (None left)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#dc2626;fontColor=#dc2626;fontStyle=1;" edge="1" parent="1" source="step_other_units" target="step_reject"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="c_reject_end" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#dc2626;" edge="1" parent="1" source="step_reject" target="step_end_reject"><mxGeometry relative="1" as="geometry" /></mxCell>
 
-        <!-- Verify -> Check Pay -->
-        <mxCell id="e5" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#475569;" edge="1" parent="1" source="node_verify" target="node_check_pay"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <!-- Check Free -> YES (Free) -> Hold -->
+        <mxCell id="c_free_yes" value="YES (Free)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#16a34a;fontColor=#16a34a;fontStyle=1;" edge="1" parent="1" source="step_check_free" target="step_hold"><mxGeometry relative="1" as="geometry" /></mxCell>
 
-        <!-- Check Pay -> No (Release) -->
-        <mxCell id="e_pay_no" value="No (Declined / Cancelled)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#dc2626;fontColor=#dc2626;fontStyle=1;" edge="1" parent="1" source="node_check_pay" target="node_release"><mxGeometry relative="1" as="geometry" /></mxCell>
-        <mxCell id="e_release_end" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#94a3b8;" edge="1" parent="1" source="node_release" target="node_end_release"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <!-- Hold -> Check Pay -->
+        <mxCell id="c3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#475569;" edge="1" parent="1" source="step_hold" target="step_check_pay"><mxGeometry relative="1" as="geometry" /></mxCell>
 
-        <!-- Check Pay -> Yes (Confirmed) -->
-        <mxCell id="e_pay_yes" value="Yes (Approved)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#16a34a;fontColor=#16a34a;fontStyle=1;" edge="1" parent="1" source="node_check_pay" target="node_confirmed"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <!-- Check Pay -> NO -> Cancel Hold -->
+        <mxCell id="c_pay_no" value="NO (Didn't pay / Cancelled)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#dc2626;fontColor=#dc2626;fontStyle=1;" edge="1" parent="1" source="step_check_pay" target="step_cancel"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="c_cancel_end" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#94a3b8;" edge="1" parent="1" source="step_cancel" target="step_end_cancel"><mxGeometry relative="1" as="geometry" /></mxCell>
 
-        <!-- Confirmed -> Reserved -->
-        <mxCell id="e6" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#3b82f6;" edge="1" parent="1" source="node_confirmed" target="node_reserved"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <!-- Check Pay -> YES -> Reserved -->
+        <mxCell id="c_pay_yes" value="YES (Paid &amp; Approved)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#16a34a;fontColor=#16a34a;fontStyle=1;" edge="1" parent="1" source="step_check_pay" target="step_reserved"><mxGeometry relative="1" as="geometry" /></mxCell>
 
-        <!-- Reserved -> Output -->
-        <mxCell id="e7" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#16a34a;" edge="1" parent="1" source="node_reserved" target="node_output"><mxGeometry relative="1" as="geometry" /></mxCell>
-
-        <!-- Output -> End -->
-        <mxCell id="e8" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#16a34a;" edge="1" parent="1" source="node_output" target="node_end_success"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <!-- Reserved -> Success -->
+        <mxCell id="c4" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#16a34a;" edge="1" parent="1" source="step_reserved" target="step_end_success"><mxGeometry relative="1" as="geometry" /></mxCell>
 
       </root>
     </mxGraphModel>

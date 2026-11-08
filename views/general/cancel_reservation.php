@@ -89,250 +89,47 @@ if (!empty($reservation['payment_proof'])) {
         Reservation Cancellation
       </h1>
       <p class="text-sm sm:text-base text-slate-600 mt-1 max-w-2xl">
-        Review your submitted reservation details and unit owner information below before confirming your cancellation request.
+        Please provide your cancellation reason below. You can review your submitted reservation details and unit owner information on the right.
       </p>
     </div>
 
     <!-- 2-COLUMN LAYOUT -->
     <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
 
-      <!-- LEFT COLUMN: UNIT OWNER & SUBMITTED RESERVATION FORM (7 COLS) -->
+      <!-- LEFT COLUMN: PRIMARY CANCELLATION REQUEST FORM & WORKFLOW (7 COLS - HIGHLIGHTED) -->
       <div class="lg:col-span-7 space-y-6">
 
-        <!-- 1. UNIT & UNIT OWNER INFORMATION CARD -->
-        <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+        <!-- CANCELLATION FORM CARD (PRIMARY HIGHLIGHT) -->
+        <div class="bg-white rounded-xl border-t-4 border-t-rose-600 border-x border-b border-slate-200 shadow-md p-6 sm:p-7 relative">
           <div class="flex items-center justify-between pb-4 border-b border-slate-100 mb-5">
             <div class="flex items-center gap-3">
-              <div class="w-9 h-9 rounded-lg bg-slate-900 text-white flex items-center justify-center shrink-0">
+              <div class="w-10 h-10 rounded-lg bg-rose-50 text-rose-600 border border-rose-200 flex items-center justify-center shrink-0">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </div>
               <div>
-                <h2 class="text-base font-bold text-slate-900 leading-tight">Unit &amp; Unit Owner Information</h2>
-                <p class="text-xs text-slate-500">Property and owner contact details</p>
-              </div>
-            </div>
-            <span class="text-xs font-semibold px-2.5 py-1 rounded-md bg-slate-100 text-slate-700">
-              <?= htmlspecialchars($reservation['listing_type'] ?? ($isLease ? 'For Lease' : 'Resale')) ?>
-            </span>
-          </div>
-
-          <!-- Unit Overview -->
-          <div class="bg-slate-50 rounded-lg p-4 border border-slate-200/80 mb-5">
-            <p class="text-xs font-bold text-slate-500 uppercase tracking-wider">Reserved Unit</p>
-            <p class="text-lg font-bold text-slate-900 mt-0.5">
-              <?= htmlspecialchars($unitTitle) ?>
-            </p>
-            <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-3 pt-3 border-t border-slate-200/60 text-xs">
-              <div>
-                <span class="text-slate-500 block">Floor Number:</span>
-                <span class="font-semibold text-slate-800">Floor <?= htmlspecialchars((string)($reservation['floor_number'] ?? '—')) ?></span>
-              </div>
-              <div>
-                <span class="text-slate-500 block">Floor Area:</span>
-                <span class="font-semibold text-slate-800"><?= htmlspecialchars((string)($reservation['sqm'] ?? '—')) ?> sqm</span>
-              </div>
-              <div>
-                <span class="text-slate-500 block">Stay Category:</span>
-                <span class="font-semibold text-slate-800"><?= htmlspecialchars((string)($reservation['stay_category'] ?? 'Long term')) ?></span>
-              </div>
-            </div>
-          </div>
-
-          <!-- Owner Details -->
-          <div>
-            <p class="text-xs font-bold text-slate-700 uppercase tracking-wider mb-3">Unit Owner Contact</p>
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div class="p-3 bg-white rounded-lg border border-slate-200">
-                <span class="text-xs text-slate-500 block">Owner Name</span>
-                <span class="text-sm font-bold text-slate-900 block mt-0.5">
-                  <?= htmlspecialchars((string)($reservation['owner_name'] ?? 'Zeppelin Suites Administration')) ?>
-                </span>
-              </div>
-
-              <div class="p-3 bg-white rounded-lg border border-slate-200">
-                <span class="text-xs text-slate-500 block">Contact Number</span>
-                <span class="text-sm font-semibold text-slate-900 block mt-0.5">
-                  <?= htmlspecialchars((string)($reservation['owner_contact'] ?? '—')) ?>
-                </span>
-              </div>
-
-              <div class="p-3 bg-white rounded-lg border border-slate-200">
-                <span class="text-xs text-slate-500 block">Email Address</span>
-                <span class="text-sm font-semibold text-slate-900 block mt-0.5 truncate" title="<?= htmlspecialchars((string)($reservation['owner_email'] ?? '—')) ?>">
-                  <?= htmlspecialchars((string)($reservation['owner_email'] ?? '—')) ?>
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- 2. SUBMITTED RESERVATION FORM DETAILS CARD -->
-        <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
-          <div class="flex items-center justify-between pb-4 border-b border-slate-100 mb-5">
-            <div class="flex items-center gap-3">
-              <div class="w-9 h-9 rounded-lg bg-blue-600 text-white flex items-center justify-center shrink-0">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.5L19 9.5V19a2 2 0 01-2 2z" />
-                </svg>
-              </div>
-              <div>
-                <h2 class="text-base font-bold text-slate-900 leading-tight">Submitted Reservation Form</h2>
-                <p class="text-xs text-slate-500">Submitted on <?= htmlspecialchars($submittedDate) ?></p>
-              </div>
-            </div>
-            <?php
-            $rawStatus = strtolower(trim((string)($reservation['reservation_status'] ?? 'submitted')));
-            if (in_array($rawStatus, ['handover', 'moved in', 'officially booked', 'confirmed', 'completed'], true)) {
-                $displayStatus = 'Confirmed';
-                $badgeStyle = 'bg-emerald-50 text-emerald-700 border-emerald-200';
-            } elseif (in_array($rawStatus, ['reserved', 'verified'], true)) {
-                $displayStatus = 'Reserved';
-                $badgeStyle = 'bg-blue-50 text-blue-700 border-blue-200';
-            } elseif (in_array($rawStatus, ['cancelled', 'rejected'], true)) {
-                $displayStatus = 'Cancelled';
-                $badgeStyle = 'bg-red-50 text-red-700 border-red-200';
-            } else {
-                $displayStatus = 'Tentative';
-                $badgeStyle = 'bg-amber-50 text-amber-700 border-amber-200';
-            }
-            ?>
-            <span class="text-xs font-semibold px-2.5 py-1 rounded-md <?= $badgeStyle ?> border">
-              <?= htmlspecialchars($displayStatus) ?>
-            </span>
-          </div>
-
-          <div class="space-y-5 text-sm">
-
-            <!-- Client Info Grid -->
-            <div>
-              <p class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Applicant Information</p>
-              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-slate-50 p-3.5 rounded-lg border border-slate-200/70 text-xs sm:text-sm">
-                <div>
-                  <span class="text-slate-500 text-xs block">Applicant Name</span>
-                  <span class="font-bold text-slate-900"><?= htmlspecialchars((string)($reservation['client_name'] ?? '—')) ?></span>
-                </div>
-                <div>
-                  <span class="text-slate-500 text-xs block">Email Address</span>
-                  <span class="font-medium text-slate-900"><?= htmlspecialchars((string)($reservation['client_email'] ?? '—')) ?></span>
-                </div>
-                <div>
-                  <span class="text-slate-500 text-xs block">Contact Number</span>
-                  <span class="font-medium text-slate-900"><?= htmlspecialchars((string)($reservation['client_contact'] ?? '—')) ?></span>
-                </div>
-                <div>
-                  <span class="text-slate-500 text-xs block">Sex / Nationality</span>
-                  <span class="font-medium text-slate-900">
-                    <?= htmlspecialchars((string)($reservation['client_sex'] ?? '—')) ?> / <?= htmlspecialchars((string)($reservation['client_nationality'] ?? '—')) ?>
+                <div class="flex items-center gap-2">
+                  <h2 class="text-base sm:text-lg font-bold text-slate-900 leading-tight">Request Cancellation</h2>
+                  <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-rose-100 text-rose-800">
+                    Action Required
                   </span>
                 </div>
+                <p class="text-xs text-slate-500 mt-0.5">Provide your reason for administration review</p>
               </div>
-            </div>
-
-            <!-- Schedule & Terms -->
-            <div>
-              <p class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Reservation Terms &amp; Dates</p>
-              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-slate-50 p-3.5 rounded-lg border border-slate-200/70 text-xs sm:text-sm">
-                <div>
-                  <span class="text-slate-500 text-xs block">Transaction Type</span>
-                  <span class="font-semibold text-slate-900"><?= htmlspecialchars((string)($reservation['transaction_type'] ?? 'Unit Lease')) ?></span>
-                </div>
-                <?php if ($isLease): ?>
-                  <div>
-                    <span class="text-slate-500 text-xs block">Lease Duration</span>
-                    <span class="font-semibold text-slate-900"><?= htmlspecialchars((string)($reservation['lease_duration'] ?? '1 year')) ?></span>
-                  </div>
-                  <div>
-                    <span class="text-slate-500 text-xs block">Move-in Date</span>
-                    <span class="font-semibold text-slate-900"><?= htmlspecialchars($moveInFormatted) ?></span>
-                  </div>
-                  <div>
-                    <span class="text-slate-500 text-xs block">Move-out Date</span>
-                    <span class="font-semibold text-slate-900"><?= htmlspecialchars($moveOutFormatted) ?></span>
-                  </div>
-                <?php endif; ?>
-                <div>
-                  <span class="text-slate-500 text-xs block">Agreement Signing Schedule</span>
-                  <span class="font-semibold text-slate-900"><?= htmlspecialchars($signingFormatted) ?></span>
-                </div>
-              </div>
-            </div>
-
-            <!-- Financial & Payment Summary -->
-            <div>
-              <p class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Financial &amp; Payment Summary</p>
-              <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-slate-50 p-3.5 rounded-lg border border-slate-200/70 text-xs sm:text-sm">
-                <div>
-                  <span class="text-slate-500 text-xs block"><?= $isLease ? 'Monthly Lease Rate' : 'Total Reselling Price' ?></span>
-                  <span class="font-bold text-slate-900">₱<?= number_format((float)($reservation['price_basis'] ?? 0), 2) ?></span>
-                </div>
-                <div>
-                  <span class="text-slate-500 text-xs block">Reservation Fee (35%)</span>
-                  <span class="font-bold text-blue-700">₱<?= number_format((float)($reservation['required_amount'] ?? 0), 2) ?></span>
-                </div>
-                <div>
-                  <span class="text-slate-500 text-xs block">Payment Method</span>
-                  <span class="font-semibold text-slate-900"><?= htmlspecialchars((string)($reservation['payment_method'] ?? 'In-House')) ?></span>
-                </div>
-                <div>
-                  <span class="text-slate-500 text-xs block">Payment Status</span>
-                  <span class="font-semibold text-emerald-700"><?= htmlspecialchars(ucwords((string)($reservation['payment_status'] ?? 'Pending Review'))) ?></span>
-                </div>
-                <?php if ($paymentProofUrl !== ''): ?>
-                  <div class="sm:col-span-2">
-                    <span class="text-slate-500 text-xs block">Proof of Payment</span>
-                    <a href="<?= htmlspecialchars($paymentProofUrl) ?>" target="_blank" rel="noopener noreferrer" class="text-xs font-semibold text-blue-600 hover:underline inline-flex items-center gap-1 mt-0.5">
-                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
-                      View Uploaded Proof
-                    </a>
-                  </div>
-                <?php endif; ?>
-              </div>
-            </div>
-
-            <!-- Client Remarks / Notes -->
-            <?php if (!empty($reservation['client_remarks'])): ?>
-              <div>
-                <p class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Submitted Remarks / Requests</p>
-                <div class="p-3 bg-slate-50 rounded-lg border border-slate-200/70 text-xs text-slate-700 leading-relaxed">
-                  <?= nl2br(htmlspecialchars((string)$reservation['client_remarks'])) ?>
-                </div>
-              </div>
-            <?php endif; ?>
-
-          </div>
-        </div>
-
-      </div>
-
-      <!-- RIGHT COLUMN: CANCELLATION REQUEST FORM & POLICIES (5 COLS) -->
-      <div class="lg:col-span-5 space-y-6">
-
-        <!-- CANCELLATION FORM CARD -->
-        <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
-          <div class="flex items-center gap-3 pb-4 border-b border-slate-100 mb-5">
-            <div class="w-9 h-9 rounded-lg bg-rose-50 text-rose-600 border border-rose-200 flex items-center justify-center shrink-0">
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </div>
-            <div>
-              <h2 class="text-base font-bold text-slate-900 leading-tight">Request Cancellation</h2>
-              <p class="text-xs text-slate-500">Provide your reason for administration review</p>
             </div>
           </div>
 
           <!-- Policy Notice -->
-          <div class="rounded-lg bg-amber-50 border border-amber-200 p-4 mb-5 text-xs text-amber-800 leading-relaxed">
+          <div class="rounded-lg bg-amber-50 border border-amber-200 p-4 mb-5 text-xs text-amber-900 leading-relaxed shadow-sm">
             <div class="flex items-start gap-2.5">
               <svg class="w-4 h-4 text-amber-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
               </svg>
               <div>
-                <span class="font-bold block mb-0.5">Important Notice</span>
-                Submitting this form does not automatically cancel your reservation. It sends a request to administration.
-                Reservation fees are <span class="font-bold text-amber-900">non-refundable once verified and processed</span>.
+                <span class="font-bold text-amber-950 block mb-0.5">Important Notice</span>
+                Submitting this form does not automatically cancel your reservation. It sends a request to administration for review.
+                Reservation fees are <span class="font-bold text-amber-950 underline decoration-amber-400">non-refundable once verified and processed</span>.
               </div>
             </div>
           </div>
@@ -343,7 +140,7 @@ if (!empty($reservation['payment_proof'])) {
             <input type="hidden" name="token" value="<?= htmlspecialchars($token) ?>">
 
             <div>
-              <label for="cancellationReason" class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+              <label for="cancellationReason" class="block text-xs font-bold uppercase tracking-wider text-slate-800 mb-1.5">
                 Reason for Cancellation <span class="text-rose-600">*</span>
               </label>
               <textarea
@@ -352,18 +149,18 @@ if (!empty($reservation['payment_proof'])) {
                 rows="5"
                 required
                 placeholder="Please describe why you would like to cancel this reservation..."
-                class="w-full px-3.5 py-2.5 rounded-lg border border-slate-300 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-900 resize-none"
+                class="w-full px-3.5 py-3 rounded-lg border border-slate-300 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-600 resize-none transition-all"
               ></textarea>
-              <p class="text-[11px] text-slate-400 mt-1">Please provide clear details to assist the administration review.</p>
+              <p class="text-[11px] text-slate-500 mt-1">Please provide clear details to assist the administration review.</p>
             </div>
 
             <!-- Acknowledgment Checkbox -->
-            <label class="flex items-start gap-2.5 p-3 rounded-lg border border-slate-200 bg-slate-50 cursor-pointer select-none">
+            <label class="flex items-start gap-2.5 p-3 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100/70 cursor-pointer select-none transition-colors">
               <input
                 type="checkbox"
                 id="policyCheck"
                 required
-                class="mt-0.5 w-4 h-4 rounded border-slate-300 text-slate-900 focus:ring-slate-900"
+                class="mt-0.5 w-4 h-4 rounded border-slate-300 text-rose-600 focus:ring-rose-500"
               >
               <span class="text-xs text-slate-700 leading-relaxed">
                 I confirm that I wish to request cancellation of this reservation, and I understand that reservation fees are non-refundable once verified and processed.
@@ -375,7 +172,7 @@ if (!empty($reservation['payment_proof'])) {
               <button
                 type="button"
                 onclick="openConfirmModal()"
-                class="w-full py-3 px-4 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-semibold text-sm transition-colors text-center"
+                class="w-full py-3 px-4 rounded-lg bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white font-bold text-sm transition-all shadow-sm hover:shadow text-center flex items-center justify-center gap-2 cursor-pointer"
               >
                 Submit Cancellation Request
               </button>
@@ -426,6 +223,216 @@ if (!empty($reservation['payment_proof'])) {
           <div class="space-y-1.5 font-medium text-slate-800">
             <p>Email: <a href="mailto:sales@zeppelinsuites.com" class="text-blue-600 hover:underline">sales@zeppelinsuites.com</a></p>
             <p>Hotline: <span class="text-slate-900">+63 917 123 4567</span></p>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- RIGHT COLUMN: RESERVATION & UNIT DETAILS REFERENCE (5 COLS) -->
+      <div class="lg:col-span-5 space-y-6">
+
+        <!-- 1. UNIT & UNIT OWNER INFORMATION CARD -->
+        <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+          <div class="flex items-center justify-between pb-4 border-b border-slate-100 mb-5">
+            <div class="flex items-center gap-3">
+              <div class="w-9 h-9 rounded-lg bg-slate-900 text-white flex items-center justify-center shrink-0">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                </svg>
+              </div>
+              <div>
+                <h2 class="text-sm sm:text-base font-bold text-slate-900 leading-tight">Unit &amp; Unit Owner Information</h2>
+                <p class="text-xs text-slate-500">Property and owner contact details</p>
+              </div>
+            </div>
+            <span class="text-xs font-semibold px-2.5 py-1 rounded-md bg-slate-100 text-slate-700">
+              <?= htmlspecialchars($reservation['listing_type'] ?? ($isLease ? 'For Lease' : 'Resale')) ?>
+            </span>
+          </div>
+
+          <!-- Unit Overview -->
+          <div class="bg-slate-50 rounded-lg p-4 border border-slate-200/80 mb-5">
+            <p class="text-xs font-bold text-slate-500 uppercase tracking-wider">Reserved Unit</p>
+            <p class="text-base sm:text-lg font-bold text-slate-900 mt-0.5">
+              <?= htmlspecialchars($unitTitle) ?>
+            </p>
+            <div class="grid grid-cols-2 gap-3 mt-3 pt-3 border-t border-slate-200/60 text-xs">
+              <div>
+                <span class="text-slate-500 block">Floor Number:</span>
+                <span class="font-semibold text-slate-800">Floor <?= htmlspecialchars((string)($reservation['floor_number'] ?? '—')) ?></span>
+              </div>
+              <div>
+                <span class="text-slate-500 block">Floor Area:</span>
+                <span class="font-semibold text-slate-800"><?= htmlspecialchars((string)($reservation['sqm'] ?? '—')) ?> sqm</span>
+              </div>
+              <div class="col-span-2">
+                <span class="text-slate-500 block">Stay Category:</span>
+                <span class="font-semibold text-slate-800"><?= htmlspecialchars((string)($reservation['stay_category'] ?? 'Long term')) ?></span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Owner Details -->
+          <div>
+            <p class="text-xs font-bold text-slate-700 uppercase tracking-wider mb-3">Unit Owner Contact</p>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-2.5">
+              <div class="p-3 bg-slate-50/70 rounded-lg border border-slate-200">
+                <span class="text-xs text-slate-500 block">Owner Name</span>
+                <span class="text-sm font-bold text-slate-900 block mt-0.5">
+                  <?= htmlspecialchars((string)($reservation['owner_name'] ?? 'Zeppelin Suites Administration')) ?>
+                </span>
+              </div>
+
+              <div class="p-3 bg-slate-50/70 rounded-lg border border-slate-200">
+                <span class="text-xs text-slate-500 block">Contact Number</span>
+                <span class="text-sm font-semibold text-slate-900 block mt-0.5">
+                  <?= htmlspecialchars((string)($reservation['owner_contact'] ?? '—')) ?>
+                </span>
+              </div>
+
+              <div class="p-3 bg-slate-50/70 rounded-lg border border-slate-200">
+                <span class="text-xs text-slate-500 block">Email Address</span>
+                <span class="text-sm font-semibold text-slate-900 block mt-0.5 truncate" title="<?= htmlspecialchars((string)($reservation['owner_email'] ?? '—')) ?>">
+                  <?= htmlspecialchars((string)($reservation['owner_email'] ?? '—')) ?>
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 2. SUBMITTED RESERVATION FORM DETAILS CARD -->
+        <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+          <div class="flex items-center justify-between pb-4 border-b border-slate-100 mb-5">
+            <div class="flex items-center gap-3">
+              <div class="w-9 h-9 rounded-lg bg-blue-600 text-white flex items-center justify-center shrink-0">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.5L19 9.5V19a2 2 0 01-2 2z" />
+                </svg>
+              </div>
+              <div>
+                <h2 class="text-sm sm:text-base font-bold text-slate-900 leading-tight">Submitted Reservation Form</h2>
+                <p class="text-xs text-slate-500">Submitted on <?= htmlspecialchars($submittedDate) ?></p>
+              </div>
+            </div>
+            <?php
+            $rawStatus = strtolower(trim((string)($reservation['reservation_status'] ?? 'submitted')));
+            if (in_array($rawStatus, ['handover', 'moved in', 'officially booked', 'confirmed', 'completed'], true)) {
+                $displayStatus = 'Confirmed';
+                $badgeStyle = 'bg-emerald-50 text-emerald-700 border-emerald-200';
+            } elseif (in_array($rawStatus, ['reserved', 'verified'], true)) {
+                $displayStatus = 'Reserved';
+                $badgeStyle = 'bg-blue-50 text-blue-700 border-blue-200';
+            } elseif (in_array($rawStatus, ['cancelled', 'rejected'], true)) {
+                $displayStatus = 'Cancelled';
+                $badgeStyle = 'bg-red-50 text-red-700 border-red-200';
+            } else {
+                $displayStatus = 'Tentative';
+                $badgeStyle = 'bg-amber-50 text-amber-700 border-amber-200';
+            }
+            ?>
+            <span class="text-xs font-semibold px-2.5 py-1 rounded-md <?= $badgeStyle ?> border">
+              <?= htmlspecialchars($displayStatus) ?>
+            </span>
+          </div>
+
+          <div class="space-y-5 text-sm">
+
+            <!-- Client Info Grid -->
+            <div>
+              <p class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Applicant Information</p>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-slate-50 p-3.5 rounded-lg border border-slate-200/70 text-xs sm:text-sm">
+                <div>
+                  <span class="text-slate-500 text-xs block">Applicant Name</span>
+                  <span class="font-bold text-slate-900"><?= htmlspecialchars((string)($reservation['client_name'] ?? '—')) ?></span>
+                </div>
+                <div>
+                  <span class="text-slate-500 text-xs block">Email Address</span>
+                  <span class="font-medium text-slate-900 truncate block" title="<?= htmlspecialchars((string)($reservation['client_email'] ?? '—')) ?>"><?= htmlspecialchars((string)($reservation['client_email'] ?? '—')) ?></span>
+                </div>
+                <div>
+                  <span class="text-slate-500 text-xs block">Contact Number</span>
+                  <span class="font-medium text-slate-900"><?= htmlspecialchars((string)($reservation['client_contact'] ?? '—')) ?></span>
+                </div>
+                <div>
+                  <span class="text-slate-500 text-xs block">Sex / Nationality</span>
+                  <span class="font-medium text-slate-900">
+                    <?= htmlspecialchars((string)($reservation['client_sex'] ?? '—')) ?> / <?= htmlspecialchars((string)($reservation['client_nationality'] ?? '—')) ?>
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Schedule & Terms -->
+            <div>
+              <p class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Reservation Terms &amp; Dates</p>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-slate-50 p-3.5 rounded-lg border border-slate-200/70 text-xs sm:text-sm">
+                <div>
+                  <span class="text-slate-500 text-xs block">Transaction Type</span>
+                  <span class="font-semibold text-slate-900"><?= htmlspecialchars((string)($reservation['transaction_type'] ?? 'Unit Lease')) ?></span>
+                </div>
+                <?php if ($isLease): ?>
+                  <div>
+                    <span class="text-slate-500 text-xs block">Lease Duration</span>
+                    <span class="font-semibold text-slate-900"><?= htmlspecialchars((string)($reservation['lease_duration'] ?? '1 year')) ?></span>
+                  </div>
+                  <div>
+                    <span class="text-slate-500 text-xs block">Move-in Date</span>
+                    <span class="font-semibold text-slate-900"><?= htmlspecialchars($moveInFormatted) ?></span>
+                  </div>
+                  <div>
+                    <span class="text-slate-500 text-xs block">Move-out Date</span>
+                    <span class="font-semibold text-slate-900"><?= htmlspecialchars($moveOutFormatted) ?></span>
+                  </div>
+                <?php endif; ?>
+                <div>
+                  <span class="text-slate-500 text-xs block">Agreement Signing Schedule</span>
+                  <span class="font-semibold text-slate-900"><?= htmlspecialchars($signingFormatted) ?></span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Financial & Payment Summary -->
+            <div>
+              <p class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Financial &amp; Payment Summary</p>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-slate-50 p-3.5 rounded-lg border border-slate-200/70 text-xs sm:text-sm">
+                <div>
+                  <span class="text-slate-500 text-xs block"><?= $isLease ? 'Monthly Lease Rate' : 'Total Reselling Price' ?></span>
+                  <span class="font-bold text-slate-900">₱<?= number_format((float)($reservation['price_basis'] ?? 0), 2) ?></span>
+                </div>
+                <div>
+                  <span class="text-slate-500 text-xs block">Reservation Fee (35%)</span>
+                  <span class="font-bold text-blue-700">₱<?= number_format((float)($reservation['required_amount'] ?? 0), 2) ?></span>
+                </div>
+                <div>
+                  <span class="text-slate-500 text-xs block">Payment Method</span>
+                  <span class="font-semibold text-slate-900"><?= htmlspecialchars((string)($reservation['payment_method'] ?? 'In-House')) ?></span>
+                </div>
+                <div>
+                  <span class="text-slate-500 text-xs block">Payment Status</span>
+                  <span class="font-semibold text-emerald-700"><?= htmlspecialchars(ucwords((string)($reservation['payment_status'] ?? 'Pending Review'))) ?></span>
+                </div>
+                <?php if ($paymentProofUrl !== ''): ?>
+                  <div class="sm:col-span-2">
+                    <span class="text-slate-500 text-xs block">Proof of Payment</span>
+                    <a href="<?= htmlspecialchars($paymentProofUrl) ?>" target="_blank" rel="noopener noreferrer" class="text-xs font-semibold text-blue-600 hover:underline inline-flex items-center gap-1 mt-0.5">
+                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                      View Uploaded Proof
+                    </a>
+                  </div>
+                <?php endif; ?>
+              </div>
+            </div>
+
+            <!-- Client Remarks / Notes -->
+            <?php if (!empty($reservation['client_remarks'])): ?>
+              <div>
+                <p class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Submitted Remarks / Requests</p>
+                <div class="p-3 bg-slate-50 rounded-lg border border-slate-200/70 text-xs text-slate-700 leading-relaxed">
+                  <?= nl2br(htmlspecialchars((string)$reservation['client_remarks'])) ?>
+                </div>
+              </div>
+            <?php endif; ?>
+
           </div>
         </div>
 
