@@ -1021,27 +1021,63 @@ class UnitOwner extends Model {
             }
         }
 
-        // 7. Update unit settings in database
-        $updateSql = "
-            UPDATE units_table 
-            SET listing_type = ?,
-                stay_category = ?,
-                lease_rate = ?,
-                reselling_price = ?,
-                unit_current_status = ?,
-                auto_approve_inquiries = ?
-            WHERE unit_id = ? AND unit_owner_id = ?
-        ";
-        $this->execute($updateSql, [
-            $listingType,
-            $stayCategory,
-            $leaseRate,
-            $resellingPrice,
-            $newStatus,
-            $autoApprove,
-            $unitId,
-            $ownerId
-        ]);
+        // 7. Auto-detect or self-heal auto_approve_inquiries column
+        $hasAutoApproveCol = false;
+        try {
+            $colCheck = $this->fetchOne("SHOW COLUMNS FROM units_table LIKE 'auto_approve_inquiries'");
+            if (!$colCheck) {
+                $this->db->exec("ALTER TABLE units_table ADD COLUMN auto_approve_inquiries TINYINT(1) NOT NULL DEFAULT 0 AFTER unit_current_status");
+                $hasAutoApproveCol = true;
+            } else {
+                $hasAutoApproveCol = true;
+            }
+        } catch (\Throwable $colEx) {
+            $colCheck = $this->fetchOne("SHOW COLUMNS FROM units_table LIKE 'auto_approve_inquiries'");
+            $hasAutoApproveCol = !empty($colCheck);
+        }
+
+        // 8. Update unit settings in database
+        if ($hasAutoApproveCol) {
+            $updateSql = "
+                UPDATE units_table 
+                SET listing_type = ?,
+                    stay_category = ?,
+                    lease_rate = ?,
+                    reselling_price = ?,
+                    unit_current_status = ?,
+                    auto_approve_inquiries = ?
+                WHERE unit_id = ? AND unit_owner_id = ?
+            ";
+            $this->execute($updateSql, [
+                $listingType,
+                $stayCategory,
+                $leaseRate,
+                $resellingPrice,
+                $newStatus,
+                $autoApprove,
+                $unitId,
+                $ownerId
+            ]);
+        } else {
+            $updateSql = "
+                UPDATE units_table 
+                SET listing_type = ?,
+                    stay_category = ?,
+                    lease_rate = ?,
+                    reselling_price = ?,
+                    unit_current_status = ?
+                WHERE unit_id = ? AND unit_owner_id = ?
+            ";
+            $this->execute($updateSql, [
+                $listingType,
+                $stayCategory,
+                $leaseRate,
+                $resellingPrice,
+                $newStatus,
+                $unitId,
+                $ownerId
+            ]);
+        }
 
         return [
             'unit_id'                    => $unitId,

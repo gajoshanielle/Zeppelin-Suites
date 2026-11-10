@@ -873,9 +873,26 @@ class Inquiry extends Model {
                 $deleteStmt->execute([$inqId, (int)$uId]);
             }
 
+            // Auto-detect or self-heal auto_approve_inquiries column
+            $hasAutoApproveCol = false;
+            try {
+                $colCheck = $this->fetchOne("SHOW COLUMNS FROM units_table LIKE 'auto_approve_inquiries'");
+                if (!$colCheck) {
+                    $this->db->exec("ALTER TABLE units_table ADD COLUMN auto_approve_inquiries TINYINT(1) NOT NULL DEFAULT 0 AFTER unit_current_status");
+                    $hasAutoApproveCol = true;
+                } else {
+                    $hasAutoApproveCol = true;
+                }
+            } catch (\Throwable $colEx) {
+                $colCheck = $this->fetchOne("SHOW COLUMNS FROM units_table LIKE 'auto_approve_inquiries'");
+                $hasAutoApproveCol = !empty($colCheck);
+            }
+
+            $autoApproveField = $hasAutoApproveCol ? "u.auto_approve_inquiries" : "0 AS auto_approve_inquiries";
+
             // Fetch unit owners for the selected units
             $unitSelectStmt = $this->db->prepare("
-                SELECT u.unit_id, u.unit_number, u.unit_owner_id, u.auto_approve_inquiries, u.unit_current_status, u.listing_type,
+                SELECT u.unit_id, u.unit_number, u.unit_owner_id, {$autoApproveField}, u.unit_current_status, u.listing_type,
                        owner.full_name AS owner_name, owner.email AS owner_email
                 FROM units_table u
                 LEFT JOIN users_table owner ON u.unit_owner_id = owner.user_id
