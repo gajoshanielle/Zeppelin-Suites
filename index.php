@@ -122,17 +122,31 @@ register_shutdown_function(function (): void {
     }
 });
 
-// 3. Initialize secure session
+// 3. Initialize secure session with long-lived persistence
 if (session_status() === PHP_SESSION_NONE) {
-    $isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
-        || (!empty($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https');
+    $sessionLifetime = (int)env('SESSION_LIFETIME', 28800); // 8 hours default
 
+    // Set private storage path to avoid premature purge by shared server /tmp cleanups
+    $sessionSavePath = __DIR__ . '/storage/sessions';
+    if (!is_dir($sessionSavePath)) {
+        @mkdir($sessionSavePath, 0700, true);
+    }
+    if (is_dir($sessionSavePath) && is_writable($sessionSavePath)) {
+        session_save_path($sessionSavePath);
+    }
+
+    $isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+        || (!empty($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https')
+        || (!empty($_SERVER['HTTP_CF_VISITOR']) && str_contains((string)$_SERVER['HTTP_CF_VISITOR'], 'https'));
+
+    ini_set('session.gc_maxlifetime', (string)$sessionLifetime);
     ini_set('session.cookie_httponly', '1');
     ini_set('session.use_strict_mode', '1');
     ini_set('session.use_only_cookies', '1');
+    ini_set('session.lazy_write', '0');
 
     session_set_cookie_params([
-        'lifetime' => 0,
+        'lifetime' => $sessionLifetime,
         'path'     => '/',
         'domain'   => '',
         'secure'   => $isHttps,
@@ -141,6 +155,14 @@ if (session_status() === PHP_SESSION_NONE) {
     ]);
 
     session_start();
+
+    // Enforce idle timeout tracking while resetting timer on every active request
+    if (isset($_SESSION['LAST_ACTIVITY']) && (time() - (int)$_SESSION['LAST_ACTIVITY'] > $sessionLifetime)) {
+        session_unset();
+        session_destroy();
+        session_start();
+    }
+    $_SESSION['LAST_ACTIVITY'] = time();
 }
 
 // 4. Class autoloader for core, controllers, models, and config

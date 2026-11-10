@@ -21,7 +21,7 @@ Options -Indexes
     RewriteBase /Zeppelin-Suites/
 
     # 3. Block direct HTTP access to MVC architecture directories
-    RewriteRule ^(config|controllers|core|models|views)/ - [F,L,NC]
+    RewriteRule ^(config|controllers|core|models|views|storage)/ - [F,L,NC]
 
     # 4. 301 Redirect any legacy /public/... URL to clean root URL
     RewriteRule ^public/?$ /Zeppelin-Suites/ [R=301,L]
