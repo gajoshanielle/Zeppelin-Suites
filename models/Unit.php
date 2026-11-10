@@ -505,6 +505,42 @@ class Unit extends Model {
     }
 
     /**
+     * Ensure the is_acknowledged column exists in unit_ownership_history_table (self-healing DDL).
+     */
+    public function ensureAcknowledgedColumnExists(): bool {
+        static $checked = null;
+        if ($checked !== null) {
+            return $checked;
+        }
+
+        try {
+            $stmt = $this->db->query("SHOW COLUMNS FROM unit_ownership_history_table LIKE 'is_acknowledged'");
+            if ($stmt->fetch()) {
+                $checked = true;
+                return true;
+            }
+
+            $this->db->exec("ALTER TABLE unit_ownership_history_table ADD COLUMN is_acknowledged TINYINT(1) NOT NULL DEFAULT 0 AFTER remarks");
+            $checked = true;
+            return true;
+        } catch (Throwable $e) {
+            error_log('Failed checking/adding is_acknowledged column in Unit model: ' . $e->getMessage());
+            $checked = false;
+            return false;
+        }
+    }
+
+    /**
+     * Fetch user info by ID.
+     */
+    public function getOwnerUser(int $userId): ?array {
+        $stmt = $this->db->prepare("SELECT user_id, full_name, email, contact FROM users_table WHERE user_id = ? LIMIT 1");
+        $stmt->execute([$userId]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $row ?: null;
+    }
+
+    /**
      * Create a new unit with optional owner creation or assignment.
      *
      * @param array<string, mixed> $data
@@ -525,7 +561,11 @@ class Unit extends Model {
         $sqm = $nextInfo['sqm'];
         $unitOwnerId = null;
 
-        $this->db->beginTransaction();
+        $startedTransaction = false;
+        if (!$this->db->inTransaction()) {
+            $this->db->beginTransaction();
+            $startedTransaction = true;
+        }
 
         try {
             if ($ownerAssignment === 'existing') {
@@ -579,6 +619,7 @@ class Unit extends Model {
             $unitId = (int)$this->db->lastInsertId();
 
             if ($unitOwnerId !== null && $unitOwnerId > 0) {
+                $this->ensureAcknowledgedColumnExists();
                 $stmtHistory = $this->db->prepare("
                     INSERT INTO unit_ownership_history_table (
                         unit_id, 
@@ -587,16 +628,44 @@ class Unit extends Model {
                         end_date, 
                         ownership_status, 
                         transfer_type, 
-                        remarks
-                    ) VALUES (?, ?, CURDATE(), NULL, 'active', 'Initial Assignment', 'Unit creation and first owner assignment')
+                        remarks,
+                        is_acknowledged
+                    ) VALUES (?, ?, CURDATE(), NULL, 'active', 'Initial Assignment', 'Unit creation and first owner assignment', 0)
                 ");
                 $stmtHistory->execute([$unitId, $unitOwnerId]);
             }
 
-            $this->db->commit();
+            if ($startedTransaction && $this->db->inTransaction()) {
+                $this->db->commit();
+            }
+
+            // Notify assigned owner via email
+            if ($unitOwnerId !== null && $unitOwnerId > 0) {
+                try {
+                    require_once __DIR__ . '/../config/owner_notifications.php';
+                    if (function_exists('notifyOwnerOfUnitAssignment')) {
+                        $ownerUser = $this->getOwnerUser($unitOwnerId);
+                        if ($ownerUser && !empty($ownerUser['email'])) {
+                            notifyOwnerOfUnitAssignment(
+                                $ownerUser['email'],
+                                $ownerUser['full_name'],
+                                $unitNumber,
+                                $unitType,
+                                (float)$sqm,
+                                'Initial Assignment'
+                            );
+                        }
+                    }
+                } catch (Throwable $notifErr) {
+                    error_log('Failed to send unit assignment notification: ' . $notifErr->getMessage());
+                }
+            }
+
             return $unitId;
         } catch (Throwable $e) {
-            $this->db->rollBack();
+            if ($startedTransaction && $this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
             throw $e;
         }
     }
@@ -618,7 +687,11 @@ class Unit extends Model {
         $oldOwnerId = $unit['unit_owner_id'] !== null ? (int)$unit['unit_owner_id'] : null;
         $newOwnerId = $oldOwnerId;
 
-        $this->db->beginTransaction();
+        $startedTransaction = false;
+        if (!$this->db->inTransaction()) {
+            $this->db->beginTransaction();
+            $startedTransaction = true;
+        }
 
         try {
             if ($ownerAction === 'remove') {
@@ -671,16 +744,19 @@ class Unit extends Model {
 
                 // 2. Open new active history record
                 if ($newOwnerId !== null && $newOwnerId > 0) {
+                    $this->ensureAcknowledgedColumnExists();
                     $stmtNewHistory = $this->db->prepare("
-                        INSERT INTO unit_ownership_history_table (unit_id, owner_id, start_date, end_date, ownership_status, transfer_type, remarks)
-                        VALUES (?, ?, ?, NULL, 'active', ?, ?)
+                        INSERT INTO unit_ownership_history_table (unit_id, owner_id, start_date, end_date, ownership_status, transfer_type, remarks, is_acknowledged)
+                        VALUES (?, ?, ?, NULL, 'active', ?, ?, 0)
                     ");
                     $remarkText = $transferReason !== '' ? $transferReason : 'Ownership updated by Administrator';
                     $stmtNewHistory->execute([$unitId, $newOwnerId, $today, $transferReason, $remarkText]);
                 }
             }
 
-            $this->db->commit();
+            if ($startedTransaction && $this->db->inTransaction()) {
+                $this->db->commit();
+            }
 
             // Fetch updated owner details
             $newOwnerData = null;
@@ -695,13 +771,34 @@ class Unit extends Model {
                 $newOwnerData = $stmtOwnerInfo->fetch(PDO::FETCH_ASSOC);
             }
 
+            // Notify new owner via email if reassigned
+            if ($oldOwnerId !== $newOwnerId && $newOwnerId !== null && $newOwnerId > 0 && $newOwnerData && !empty($newOwnerData['email'])) {
+                try {
+                    require_once __DIR__ . '/../config/owner_notifications.php';
+                    if (function_exists('notifyOwnerOfUnitAssignment')) {
+                        notifyOwnerOfUnitAssignment(
+                            $newOwnerData['email'],
+                            $newOwnerData['full_name'],
+                            (string)$unit['unit_number'],
+                            (string)$unit['unit_type'],
+                            (float)$unit['sqm'],
+                            $transferReason ?: 'Ownership Reassigned'
+                        );
+                    }
+                } catch (Throwable $notifErr) {
+                    error_log('Failed to send unit transfer notification: ' . $notifErr->getMessage());
+                }
+            }
+
             return [
                 'unit_id'    => $unitId,
                 'unit_owner' => $newOwnerData,
                 'has_owner'  => ($newOwnerData !== null),
             ];
         } catch (Throwable $e) {
-            $this->db->rollBack();
+            if ($startedTransaction && $this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
             throw $e;
         }
     }

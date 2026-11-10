@@ -1471,3 +1471,55 @@ function notifyOtherApplicantsOfUnitReleased(
 
     return sendOwnerNotificationEmail($clientEmail, $clientName, $subject, $plainBody, $htmlBody);
 }
+
+/**
+ * Notify a Unit Owner that a new unit has been assigned or transferred to them.
+ */
+function notifyOwnerOfUnitAssignment(
+    string $ownerEmail,
+    string $ownerName,
+    string $unitNumber,
+    string $unitType,
+    float $sqm,
+    ?string $assignmentType = null
+): bool {
+    $subject = "Zeppelin Suites — Unit {$unitNumber} Assigned to Your Portfolio";
+
+    $loginUrl = defined('OWNER_PORTAL_LOGIN_URL') ? OWNER_PORTAL_LOGIN_URL : (getAbsoluteEmailBaseUrl() . '/login');
+
+    $plainBody = "Hi {$ownerName},\n\n"
+        . "The Zeppelin Suites administration team has assigned Unit {$unitNumber} ({$unitType}, {$sqm} sqm) to your owner portfolio.\n\n"
+        . "Please log in to your Unit Owner Portal to review the unit specifications, set your listing preferences, and configure rental or resale pricing:\n"
+        . $loginUrl . "\n\n"
+        . "Thank you,\nZeppelin Suites Administration";
+
+    $htmlBody = buildZeppelinEmailHtml([
+        'badgeText'       => 'Unit Assigned',
+        'badgeType'       => 'amber',
+        'recipientName'   => $ownerName,
+        'greeting'        => "Hi " . htmlspecialchars($ownerName, ENT_QUOTES, 'UTF-8') . ",",
+        'messageHtml'     => "The administration team has officially assigned <strong>Unit " . htmlspecialchars($unitNumber, ENT_QUOTES, 'UTF-8') . "</strong> (" . htmlspecialchars($unitType, ENT_QUOTES, 'UTF-8') . ", " . number_format($sqm, 2) . " SQM) to your unit owner portfolio.",
+        'details'         => [
+            ['label' => 'Unit Number:', 'value' => 'Unit ' . $unitNumber],
+            ['label' => 'Unit Type:', 'value' => $unitType],
+            ['label' => 'Floor Area:', 'value' => number_format($sqm, 2) . ' SQM'],
+            ['label' => 'Assignment Type:', 'value' => $assignmentType ?: 'New Assignment', 'color' => '#d97706'],
+        ],
+        'actionButton'    => [
+            'text' => 'Configure Unit in Portal',
+            'url'  => $loginUrl,
+        ],
+        'reminders'       => [
+            'title' => 'Recommended Next Steps',
+            'items' => [
+                'Log in to view your unit specifications and current status.',
+                'Open "Edit Unit Settings" to customize lease terms, rates, or listing modes.',
+                'Set up your Instant Approval preferences for incoming tenant inquiries.',
+            ],
+        ],
+        'reassuranceText' => 'If you have any questions or believe this assignment was made in error, please contact the Zeppelin Suites administration office.',
+        'footerSubtext'   => 'This is an automated notification for Zeppelin Suites unit owners.',
+    ]);
+
+    return sendOwnerNotificationEmail($ownerEmail, $ownerName, $subject, $plainBody, $htmlBody);
+}

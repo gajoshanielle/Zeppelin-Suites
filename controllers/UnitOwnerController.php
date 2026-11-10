@@ -53,14 +53,32 @@ class UnitOwnerController extends Controller {
         $ownerId = (int)$userSession['user_id'];
 
         $units = $this->ownerModel->getOwnerUnits($ownerId);
+        $unacknowledgedUnits = $this->ownerModel->getUnacknowledgedUnits($ownerId);
 
         $this->render('owner/units', [
-            'pageTitle'    => 'Zeppelin Suites — My Units',
-            'activeTab'    => 'units',
-            'baseUrl'      => $baseUrl,
-            'ownerName'    => $userSession['full_name'],
-            'ownerInitial' => $userSession['initial'],
-            'units'        => $units,
+            'pageTitle'           => 'Zeppelin Suites — My Units',
+            'activeTab'           => 'units',
+            'baseUrl'             => $baseUrl,
+            'ownerName'           => $userSession['full_name'],
+            'ownerInitial'        => $userSession['initial'],
+            'units'               => $units,
+            'unacknowledgedUnits' => $unacknowledgedUnits,
+        ]);
+    }
+
+    /**
+     * Acknowledge assigned unit(s) to dismiss announcement modal and clear alert badge.
+     */
+    public function acknowledgeUnit(): void {
+        $userSession = Middleware::requireRole(['unit owner']);
+        $ownerId = (int)$userSession['user_id'];
+
+        $unitId = isset($_POST['unit_id']) && (int)$_POST['unit_id'] > 0 ? (int)$_POST['unit_id'] : null;
+        $success = $this->ownerModel->acknowledgeUnitAssignment($ownerId, $unitId);
+
+        $this->json([
+            'status'  => $success ? 'success' : 'error',
+            'message' => $success ? 'Unit assignment acknowledged.' : 'Unable to acknowledge unit assignment.',
         ]);
     }
 

@@ -439,6 +439,7 @@ CREATE TABLE `unit_ownership_history_table` (
   `ownership_status` enum('active','transferred','past') NOT NULL DEFAULT 'active',
   `transfer_type` varchar(100) DEFAULT 'Initial Assignment',
   `remarks` text DEFAULT NULL,
+  `is_acknowledged` tinyint(1) NOT NULL DEFAULT 0,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 

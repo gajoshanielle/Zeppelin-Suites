@@ -1399,6 +1399,12 @@ if ($isNotAvailable) {
     }
 
     document.addEventListener('DOMContentLoaded', () => {
+      // Automatically open Edit Unit Settings modal if requested via URL parameter
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('open_settings') === '1' || urlParams.get('configure') === '1') {
+        openEditModal();
+      }
+
       document.querySelectorAll('.lease-row[data-href]').forEach(row => {
         row.addEventListener('keydown', (e) => {
           if (e.key === 'Enter' || e.key === ' ') {

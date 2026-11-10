@@ -104,7 +104,144 @@ class UnitOwner extends Model {
         return [
             'pending_inquiries'    => (int)($inqRow['total'] ?? 0),
             'pending_reservations' => (int)($resRow['total'] ?? 0),
+            'unacknowledged_units' => $this->getUnacknowledgedUnitsCount($ownerId),
         ];
+    }
+
+    /**
+     * Ensure the is_acknowledged column exists in unit_ownership_history_table (self-healing DDL).
+     */
+    public function ensureAcknowledgedColumnExists(): bool {
+        static $checked = null;
+        if ($checked !== null) {
+            return $checked;
+        }
+
+        try {
+            $stmt = $this->db->query("SHOW COLUMNS FROM unit_ownership_history_table LIKE 'is_acknowledged'");
+            if ($stmt->fetch()) {
+                $checked = true;
+                return true;
+            }
+
+            $this->db->exec("ALTER TABLE unit_ownership_history_table ADD COLUMN is_acknowledged TINYINT(1) NOT NULL DEFAULT 0 AFTER remarks");
+            $checked = true;
+            return true;
+        } catch (Throwable $e) {
+            error_log('Failed checking/adding is_acknowledged column in UnitOwner model: ' . $e->getMessage());
+            $checked = false;
+            return false;
+        }
+    }
+
+    /**
+     * Get count of unacknowledged units assigned to this owner.
+     */
+    public function getUnacknowledgedUnitsCount(int $ownerId): int {
+        if ($ownerId <= 0) {
+            return 0;
+        }
+
+        if (!$this->ensureAcknowledgedColumnExists()) {
+            return 0;
+        }
+
+        try {
+            $sql = "
+                SELECT COUNT(*) AS total
+                FROM unit_ownership_history_table h
+                INNER JOIN units_table u ON u.unit_id = h.unit_id
+                WHERE h.owner_id = ?
+                  AND h.ownership_status = 'active'
+                  AND u.unit_owner_id = ?
+                  AND h.is_acknowledged = 0
+            ";
+            $row = $this->fetchOne($sql, [$ownerId, $ownerId]);
+            return (int)($row['total'] ?? 0);
+        } catch (Throwable $e) {
+            error_log('getUnacknowledgedUnitsCount error: ' . $e->getMessage());
+            return 0;
+        }
+    }
+
+    /**
+     * Get unacknowledged units details for announcement modal.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function getUnacknowledgedUnits(int $ownerId): array {
+        if ($ownerId <= 0) {
+            return [];
+        }
+
+        if (!$this->ensureAcknowledgedColumnExists()) {
+            return [];
+        }
+
+        try {
+            $sql = "
+                SELECT 
+                    h.history_id,
+                    h.unit_id,
+                    h.start_date,
+                    h.transfer_type,
+                    h.remarks,
+                    u.unit_number,
+                    u.unit_type,
+                    u.floor_number,
+                    u.sqm,
+                    u.lease_rate,
+                    u.reselling_price,
+                    u.listing_type,
+                    u.stay_category,
+                    u.unit_current_status
+                FROM unit_ownership_history_table h
+                INNER JOIN units_table u ON u.unit_id = h.unit_id
+                WHERE h.owner_id = ?
+                  AND h.ownership_status = 'active'
+                  AND u.unit_owner_id = ?
+                  AND h.is_acknowledged = 0
+                ORDER BY h.history_id DESC
+            ";
+            return $this->fetchAll($sql, [$ownerId, $ownerId]);
+        } catch (Throwable $e) {
+            error_log('getUnacknowledgedUnits error: ' . $e->getMessage());
+            return [];
+        }
+    }
+
+    /**
+     * Acknowledge unit assignment(s) for this owner to clear the alert badge and modal.
+     */
+    public function acknowledgeUnitAssignment(int $ownerId, ?int $unitId = null): bool {
+        if ($ownerId <= 0) {
+            return false;
+        }
+
+        if (!$this->ensureAcknowledgedColumnExists()) {
+            return true;
+        }
+
+        try {
+            if ($unitId !== null && $unitId > 0) {
+                $stmt = $this->db->prepare("
+                    UPDATE unit_ownership_history_table
+                    SET is_acknowledged = 1
+                    WHERE owner_id = ? AND unit_id = ? AND ownership_status = 'active'
+                ");
+                return $stmt->execute([$ownerId, $unitId]);
+            }
+
+            $stmt = $this->db->prepare("
+                UPDATE unit_ownership_history_table
+                SET is_acknowledged = 1
+                WHERE owner_id = ? AND ownership_status = 'active'
+            ");
+            return $stmt->execute([$ownerId]);
+        } catch (Throwable $e) {
+            error_log('acknowledgeUnitAssignment error: ' . $e->getMessage());
+            return false;
+        }
     }
 
     /**

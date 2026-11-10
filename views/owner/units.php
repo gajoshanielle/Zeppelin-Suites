@@ -67,6 +67,7 @@ if (!function_exists('getFloorIconBg')) {
 
 $baseUrl = $baseUrl ?? rtrim((string)env('APP_URL', '/Zeppelin-Suites'), '/');
 $units = $units ?? [];
+$unacknowledgedUnits = $unacknowledgedUnits ?? [];
 $totalUnitsCount = count($units);
 
 // Group units by floor
@@ -494,6 +495,47 @@ function clearFilters() {
   applyFilters();
 }
 
+function dismissAssignmentModal() {
+  const modal = document.getElementById('unitAssignmentModal');
+  if (modal) {
+    modal.classList.add('opacity-0', 'pointer-events-none');
+    setTimeout(() => modal.remove(), 250);
+  }
+
+  // Remove sidebar badge immediately
+  const badge = document.getElementById('ownerUnitsBadge');
+  if (badge) badge.remove();
+
+  // Send acknowledge request to backend
+  fetch('<?= htmlspecialchars($baseUrl) ?>/owner/units/acknowledge', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: ''
+  }).catch(err => console.error('Failed to acknowledge units:', err));
+}
+
+function configureUnit(unitId) {
+  // Acknowledge in background
+  if (navigator.sendBeacon) {
+    const data = new FormData();
+    data.append('unit_id', unitId);
+    navigator.sendBeacon('<?= htmlspecialchars($baseUrl) ?>/owner/units/acknowledge', data);
+  } else {
+    fetch('<?= htmlspecialchars($baseUrl) ?>/owner/units/acknowledge', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: 'unit_id=' + encodeURIComponent(unitId)
+    });
+  }
+
+  // Remove badge
+  const badge = document.getElementById('ownerUnitsBadge');
+  if (badge) badge.remove();
+
+  // Navigate directly to unit details with settings modal opened
+  window.location.href = '<?= htmlspecialchars($baseUrl) ?>/owner/units/view?id=' + encodeURIComponent(unitId) + '&open_settings=1';
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('.unit-row[data-href]').forEach(row => {
     row.addEventListener('keydown', (e) => {
@@ -507,5 +549,92 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 });
 </script>
+
+<?php if (!empty($unacknowledgedUnits)): ?>
+<!-- NEW UNIT ASSIGNMENT ANNOUNCEMENT MODAL -->
+<div id="unitAssignmentModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm transition-all duration-300">
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg border border-slate-100 overflow-hidden flex flex-col max-h-[90vh] animate-in fade-in zoom-in-95 duration-200">
+    
+    <!-- Modal Header -->
+    <div class="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 px-6 py-5 flex items-center justify-between text-white shrink-0">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center justify-center shrink-0">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="9" stroke-width="2"/>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01"/>
+          </svg>
+        </div>
+        <div>
+          <h2 class="text-base font-bold text-white flex items-center gap-2">
+            <span>New Unit Assigned!</span>
+            <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 font-mono uppercase tracking-wider">
+              <?= count($unacknowledgedUnits) ?> <?= count($unacknowledgedUnits) === 1 ? 'Room' : 'Rooms' ?>
+            </span>
+          </h2>
+          <p class="text-xs text-slate-300 mt-0.5">Admin added or assigned a unit to your portfolio.</p>
+        </div>
+      </div>
+      <button type="button" onclick="dismissAssignmentModal()" class="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-all" title="Dismiss">
+        ✕
+      </button>
+    </div>
+
+    <!-- Modal Body -->
+    <div class="p-6 space-y-4 overflow-y-auto">
+      <p class="text-xs text-slate-600 leading-relaxed">
+        Zeppelin Suites Administration has added or transferred the following <?= count($unacknowledgedUnits) === 1 ? 'unit' : 'units' ?> to your owner portfolio. Check it out:
+      </p>
+
+      <div class="space-y-3">
+        <?php foreach ($unacknowledgedUnits as $u): ?>
+          <div class="border border-slate-200/90 rounded-xl p-4 bg-slate-50/70 hover:bg-white hover:border-slate-300 transition-all space-y-3">
+            <div class="flex items-start justify-between gap-3">
+              <div>
+                <div class="flex items-center gap-2">
+                  <h3 class="text-sm font-bold text-slate-900 font-mono">Unit <?= clean($u['unit_number']) ?></h3>
+                  <span class="text-[11px] font-semibold px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 border border-blue-200 font-sans">
+                    <?= clean($u['unit_type']) ?>
+                  </span>
+                </div>
+                <p class="text-xs text-slate-500 mt-1">
+                  Floor <?= clean((string)$u['floor_number']) ?> &bull; <?= number_format((float)$u['sqm'], 2) ?> SQM
+                  <?php if (!empty($u['transfer_type'])): ?>
+                    &bull; <span class="text-slate-600 font-medium"><?= clean($u['transfer_type']) ?></span>
+                  <?php endif; ?>
+                </p>
+              </div>
+              <span class="text-[11px] font-bold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0">
+                <?= clean($u['unit_current_status'] ?: 'Active') ?>
+              </span>
+            </div>
+
+            <?php if (!empty($u['remarks'])): ?>
+              <div class="text-[11px] text-slate-600 bg-white border border-slate-150 rounded-lg p-2.5 italic">
+                &ldquo;<?= clean($u['remarks']) ?>&rdquo;
+              </div>
+            <?php endif; ?>
+
+            <div class="pt-2 border-t border-slate-200/60 flex items-center justify-end gap-2">
+              <button type="button" onclick="configureUnit(<?= (int)$u['unit_id'] ?>)" class="inline-flex items-center gap-1.5 px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-xl shadow-sm transition-all active:scale-95">
+                <svg class="w-3.5 h-3.5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                <span>Configure Unit Now</span>
+              </button>
+            </div>
+          </div>
+        <?php endforeach; ?>
+      </div>
+    </div>
+
+    <!-- Modal Footer -->
+    <div class="px-6 py-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between gap-3 shrink-0">
+      <span class="text-[11px] text-slate-500">Dismissing marks these units as seen.</span>
+      <button type="button" onclick="dismissAssignmentModal()" class="px-4 py-2 bg-white border border-slate-200 hover:border-slate-300 text-slate-700 hover:text-slate-900 text-xs font-semibold rounded-xl shadow-sm transition-all active:scale-95">
+        Got it, Dismiss
+      </button>
+    </div>
+
+  </div>
+</div>
+<?php endif; ?>
 </body>
 </html>

@@ -38,7 +38,7 @@ abstract class Controller {
 
         // Auto-inject global unit owner sidebar badge flags for all unit owner views if not explicitly provided
         if (str_starts_with($viewPath, 'owner/')) {
-            if (!isset($data['pendingInquiries']) || !isset($data['pendingReservations'])) {
+            if (!isset($data['pendingInquiries']) || !isset($data['pendingReservations']) || !isset($data['unacknowledgedUnitsCount'])) {
                 try {
                     $ownerId = (int)($_SESSION['user_id'] ?? 0);
                     if ($ownerId > 0) {
@@ -51,13 +51,18 @@ abstract class Controller {
                         if (!isset($data['pendingReservations'])) {
                             $data['pendingReservations'] = (int)($ownerPendingCounts['pending_reservations'] ?? 0);
                         }
+                        if (!isset($data['unacknowledgedUnitsCount'])) {
+                            $data['unacknowledgedUnitsCount'] = (int)($ownerPendingCounts['unacknowledged_units'] ?? 0);
+                        }
                     } else {
                         $data['pendingInquiries'] = $data['pendingInquiries'] ?? 0;
                         $data['pendingReservations'] = $data['pendingReservations'] ?? 0;
+                        $data['unacknowledgedUnitsCount'] = $data['unacknowledgedUnitsCount'] ?? 0;
                     }
                 } catch (Throwable $e) {
                     $data['pendingInquiries'] = $data['pendingInquiries'] ?? 0;
                     $data['pendingReservations'] = $data['pendingReservations'] ?? 0;
+                    $data['unacknowledgedUnitsCount'] = $data['unacknowledgedUnitsCount'] ?? 0;
                 }
             }
         }
