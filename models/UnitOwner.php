@@ -1004,7 +1004,10 @@ class UnitOwner extends Model {
             : ($unit['reselling_price'] !== null ? (float)$unit['reselling_price'] : null);
         if ($resellingPrice !== null && $resellingPrice < 0) $resellingPrice = 0.0;
 
-        // 5. Update unit_current_status based on listing_type if not currently occupied/under maintenance/reserved/on hold
+        // 5. Validate auto_approve_inquiries (Instant Approval)
+        $autoApprove = !empty($data['auto_approve_inquiries']) ? 1 : 0;
+
+        // 6. Update unit_current_status based on listing_type if not currently occupied/under maintenance/reserved/on hold
         $currentStatus = (string)($unit['unit_current_status'] ?? 'Ready for Occupancy');
         $newStatus = $currentStatus;
         $protectedStatuses = ['occupied', 'under maintenance', 'reserved', 'on hold'];
@@ -1018,14 +1021,15 @@ class UnitOwner extends Model {
             }
         }
 
-        // 6. Update unit settings in database
+        // 7. Update unit settings in database
         $updateSql = "
             UPDATE units_table 
             SET listing_type = ?,
                 stay_category = ?,
                 lease_rate = ?,
                 reselling_price = ?,
-                unit_current_status = ?
+                unit_current_status = ?,
+                auto_approve_inquiries = ?
             WHERE unit_id = ? AND unit_owner_id = ?
         ";
         $this->execute($updateSql, [
@@ -1034,6 +1038,7 @@ class UnitOwner extends Model {
             $leaseRate,
             $resellingPrice,
             $newStatus,
+            $autoApprove,
             $unitId,
             $ownerId
         ]);
@@ -1046,8 +1051,8 @@ class UnitOwner extends Model {
             'lease_rate_formatted'       => '₱' . number_format($leaseRate, 2),
             'reselling_price'            => $resellingPrice,
             'reselling_price_formatted'  => $resellingPrice !== null ? '₱' . number_format($resellingPrice, 2) : '—',
-            'reselling_price_formatted' => $resellingPrice !== null ? '₱' . number_format($resellingPrice, 2) : '—',
             'unit_current_status'        => $newStatus,
+            'auto_approve_inquiries'     => $autoApprove,
         ];
     }
 

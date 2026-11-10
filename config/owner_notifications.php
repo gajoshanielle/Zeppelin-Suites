@@ -619,6 +619,49 @@ function notifyOwnerOfApprovalRequest(string $ownerEmail, string $ownerName, str
 }
 
 /**
+ * Notify a unit owner that an inquiry was automatically approved under their Instant Approval setting.
+ */
+function notifyOwnerOfAutoApproval(string $ownerEmail, string $ownerName, string $unitNumber): bool
+{
+    $subject = "Zeppelin Suites — Inquiry Auto-Approved for Unit {$unitNumber}";
+
+    $plainBody = "Hi {$ownerName},\n\n"
+        . "A prospective tenant inquiry for your unit ({$unitNumber}) was automatically approved in accordance with your Instant Approval settings.\n\n"
+        . "A reservation link has been generated and issued to the applicant. You can monitor the progress anytime from your Unit Owner Portal:\n"
+        . OWNER_PORTAL_LOGIN_URL . "\n\n"
+        . "Thank you,\nZeppelin Suites";
+
+    $htmlBody = buildZeppelinEmailHtml([
+        'badgeText'       => 'Instant Approval',
+        'badgeType'       => 'emerald',
+        'recipientName'   => $ownerName,
+        'greeting'        => "Hi " . htmlspecialchars($ownerName, ENT_QUOTES, 'UTF-8') . ",",
+        'messageHtml'     => "A prospective tenant inquiry has been <strong>automatically approved</strong> for your unit (<strong>Unit " . htmlspecialchars($unitNumber, ENT_QUOTES, 'UTF-8') . "</strong>) based on your Instant Approval preferences.",
+        'details'         => [
+            ['label' => 'Unit Number:', 'value' => 'Unit ' . $unitNumber],
+            ['label' => 'Approval Mode:', 'value' => 'Auto-Approved (Instant)', 'color' => '#059669'],
+            ['label' => 'Next Step:', 'value' => 'Reservation link issued to applicant', 'color' => '#0f172a'],
+        ],
+        'actionButton'    => [
+            'text' => 'View Unit in Portal',
+            'url'  => OWNER_PORTAL_LOGIN_URL,
+        ],
+        'reminders'       => [
+            'title' => 'What Happens Next?',
+            'items' => [
+                'The applicant will complete their official reservation form and document submission.',
+                'You will receive another update when the applicant confirms and submits the reservation.',
+                'You can adjust your Instant Approval setting anytime under Edit Unit Settings in your portal.',
+            ],
+        ],
+        'reassuranceText' => 'No action is required from you at this time.',
+        'footerSubtext'   => 'This is an automated notification for Zeppelin Suites unit owners.',
+    ]);
+
+    return sendOwnerNotificationEmail($ownerEmail, $ownerName, $subject, $plainBody, $htmlBody);
+}
+
+/**
  * Notify a unit owner that their unit has just been reserved by a tenant/buyer.
  */
 function notifyOwnerOfNewReservation(string $ownerEmail, string $ownerName, string $unitNumber, string $clientName, ?string $moveInDate = null): bool

@@ -857,7 +857,11 @@ class Inquiry extends Model {
             return ['success' => false, 'message' => 'Invalid parameters.'];
         }
 
-        $this->db->beginTransaction();
+        $startedTx = false;
+        if (!$this->db->inTransaction()) {
+            $this->db->beginTransaction();
+            $startedTx = true;
+        }
 
         try {
             // Delete existing pending request for this batch of units to reset cleanly
@@ -871,33 +875,53 @@ class Inquiry extends Model {
 
             // Fetch unit owners for the selected units
             $unitSelectStmt = $this->db->prepare("
-                SELECT u.unit_id, u.unit_number, u.unit_owner_id,
+                SELECT u.unit_id, u.unit_number, u.unit_owner_id, u.auto_approve_inquiries, u.unit_current_status, u.listing_type,
                        owner.full_name AS owner_name, owner.email AS owner_email
                 FROM units_table u
                 LEFT JOIN users_table owner ON u.unit_owner_id = owner.user_id
                 WHERE u.unit_id = ? AND u.unit_owner_id IS NOT NULL
             ");
 
-            $insertStmt = $this->db->prepare("
+            $insertPendingStmt = $this->db->prepare("
                 INSERT INTO owner_approval_table (inq_id, unit_id, unit_owner_id, request_status)
                 VALUES (?, ?, ?, 'pending')
             ");
 
+            $insertApprovedStmt = $this->db->prepare("
+                INSERT INTO owner_approval_table (inq_id, unit_id, unit_owner_id, request_status, owner_remarks, responded_at)
+                VALUES (?, ?, ?, 'approved', 'Auto-approved via Unit Owner Instant Approval setting', NOW())
+            ");
+
             $inserted = 0;
-            $notifyList = [];
+            $notifyPendingList = [];
+            $notifyAutoApprovedList = [];
+            $autoApprovedUnits = [];
 
             foreach ($unitIds as $uId) {
                 $unitSelectStmt->execute([(int)$uId]);
                 $row = $unitSelectStmt->fetch(PDO::FETCH_ASSOC);
                 if ($row && !empty($row['unit_owner_id'])) {
-                    $insertStmt->execute([$inqId, (int)$row['unit_id'], (int)$row['unit_owner_id']]);
-                    $inserted++;
+                    $isAutoApprove = !empty($row['auto_approve_inquiries'])
+                        && $row['listing_type'] === 'For Lease'
+                        && !in_array(strtolower((string)$row['unit_current_status']), ['occupied', 'under maintenance', 'not available', 'on hold'], true);
 
-                    $notifyList[] = [
-                        'unit_number' => $row['unit_number'],
-                        'owner_name'  => $row['owner_name'] ?? 'Unit Owner',
-                        'owner_email' => $row['owner_email'] ?? '',
-                    ];
+                    if ($isAutoApprove) {
+                        $insertApprovedStmt->execute([$inqId, (int)$row['unit_id'], (int)$row['unit_owner_id']]);
+                        $autoApprovedUnits[] = $row;
+                        $notifyAutoApprovedList[] = [
+                            'unit_number' => $row['unit_number'],
+                            'owner_name'  => $row['owner_name'] ?? 'Unit Owner',
+                            'owner_email' => $row['owner_email'] ?? '',
+                        ];
+                    } else {
+                        $insertPendingStmt->execute([$inqId, (int)$row['unit_id'], (int)$row['unit_owner_id']]);
+                        $notifyPendingList[] = [
+                            'unit_number' => $row['unit_number'],
+                            'owner_name'  => $row['owner_name'] ?? 'Unit Owner',
+                            'owner_email' => $row['owner_email'] ?? '',
+                        ];
+                    }
+                    $inserted++;
                 }
             }
 
@@ -906,21 +930,41 @@ class Inquiry extends Model {
                 return ['success' => false, 'message' => 'No valid units with assigned owners found.'];
             }
 
-            $updateInqStmt = $this->db->prepare("
-                UPDATE inquiry_table
-                SET approval_status = 'requested'
-                WHERE inq_id = ?
-            ");
-            $updateInqStmt->execute([$inqId]);
+            if (count($autoApprovedUnits) > 0) {
+                $firstAuto = $autoApprovedUnits[0];
+                $inqRow = $this->fetchOne("SELECT reservation_token FROM inquiry_table WHERE inq_id = ?", [$inqId]);
+                $token = !empty($inqRow['reservation_token']) ? $inqRow['reservation_token'] : bin2hex(random_bytes(32));
+                $expiresAt = date('Y-m-d H:i:s', strtotime('+30 days'));
 
-            $this->db->commit();
+                $updateInqStmt = $this->db->prepare("
+                    UPDATE inquiry_table
+                    SET approval_status = 'approved',
+                        approved_unit_id = ?,
+                        reservation_token = ?,
+                        reservation_token_expires_at = ?,
+                        approval_approved_at = NOW()
+                    WHERE inq_id = ?
+                ");
+                $updateInqStmt->execute([(int)$firstAuto['unit_id'], $token, $expiresAt, $inqId]);
+            } else {
+                $updateInqStmt = $this->db->prepare("
+                    UPDATE inquiry_table
+                    SET approval_status = 'requested'
+                    WHERE inq_id = ?
+                ");
+                $updateInqStmt->execute([$inqId]);
+            }
+
+            if ($startedTx && $this->db->inTransaction()) {
+                $this->db->commit();
+            }
 
             // Send notification emails
             $notificationFile = dirname(__DIR__) . '/config/owner_notifications.php';
             if (file_exists($notificationFile)) {
                 require_once $notificationFile;
                 if (function_exists('notifyOwnerOfApprovalRequest')) {
-                    foreach ($notifyList as $n) {
+                    foreach ($notifyPendingList as $n) {
                         try {
                             notifyOwnerOfApprovalRequest(
                                 $n['owner_email'] ?? '',
@@ -929,6 +973,19 @@ class Inquiry extends Model {
                             );
                         } catch (\Throwable $mailEx) {
                             error_log("Failed to send approval notification email to " . ($n['owner_email'] ?? 'unknown') . ": " . $mailEx->getMessage());
+                        }
+                    }
+                }
+                if (function_exists('notifyOwnerOfAutoApproval')) {
+                    foreach ($notifyAutoApprovedList as $n) {
+                        try {
+                            notifyOwnerOfAutoApproval(
+                                $n['owner_email'] ?? '',
+                                $n['owner_name'] ?? 'Unit Owner',
+                                $n['unit_number'] ?? ''
+                            );
+                        } catch (\Throwable $mailEx) {
+                            error_log("Failed to send auto-approval notification email to " . ($n['owner_email'] ?? 'unknown') . ": " . $mailEx->getMessage());
                         }
                     }
                 }
@@ -970,11 +1027,20 @@ class Inquiry extends Model {
             }
             unset($req);
 
+            $inqUpdated = $this->fetchOne("
+                SELECT approval_status, approved_unit_id, DATE_FORMAT(approval_approved_at, '%b %d, %Y %h:%i %p') AS approved_at_display
+                FROM inquiry_table WHERE inq_id = ?
+            ", [$inqId]);
+
+            $finalApprovalStatus = $inqUpdated['approval_status'] ?? (count($autoApprovedUnits) > 0 ? 'approved' : 'requested');
+
             return [
                 'success'         => true,
-                'message'         => 'Approval requests sent successfully.',
+                'message'         => count($autoApprovedUnits) > 0 ? 'Inquiry automatically approved based on unit owner Instant Approval setting.' : 'Approval requests sent successfully.',
                 'inserted'        => $inserted,
-                'approval_status' => 'requested',
+                'approval_status' => $finalApprovalStatus,
+                'approved_unit_id'=> $inqUpdated['approved_unit_id'] ?? null,
+                'approved_at'     => $inqUpdated['approved_at_display'] ?? null,
                 'pending_count'   => $pendingCount,
                 'requests'        => $allRequests
             ];
@@ -995,7 +1061,11 @@ class Inquiry extends Model {
             return ['success' => false, 'message' => 'Invalid parameters.'];
         }
 
-        $this->db->beginTransaction();
+        $startedTx = false;
+        if (!$this->db->inTransaction()) {
+            $this->db->beginTransaction();
+            $startedTx = true;
+        }
 
         try {
             $checkSql = "
@@ -1041,7 +1111,9 @@ class Inquiry extends Model {
                 $resetStmt->execute([$inqId]);
             }
 
-            $this->db->commit();
+            if ($startedTx && $this->db->inTransaction()) {
+                $this->db->commit();
+            }
 
             $inqRow = $this->fetchOne("SELECT status, approval_status FROM inquiry_table WHERE inq_id = ?", [$inqId]);
 
@@ -1069,7 +1141,11 @@ class Inquiry extends Model {
             return ['success' => false, 'message' => 'Invalid parameters.'];
         }
 
-        $this->db->beginTransaction();
+        $startedTx = false;
+        if (!$this->db->inTransaction()) {
+            $this->db->beginTransaction();
+            $startedTx = true;
+        }
 
         try {
             // Check that this unit has an approved request for this inquiry
@@ -1102,7 +1178,9 @@ class Inquiry extends Model {
             ";
             $this->execute($updateSql, [$unitId, $token, $expiresAt, $inqId]);
 
-            $this->db->commit();
+            if ($startedTx && $this->db->inTransaction()) {
+                $this->db->commit();
+            }
 
             $approvedAtRow = $this->fetchOne("SELECT DATE_FORMAT(approval_approved_at, '%b %d, %Y %h:%i %p') AS approved_at_display FROM inquiry_table WHERE inq_id = ?", [$inqId]);
 

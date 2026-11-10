@@ -87,6 +87,7 @@ $listingType = trim((string) ($unit['listing_type'] ?? 'For Lease'));
 $stayCategory = trim((string) ($unit['stay_category'] ?? 'Long term'));
 $leaseRate = (float) ($unit['lease_rate'] ?? 0);
 $resellingPrice = (float) ($unit['reselling_price'] ?? 0);
+$autoApproveInquiries = !empty($unit['auto_approve_inquiries']);
 $isResale = (strcasecmp($listingType, 'Resale') === 0 || strcasecmp($currentStatus, 'Resale') === 0 || strcasecmp($currentStatus, 'For Resale') === 0 || stripos($listingType, 'resell') !== false);
 $isNotAvailable = (strcasecmp($listingType, 'Not Available') === 0);
 
@@ -602,6 +603,21 @@ if ($isNotAvailable) {
                 <?= $listingType === 'Not Available' ? '—' : ($listingType === 'Resale' ? peso($resellingPrice > 0 ? $resellingPrice : $leaseRate, false) : peso($leaseRate, true)) ?>
               </p>
             </div>
+            <div>
+              <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Inquiry Approval Mode</p>
+              <p class="text-sm font-semibold text-slate-900 mt-1 flex items-center gap-1.5" id="specAutoApprove">
+                <?php if ($autoApproveInquiries): ?>
+                  <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                    <svg class="w-3 h-3 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                    Always Approve (Instant)
+                  </span>
+                <?php else: ?>
+                  <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-600 border border-slate-200">
+                    Manual Review Required
+                  </span>
+                <?php endif; ?>
+              </p>
+            </div>
           </div>
         </div>
 
@@ -916,6 +932,32 @@ if ($isNotAvailable) {
           </div>
         </div>
 
+        <!-- Inquiry Approval Mode (Instant Book / Auto-Approve) -->
+        <div id="containerAutoApprove" class="p-3.5 rounded-xl border border-slate-200 bg-slate-50/50 transition-all">
+          <div class="flex items-start justify-between gap-3">
+            <div class="flex-1 pr-2">
+              <div class="flex items-center gap-2 mb-1">
+                <span class="inline-flex items-center justify-center w-5 h-5 rounded-md bg-amber-100 text-amber-700">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  </svg>
+                </span>
+                <label for="autoApproveToggle" class="text-xs font-bold text-slate-800 cursor-pointer">
+                  Always Approve if Inquired (Instant Approval)
+                </label>
+              </div>
+              <p class="text-[11px] text-slate-500 leading-relaxed">
+                Automatically approves incoming tenant inquiries for this unit so applicants can immediately proceed to reservation without waiting for manual confirmation.
+              </p>
+            </div>
+            <!-- Toggle Switch -->
+            <label class="relative inline-flex items-center cursor-pointer shrink-0 mt-0.5">
+              <input type="checkbox" id="autoApproveToggle" name="auto_approve_inquiries" value="1" <?= $autoApproveInquiries ? 'checked' : '' ?> class="sr-only peer">
+              <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-slate-900"></div>
+            </label>
+          </div>
+        </div>
+
         <!-- Pricing Controls -->
         <div class="space-y-3.5">
           <div id="containerLeaseRate" class="p-3.5 rounded-xl border border-slate-200 transition-all bg-slate-50/50">
@@ -1003,6 +1045,7 @@ if ($isNotAvailable) {
       const isResale = (selectedType === 'Resale');
       const isNotAvailable = (selectedType === 'Not Available');
       const stayCategoryContainer = document.getElementById('containerStayCategory');
+      const autoApproveContainer = document.getElementById('containerAutoApprove');
       const leaseContainer = document.getElementById('containerLeaseRate');
       const resaleContainer = document.getElementById('containerResellingPrice');
       const badgeLease = document.getElementById('badgeLeaseRate');
@@ -1019,6 +1062,9 @@ if ($isNotAvailable) {
             r.disabled = true;
             r.required = false;
           });
+        }
+        if (autoApproveContainer) {
+          autoApproveContainer.classList.add('hidden');
         }
 
         if (leaseContainer) {
@@ -1049,6 +1095,9 @@ if ($isNotAvailable) {
             r.disabled = true;
             r.required = false;
           });
+        }
+        if (autoApproveContainer) {
+          autoApproveContainer.classList.add('hidden');
         }
 
         if (resaleContainer) {
@@ -1083,6 +1132,9 @@ if ($isNotAvailable) {
             r.disabled = false;
             r.required = true;
           });
+        }
+        if (autoApproveContainer) {
+          autoApproveContainer.classList.remove('hidden');
         }
 
         if (leaseContainer) {
@@ -1275,6 +1327,20 @@ if ($isNotAvailable) {
           if (leaseSection) {
             if (isResale || isNotAvailable) leaseSection.classList.add('hidden');
             else leaseSection.classList.remove('hidden');
+          }
+
+          const specAutoApprove = document.getElementById('specAutoApprove');
+          if (specAutoApprove && data.auto_approve_inquiries !== undefined) {
+            if (data.auto_approve_inquiries) {
+              specAutoApprove.innerHTML = `<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                <svg class="w-3 h-3 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                Always Approve (Instant)
+              </span>`;
+            } else {
+              specAutoApprove.innerHTML = `<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-600 border border-slate-200">
+                Manual Review Required
+              </span>`;
+            }
           }
 
           if (data.unit_current_status) {

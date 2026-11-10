@@ -363,6 +363,7 @@ CREATE TABLE `units_table` (
   `stay_category` enum('Short term','Long term') NOT NULL DEFAULT 'Long term',
   `unit_owner_id` int(11) DEFAULT NULL,
   `unit_current_status` enum('Ready for Occupancy','For Resale','Resale','On Hold','Reserved','Occupied','Under maintenance','Not Available') NOT NULL DEFAULT 'Not Available',
+  `auto_approve_inquiries` tinyint(1) NOT NULL DEFAULT 0,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
