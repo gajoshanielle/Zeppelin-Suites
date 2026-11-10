@@ -173,7 +173,7 @@ $signing_min = !$is_lease ? date('Y-m-d', strtotime('+3 days')) : date('Y-m-d');
     }
 
     .btn-press:active {
-      transform: scale(0.97);
+      transform: scale(0.98);
     }
 
     .zep-hero {
@@ -211,7 +211,8 @@ $signing_min = !$is_lease ? date('Y-m-d', strtotime('+3 days')) : date('Y-m-d');
     }
 
     ::-webkit-scrollbar {
-      width: 4px;
+      width: 5px;
+      height: 5px;
     }
 
     ::-webkit-scrollbar-track {
@@ -231,21 +232,17 @@ $signing_min = !$is_lease ? date('Y-m-d', strtotime('+3 days')) : date('Y-m-d');
   <header class="zep-hero relative overflow-hidden border-b border-slate-200 bg-white">
     <div class="building-mark hidden md:block"></div>
 
-    <div
-      class="max-w-[1180px] mx-auto px-5 py-7 md:py-8 flex flex-col sm:flex-row sm:items-center justify-between gap-6 relative">
-      <div class="flex items-center gap-7">
-        <div>
-          <h1 class="text-3xl md:text-4xl font-bold tracking-tight text-slate-950">
-            <?= $is_lease ? 'Unit Lease Reservation' : 'Unit Resale Reservation' ?>
-          </h1>
-          <p class="mt-2 text-base md:text-lg text-slate-600">
-            Reserve your preferred unit for 30 days.
-          </p>
-        </div>
+    <div class="max-w-[1180px] mx-auto px-5 py-7 md:py-8 flex flex-col sm:flex-row sm:items-center justify-between gap-6 relative">
+      <div>
+        <h1 class="text-3xl md:text-4xl font-bold tracking-tight text-slate-950">
+          <?= $is_lease ? 'Unit Lease Reservation' : 'Unit Resale Reservation' ?>
+        </h1>
+        <p class="mt-2 text-base md:text-lg text-slate-600">
+          Reserve your preferred unit for 30 days.
+        </p>
       </div>
 
-      <div
-        class="hidden md:flex items-center gap-3 bg-white/70 backdrop-blur-xs border border-slate-200/80 rounded-2xl px-4 py-3 shadow-xs">
+      <div class="hidden md:flex items-center gap-3 bg-white/80 backdrop-blur-sm border border-slate-200/90 rounded-2xl px-4 py-3 shadow-sm">
         <div class="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600 shrink-0">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -264,17 +261,17 @@ $signing_min = !$is_lease ? date('Y-m-d', strtotime('+3 days')) : date('Y-m-d');
   <!-- MAIN CONTENT CONTAINER -->
   <main class="max-w-[1180px] mx-auto px-5 py-8 md:py-10">
 
-    <div class="grid grid-cols-1 lg:grid-cols-[minmax(0,720px)_360px] gap-9 items-start">
+    <div class="grid grid-cols-1 lg:grid-cols-[minmax(0,720px)_360px] gap-8 lg:gap-9 items-start">
 
       <!-- STATUS BANNER WRAPPER -->
       <div class="lg:col-start-1 lg:row-start-1">
         <!-- STATUS BANNER -->
         <div
-          class="status-banner rounded-xl border border-amber-200 bg-amber-50/80 shadow-sm px-5 sm:px-7 py-4 sm:py-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 sm:gap-5"
+          class="status-banner rounded-2xl border border-amber-200 bg-amber-50/90 shadow-sm px-5 sm:px-7 py-4 sm:py-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 sm:gap-5"
           id="statusBanner">
           <div class="flex items-center gap-4">
             <div
-              class="w-14 h-14 rounded-full bg-white border border-amber-200 flex items-center justify-center shadow-sm shrink-0"
+              class="w-14 h-14 rounded-2xl bg-white border border-amber-200/90 flex items-center justify-center shadow-sm shrink-0"
               id="statusIconWrap">
               <div id="countdownRing" class="relative w-11 h-11">
                 <svg class="w-11 h-11 -rotate-90" viewBox="0 0 44 44">
@@ -282,39 +279,38 @@ $signing_min = !$is_lease ? date('Y-m-d', strtotime('+3 days')) : date('Y-m-d');
                   <circle id="ringProgress" cx="22" cy="22" r="17" fill="none" stroke="#b7791f" stroke-width="4"
                     stroke-dasharray="106.8" stroke-dashoffset="0" stroke-linecap="round" />
                 </svg>
-                <span class="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-amber-700"
-                  id="ringLabel" style="font-family:'DM Mono',monospace">30</span>
+                <span class="absolute inset-0 flex items-center justify-center text-xs font-bold font-mono text-amber-800"
+                  id="ringLabel">30</span>
               </div>
             </div>
             <div>
-              <p class="font-bold text-amber-800" id="statusTitle">Reservation Pending</p>
-              <p class="text-sm text-slate-600 mt-1" id="statusMsg">Please complete the form and submit before the timer
-                expires.</p>
+              <p class="font-bold text-amber-900 text-base" id="statusTitle">Reservation Pending</p>
+              <p class="text-sm text-slate-700 mt-0.5 leading-snug" id="statusMsg">Please complete the form and submit before the timer expires.</p>
             </div>
           </div>
 
           <!-- TIME AND HOUR COUNTDOWN BOX -->
           <div
-            class="rounded-xl border border-amber-200/90 bg-white/95 px-4 py-2.5 text-center shrink-0 shadow-xs self-start sm:self-auto"
+            class="rounded-xl border border-amber-200 bg-white px-4 py-2.5 text-center shrink-0 shadow-sm self-start sm:self-auto"
             id="statusTimerBox">
             <div class="flex items-center justify-center gap-2" id="timerGrid">
               <!-- Days Column -->
-              <div class="flex flex-col items-center min-w-[32px]">
-                <span class="font-mono text-xl font-extrabold text-orange-600 leading-none" id="statusDays">30</span>
-                <span class="text-[9px] font-bold text-orange-400 tracking-wider uppercase mt-1">Days</span>
+              <div class="flex flex-col items-center min-w-[36px]">
+                <span class="font-mono text-2xl font-extrabold text-amber-900 leading-none" id="statusDays">30</span>
+                <span class="text-xs font-bold text-amber-700 tracking-wider uppercase mt-1">Days</span>
               </div>
 
               <!-- Separator Colon -->
-              <span class="font-mono text-lg font-bold text-orange-300 leading-none -mt-3.5 select-none">:</span>
+              <span class="font-mono text-xl font-bold text-amber-400 leading-none -mt-3.5 select-none">:</span>
 
               <!-- Hours Column -->
-              <div class="flex flex-col items-center min-w-[32px]">
-                <span class="font-mono text-xl font-extrabold text-orange-600 leading-none" id="statusHours">00</span>
-                <span class="text-[9px] font-bold text-orange-400 tracking-wider uppercase mt-1">Hours</span>
+              <div class="flex flex-col items-center min-w-[36px]">
+                <span class="font-mono text-2xl font-extrabold text-amber-900 leading-none" id="statusHours">00</span>
+                <span class="text-xs font-bold text-amber-700 tracking-wider uppercase mt-1">Hours</span>
               </div>
             </div>
             <div id="statusExpiredText"
-              class="hidden font-mono text-xs font-bold text-red-600 uppercase tracking-wider py-1 px-1">
+              class="hidden font-mono text-xs font-bold text-rose-600 uppercase tracking-wider py-1 px-1">
               Expired
             </div>
             <span id="statusMinutes" class="hidden"></span>
@@ -324,55 +320,54 @@ $signing_min = !$is_lease ? date('Y-m-d', strtotime('+3 days')) : date('Y-m-d');
         </div>
       </div><!-- /status banner wrapper -->
 
-      <!-- RIGHT SIDEBAR: On smaller screens, placed on top of form card so guidelines are read before submitting -->
+      <!-- RIGHT SIDEBAR: Guidelines & Help -->
       <aside class="lg:col-start-2 lg:row-start-1 lg:row-end-3 space-y-6 lg:sticky lg:top-6">
 
-        <div class="bg-white rounded-xl border border-slate-200 shadow-soft p-7">
-          <div class="flex items-center gap-3 mb-6">
-            <div class="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-900">
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-soft p-6 sm:p-7">
+          <div class="flex items-center gap-3 mb-5">
+            <div class="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-900 shrink-0">
               <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                   d="M9 5h6M9 3h6a2 2 0 012 2v1h1a2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V8a2 2 0 012-2h1V5a2 2 0 012-2z" />
               </svg>
             </div>
-            <h3 class="text-xl font-bold uppercase tracking-wide text-slate-900">Reservation Guidelines</h3>
+            <h3 class="text-base sm:text-lg font-bold uppercase tracking-wide text-slate-900">Reservation Guidelines</h3>
           </div>
 
-          <p class="text-base leading-8 text-slate-800 mb-6">
-            A condominium unit may be reserved for thirty days by presenting a Reservation Fee per unit, and the
-            following documents:
+          <p class="text-sm sm:text-base leading-relaxed text-slate-700 mb-6">
+            A condominium unit may be reserved for thirty days by presenting a Reservation Fee per unit, and the following documents:
           </p>
 
-          <div class="space-y-5 mb-7">
-            <div class="flex gap-4 items-start">
-              <div class="w-14 h-14 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 shrink-0">
-                <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div class="space-y-4 mb-6">
+            <div class="flex gap-3.5 items-start">
+              <div class="w-11 h-11 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600 shrink-0">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                     d="M10 6H5a2 2 0 00-2 2v8a2 2 0 002 2h5m4-12h5a2 2 0 012 2v8a2 2 0 01-2 2h-5M8 11h2m-2 4h2m5-4h1m-1 4h1" />
                 </svg>
               </div>
               <div>
-                <p class="font-bold text-slate-900">Photocopy of two (2) valid IDs</p>
-                <p class="text-sm text-slate-600 mt-1">i.e. passport, driver's license</p>
+                <p class="font-bold text-slate-900 text-sm">Photocopy of two (2) valid IDs</p>
+                <p class="text-xs text-slate-500 mt-0.5">i.e. passport, driver's license</p>
               </div>
             </div>
 
-            <div class="flex gap-4 items-start">
-              <div class="w-14 h-14 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 shrink-0">
-                <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div class="flex gap-3.5 items-start">
+              <div class="w-11 h-11 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600 shrink-0">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 3h7l5 5v13H7V3z" />
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 3v6h5M10 14h6M10 18h6" />
                 </svg>
               </div>
               <div>
-                <p class="font-bold text-slate-900">Tax Identification Number</p>
-                <p class="text-sm text-slate-600 mt-1">(TIN)</p>
+                <p class="font-bold text-slate-900 text-sm">Tax Identification Number</p>
+                <p class="text-xs text-slate-500 mt-0.5">(TIN)</p>
               </div>
             </div>
 
-            <div class="flex gap-4 items-start">
-              <div class="w-14 h-14 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 shrink-0">
-                <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div class="flex gap-3.5 items-start">
+              <div class="w-11 h-11 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600 shrink-0">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                     d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L9.75 16.902 6 18l1.098-3.75L18.55 2.799" />
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -380,79 +375,74 @@ $signing_min = !$is_lease ? date('Y-m-d', strtotime('+3 days')) : date('Y-m-d');
                 </svg>
               </div>
               <div>
-                <p class="font-bold text-slate-900">Reservation Agreement</p>
-                <p class="text-sm text-slate-600 mt-1">signed by buyer / tenant</p>
+                <p class="font-bold text-slate-900 text-sm">Reservation Agreement</p>
+                <p class="text-xs text-slate-500 mt-0.5">signed by buyer / tenant</p>
               </div>
             </div>
           </div>
 
-          <div class="rounded-xl border border-blue-200 bg-blue-50/80 p-5">
-            <div class="flex items-center gap-3 mb-4">
-              <div
-                class="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-sm">i
-              </div>
-              <p class="text-blue-700 font-bold uppercase tracking-wide">Important</p>
+          <div class="rounded-xl border border-blue-200 bg-blue-50/80 p-4 sm:p-5">
+            <div class="flex items-center gap-2.5 mb-2.5">
+              <div class="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-xs shrink-0">i</div>
+              <p class="text-blue-800 font-bold uppercase tracking-wide text-xs">Important</p>
             </div>
-            <p class="text-sm leading-7 text-slate-800">
-              Please submit the fee and the specified documents within <span class="font-bold">thirty (30) days</span>;
-              otherwise your reservation may be cancelled and the fee may be forfeited.
+            <p class="text-xs sm:text-sm leading-relaxed text-slate-700">
+              Please submit the fee and the specified documents within <span class="font-bold text-slate-900">thirty (30) days</span>; otherwise your reservation may be cancelled and the fee may be forfeited.
             </p>
-            <p class="text-sm leading-7 text-slate-800 mt-4">
+            <p class="text-xs sm:text-sm leading-relaxed text-slate-700 mt-2.5">
               For assistance and clarification, please contact our Sales Department.
             </p>
           </div>
 
-          <div class="rounded-xl border border-blue-200 bg-blue-50/80 p-5 mt-5">
-            <div class="flex items-center gap-3 mb-3">
-              <div
-                class="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-sm">!
-              </div>
-              <p class="text-blue-700 font-bold uppercase tracking-wide">Please Note</p>
+          <div class="rounded-xl border border-blue-200 bg-blue-50/80 p-4 sm:p-5 mt-4">
+            <div class="flex items-center gap-2.5 mb-2.5">
+              <div class="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-xs shrink-0">!</div>
+              <p class="text-blue-800 font-bold uppercase tracking-wide text-xs">Please Note</p>
             </div>
-            <p class="text-sm leading-relaxed text-slate-800">
-              Submitting this form reserves your unit. We will notify you when your agreement is ready to sign.
-              Afterwards, meet with the owner or representative to submit your signed agreement and valid IDs.
+            <p class="text-xs sm:text-sm leading-relaxed text-slate-700">
+              Submitting this form reserves your unit. We will notify you when your agreement is ready to sign. Afterwards, meet with the owner or representative to submit your signed agreement and valid IDs.
             </p>
           </div>
         </div>
 
-        <!-- Need Help Card (Desktop: displayed in sidebar) -->
-        <div class="hidden lg:block bg-white rounded-xl border border-slate-200 shadow-soft p-7">
-          <div class="flex items-center gap-3 mb-4">
-            <div class="w-8 h-8 rounded-full bg-slate-900 text-white flex items-center justify-center">
+        <!-- Need Help Card (Desktop) -->
+        <div class="hidden lg:block bg-white rounded-2xl border border-slate-200 shadow-soft p-6 sm:p-7">
+          <div class="flex items-center gap-3 mb-3">
+            <div class="w-8 h-8 rounded-lg bg-slate-900 text-white flex items-center justify-center shrink-0">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                   d="M8.228 9c.549-1.165 1.91-2 3.522-2 2.071 0 3.75 1.343 3.75 3 0 1.318-1.06 2.438-2.534 2.84-.815.222-1.216.81-1.216 1.41V15m0 4h.01" />
               </svg>
             </div>
-            <h3 class="text-lg font-bold uppercase tracking-wide">Need Help?</h3>
+            <div>
+              <h3 class="text-sm font-bold uppercase tracking-wide text-slate-900">Need Help?</h3>
+              <p class="text-xs text-slate-500">Our Sales Team is here to assist you.</p>
+            </div>
           </div>
 
-          <p class="text-sm text-slate-600 mb-5 ml-11">Our Sales Team is here to assist you.</p>
-
-          <div class="space-y-4 text-sm text-slate-800">
-            <div class="flex items-center gap-4">
-              <svg class="w-5 h-5 text-slate-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div class="space-y-3 pt-3 border-t border-slate-100 text-sm text-slate-700">
+            <div class="flex items-center gap-3">
+              <svg class="w-4 h-4 text-slate-900 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                   d="M3 5a2 2 0 012-2h2l2 5-2 1c1 2 3 4 5 5l1-2 5 2v2a2 2 0 01-2 2h-1C8.373 18 3 12.627 3 6V5z" />
               </svg>
-              <span>+63 917 123 4567</span>
+              <span class="font-medium">+63 917 123 4567</span>
             </div>
 
-            <div class="flex items-center gap-4">
-              <svg class="w-5 h-5 text-slate-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div class="flex items-center gap-3">
+              <svg class="w-4 h-4 text-slate-900 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                   d="M3 8l9 6 9-6M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
               </svg>
-              <span>sales@zeppelinsuites.com</span>
+              <span class="font-medium">sales@zeppelinsuites.com</span>
             </div>
 
-            <div class="flex items-center gap-4">
-              <svg class="w-5 h-5 text-slate-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div class="flex items-center gap-3">
+              <svg class="w-4 h-4 text-slate-900 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                   d="M12 8v4l3 2m6-2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-              <span>Mon – Sat&nbsp;&nbsp; | &nbsp;&nbsp;9:00 AM – 6:00 PM</span>
+              <span class="font-medium">Mon – Sat | 9:00 AM – 6:00 PM</span>
             </div>
           </div>
         </div>
@@ -460,87 +450,87 @@ $signing_min = !$is_lease ? date('Y-m-d', strtotime('+3 days')) : date('Y-m-d');
       </aside>
 
       <!-- FORM CARD -->
-      <div class="lg:col-start-1 lg:row-start-2 bg-white rounded-xl border border-slate-200 shadow-soft overflow-hidden" id="formCard">
+      <div class="lg:col-start-1 lg:row-start-2 bg-white rounded-2xl border border-slate-200 shadow-soft overflow-hidden" id="formCard">
 
-          <!-- Form Card Header -->
-          <div class="form-card-header px-7 py-6 text-white">
-            <h2 class="text-xl sm:text-2xl font-bold tracking-tight" id="formCardTitle">
-              <?= $allUnitsHeld ? 'Unit Reservation Status' : ($is_lease ? 'Unit Lease Reservation Form' : 'Unit Resale Reservation Form') ?>
-            </h2>
-            <p class="text-slate-300 text-xs sm:text-sm mt-1">
-              <?= $allUnitsHeld ? 'Zeppelin Suites — First-Come, First-Served Status Notice' : 'Zeppelin Suites — Please fill in all required fields' ?>
-            </p>
-          </div>
+        <!-- Form Card Header -->
+        <div class="form-card-header px-6 sm:px-8 py-6 text-white">
+          <h2 class="text-xl sm:text-2xl font-bold tracking-tight" id="formCardTitle">
+            <?= $allUnitsHeld ? 'Unit Reservation Status' : ($is_lease ? 'Unit Lease Reservation Form' : 'Unit Resale Reservation Form') ?>
+          </h2>
+          <p class="text-slate-300 text-xs sm:text-sm mt-1">
+            <?= $allUnitsHeld ? 'Zeppelin Suites — First-Come, First-Served Status Notice' : 'Zeppelin Suites — Please fill in all required fields' ?>
+          </p>
+        </div>
 
-          <?php if ($allUnitsHeld): ?>
-            <!-- TENTATIVE HOLD NOTICE FOR APPLICANT -->
-            <div class="p-8 sm:p-12 text-center space-y-6">
-              <div class="w-16 h-16 rounded-2xl bg-amber-50 border border-amber-200/80 flex items-center justify-center mx-auto text-amber-600 shadow-sm">
-                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
+        <?php if ($allUnitsHeld): ?>
+          <!-- TENTATIVE HOLD NOTICE FOR APPLICANT -->
+          <div class="p-8 sm:p-12 text-center space-y-6">
+            <div class="w-16 h-16 rounded-2xl bg-amber-50 border border-amber-200/80 flex items-center justify-center mx-auto text-amber-600 shadow-sm">
+              <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+
+            <div class="max-w-md mx-auto space-y-2">
+              <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-amber-100 text-amber-800">
+                <span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
+                Tentative Hold (FCFS)
+              </span>
+              <h3 class="text-2xl font-bold text-slate-900 tracking-tight">
+                <?= count($approvedUnitsList) > 1 ? 'Approved Units on Tentative Hold' : 'Unit Currently on Tentative Hold' ?>
+              </h3>
+              <p class="text-sm text-slate-600 leading-relaxed">
+                Another prospective client has tentatively submitted a reservation for <strong><?= $unitNum ?></strong> under our <strong>First-Come, First-Served</strong> policy.
+              </p>
+            </div>
+
+            <!-- Unit & Status Card -->
+            <div class="max-w-lg mx-auto bg-slate-50 border border-slate-200 rounded-2xl p-5 text-left space-y-3.5 shadow-sm">
+              <div class="flex items-center justify-between pb-3 border-b border-slate-200/70 text-xs">
+                <span class="font-semibold text-slate-500">Unit</span>
+                <span class="font-bold text-slate-900"><?= $unitNum ?> — <?= $unitTypeUpper ?></span>
               </div>
-
-              <div class="max-w-md mx-auto space-y-2">
-                <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-amber-100 text-amber-800">
-                  <span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
-                  Tentative Hold (FCFS)
-                </span>
-                <h3 class="text-2xl font-bold text-slate-900 tracking-tight">
-                  <?= count($approvedUnitsList) > 1 ? 'Approved Units on Tentative Hold' : 'Unit Currently on Tentative Hold' ?>
-                </h3>
-                <p class="text-sm text-slate-600 leading-relaxed">
-                  Another prospective client has tentatively submitted a reservation for <strong><?= $unitNum ?></strong> under our <strong>First-Come, First-Served</strong> policy.
-                </p>
+              <div class="flex items-center justify-between pb-3 border-b border-slate-200/70 text-xs">
+                <span class="font-semibold text-slate-500">Transaction</span>
+                <span class="font-bold text-slate-900"><?= htmlspecialchars($transactionType ?? 'Unit Resale') ?></span>
               </div>
-
-              <!-- Unit & Status Card -->
-              <div class="max-w-lg mx-auto bg-slate-50 border border-slate-200 rounded-2xl p-5 text-left space-y-3.5 shadow-xs">
-                <div class="flex items-center justify-between pb-3 border-b border-slate-200/70 text-xs">
-                  <span class="font-semibold text-slate-500">Unit</span>
-                  <span class="font-bold text-slate-900"><?= $unitNum ?> — <?= $unitTypeUpper ?></span>
-                </div>
-                <div class="flex items-center justify-between pb-3 border-b border-slate-200/70 text-xs">
-                  <span class="font-semibold text-slate-500">Transaction</span>
-                  <span class="font-bold text-slate-900"><?= htmlspecialchars($transactionType ?? 'Unit Resale') ?></span>
-                </div>
-                <div class="flex items-center justify-between pb-3 border-b border-slate-200/70 text-xs">
-                  <span class="font-semibold text-slate-500">Reservation Status</span>
-                  <span class="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-bold bg-amber-100 text-amber-800">Tentative Hold (Pending Review)</span>
-                </div>
-                <div class="flex items-center justify-between text-xs">
-                  <span class="font-semibold text-slate-500">Your Link Remains Valid Until</span>
-                  <span class="font-bold text-slate-900"><?= htmlspecialchars($tokenExpiresFormatted) ?></span>
-                </div>
+              <div class="flex items-center justify-between pb-3 border-b border-slate-200/70 text-xs">
+                <span class="font-semibold text-slate-500">Reservation Status</span>
+                <span class="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-bold bg-amber-100 text-amber-800">Tentative Hold (Pending Review)</span>
               </div>
-
-              <!-- Explanatory Box -->
-              <div class="max-w-lg mx-auto bg-blue-50/70 border border-blue-200/80 rounded-2xl p-4 text-left flex items-start gap-3">
-                <svg class="w-5 h-5 text-blue-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <div class="text-xs text-slate-700 leading-relaxed space-y-1">
-                  <p class="font-bold text-blue-900">What happens next?</p>
-                  <p>Because reservations are tentative pending administrative review of the payment proof and documents, your reservation link remains active. If the current applicant's reservation is cancelled or rejected, this unit will <strong>automatically reopen</strong> on this page.</p>
-                </div>
-              </div>
-
-              <!-- Action Buttons -->
-              <div class="flex flex-wrap items-center justify-center gap-3 pt-2">
-                <button type="button" onclick="window.location.reload()" class="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition shadow-xs flex items-center gap-2 cursor-pointer">
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                  </svg>
-                  Check Again / Refresh
-                </button>
-                <a href="<?= htmlspecialchars($baseUrl) ?>/" class="px-5 py-2.5 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 rounded-xl text-xs font-bold transition shadow-xs">
-                  Return to Home
-                </a>
+              <div class="flex items-center justify-between text-xs">
+                <span class="font-semibold text-slate-500">Your Link Remains Valid Until</span>
+                <span class="font-bold text-slate-900"><?= htmlspecialchars($tokenExpiresFormatted) ?></span>
               </div>
             </div>
-          <?php else: ?>
-          <!-- Form Body with exact requested layout -->
-          <div class="p-6 sm:p-7 space-y-7" id="formBody">
+
+            <!-- Explanatory Box -->
+            <div class="max-w-lg mx-auto bg-blue-50/70 border border-blue-200/80 rounded-2xl p-4 text-left flex items-start gap-3">
+              <svg class="w-5 h-5 text-blue-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <div class="text-xs text-slate-700 leading-relaxed space-y-1">
+                <p class="font-bold text-blue-900">What happens next?</p>
+                <p>Because reservations are tentative pending administrative review of the payment proof and documents, your reservation link remains active. If the current applicant's reservation is cancelled or rejected, this unit will <strong>automatically reopen</strong> on this page.</p>
+              </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="flex flex-wrap items-center justify-center gap-3 pt-2">
+              <button type="button" onclick="window.location.reload()" class="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition shadow-sm flex items-center gap-2 cursor-pointer">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                Check Again / Refresh
+              </button>
+              <a href="<?= htmlspecialchars($baseUrl) ?>/" class="px-5 py-2.5 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 rounded-xl text-xs font-bold transition shadow-sm">
+                Return to Home
+              </a>
+            </div>
+          </div>
+        <?php else: ?>
+          <!-- Form Body -->
+          <div class="p-6 sm:p-8 space-y-8" id="formBody">
             <form id="reservationForm" action="<?= htmlspecialchars($baseUrl) ?>/reservation/submit" method="POST"
               enctype="multipart/form-data" onsubmit="return handleFormSubmit(event)">
               <?= Csrf::field() ?>
@@ -552,18 +542,22 @@ $signing_min = !$is_lease ? date('Y-m-d', strtotime('+3 days')) : date('Y-m-d');
               <input type="hidden" id="selectedUnitId" name="selected_unit_id" value="<?= $selectedUnitId ?>">
 
               <!-- 1. UNIT DETAILS BOX -->
-              <div class="border border-slate-200 rounded-2xl p-5 sm:p-6 bg-white shadow-xs mb-8">
-                <!-- Header Row: Unit Details on Left, Approved Units on Right -->
-                <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
-                  <div class="flex items-center gap-2">
-                    <svg class="w-4 h-4 text-slate-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                    </svg>
-                    <h3 class="text-sm font-bold text-slate-900 uppercase tracking-wide">Unit Details</h3>
+              <div class="border border-slate-200 rounded-2xl p-5 sm:p-6 bg-white shadow-sm mb-8 space-y-5">
+                <!-- Header Row -->
+                <div class="flex items-center justify-between pb-3.5 border-b border-slate-100">
+                  <div class="flex items-center gap-2.5">
+                    <div class="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-900 shrink-0">
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                      </svg>
+                    </div>
+                    <div>
+                      <h3 class="text-base font-bold text-slate-900 uppercase tracking-wide">Unit Details</h3>
+                    </div>
                   </div>
                   <span
-                    class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                    class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
                     <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
                     <?= count($approvedUnitsList) ?> Approved <?= count($approvedUnitsList) === 1 ? 'Unit' : 'Units' ?>
                     <?php if ($availableUnitsCount < count($approvedUnitsList)): ?>
@@ -572,14 +566,14 @@ $signing_min = !$is_lease ? date('Y-m-d', strtotime('+3 days')) : date('Y-m-d');
                   </span>
                 </div>
 
-                <!-- Full-Width Unit Selection Dropdown (Cover Side to Side) -->
-                <div class="mb-5">
-                  <label for="approvedUnitSelect" class="block text-xs font-semibold text-slate-600 mb-1.5">
+                <!-- Full-Width Unit Selection Dropdown -->
+                <div>
+                  <label for="approvedUnitSelect" class="block text-sm font-semibold text-slate-700 mb-1.5">
                     Choose Unit:
                   </label>
                   <div class="relative w-full">
                     <select id="approvedUnitSelect" onchange="handleUnitSelectionChange(this.value)"
-                      class="w-full text-xs font-semibold text-slate-900 bg-slate-50 hover:bg-slate-100 border border-slate-300 rounded-xl py-2 pl-3.5 pr-10 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:bg-white cursor-pointer shadow-xs transition-all appearance-none">
+                      class="w-full text-sm font-semibold text-slate-900 bg-white hover:bg-slate-50 border border-slate-300 rounded-xl py-3 pl-4 pr-10 focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-900 cursor-pointer shadow-sm transition-all appearance-none">
                       <?php foreach ($approvedUnitsList as $au): ?>
                         <?php 
                           $isAvail = !isset($au['is_available']) || (bool)$au['is_available'];
@@ -592,7 +586,7 @@ $signing_min = !$is_lease ? date('Y-m-d', strtotime('+3 days')) : date('Y-m-d');
                         </option>
                       <?php endforeach; ?>
                     </select>
-                    <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3.5 text-slate-500">
+                    <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-500">
                       <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
                       </svg>
@@ -600,244 +594,244 @@ $signing_min = !$is_lease ? date('Y-m-d', strtotime('+3 days')) : date('Y-m-d');
                   </div>
                 </div>
 
-                <!-- 3-Column Unit Details Grid -->
-                <div class="grid grid-cols-1 sm:grid-cols-3 gap-y-4 gap-x-6 sm:gap-x-10 pt-4 border-t border-slate-100">
-                  <!-- Col 1 -->
-                  <div class="space-y-4">
-                    <div class="space-y-0.5">
-                      <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Unit</p>
-                      <p class="text-xs font-bold text-slate-900 leading-snug" id="dispUnitNum"><?= $unitNum ?> -
-                        <?= $unitTypeUpper ?>
-                      </p>
+                <!-- Clean Key-Value Card with Headline -->
+                <div class="bg-slate-50/80 rounded-xl p-4 sm:p-5 border border-slate-200/80">
+                  <div class="flex flex-col sm:flex-row sm:items-baseline justify-between gap-1 mb-4 pb-3 border-b border-slate-200/70">
+                    <div>
+                      <span class="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-0.5">Selected Unit</span>
+                      <h4 class="text-lg sm:text-xl font-extrabold text-slate-900 tracking-tight" id="dispUnitNum">
+                        <?= $unitNum ?> — <?= $unitTypeUpper ?>
+                      </h4>
                     </div>
-                    <div class="space-y-0.5">
-                      <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Furnishing</p>
-                      <p class="text-xs font-bold text-slate-900 leading-snug" id="dispFurnishing"><?= $furnishingVal ?>
-                      </p>
-                    </div>
-                    <div class="space-y-0.5">
-                      <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Unit owner</p>
-                      <p class="text-xs font-bold text-slate-900 leading-snug" id="dispOwnerName"><?= $ownerName ?></p>
+                    <div class="text-left sm:text-right">
+                      <span class="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-0.5" id="dispPriceLabel"><?= htmlspecialchars($price_label) ?></span>
+                      <span class="text-base sm:text-lg font-extrabold text-slate-900 font-mono tracking-tight" id="dispPriceBasis">₱<?= number_format($price_basis, 0) ?> php</span>
                     </div>
                   </div>
 
-                  <!-- Col 2 -->
-                  <div class="space-y-4">
-                    <div class="space-y-0.5">
-                      <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Floor</p>
-                      <p class="text-xs font-bold text-slate-900 leading-snug" id="dispFloorNum"><?= $floorNum ?></p>
+                  <!-- Key-Value Grid: 2 cols on mobile, 3 cols on desktop -->
+                  <div class="grid grid-cols-2 sm:grid-cols-3 gap-y-3.5 gap-x-4">
+                    <div>
+                      <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Floor</p>
+                      <p class="text-sm font-bold text-slate-900 mt-0.5" id="dispFloorNum"><?= $floorNum ?></p>
                     </div>
-                    <div class="space-y-0.5">
-                      <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider" id="dispPriceLabel">
-                        <?= htmlspecialchars($price_label) ?>
-                      </p>
-                      <p class="text-xs font-bold text-slate-900 font-mono tracking-tight leading-snug"
-                        id="dispPriceBasis">₱<?= number_format($price_basis, 0) ?> php</p>
+                    <div>
+                      <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">SQM</p>
+                      <p class="text-sm font-bold text-slate-900 mt-0.5" id="dispSqmVal"><?= $sqmVal ?></p>
                     </div>
-                    <div class="space-y-0.5">
-                      <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Email</p>
-                      <div id="dispOwnerEmailWrapper">
+                    <div>
+                      <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Listing</p>
+                      <p class="text-sm font-bold text-slate-900 mt-0.5" id="dispListingVal"><?= $listingVal ?></p>
+                    </div>
+                    <div>
+                      <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Furnishing</p>
+                      <p class="text-sm font-bold text-slate-900 mt-0.5" id="dispFurnishing"><?= $furnishingVal ?></p>
+                    </div>
+                    <div>
+                      <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Unit Owner</p>
+                      <p class="text-sm font-bold text-slate-900 mt-0.5" id="dispOwnerName"><?= $ownerName ?></p>
+                    </div>
+                    <div>
+                      <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Contact</p>
+                      <p class="text-sm font-bold text-slate-900 font-mono mt-0.5" id="dispOwnerContact"><?= $ownerContact ?></p>
+                    </div>
+                    <div class="col-span-2 sm:col-span-3 pt-2.5 border-t border-slate-200/60">
+                      <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Owner Email</p>
+                      <div id="dispOwnerEmailWrapper" class="mt-0.5">
                         <?php if (!empty($ownerEmail)): ?>
                           <a href="mailto:<?= htmlspecialchars($ownerEmail) ?>"
-                            class="text-xs font-bold text-slate-900 underline hover:text-blue-600 truncate block leading-snug"
+                            class="text-sm font-bold text-blue-600 hover:text-blue-800 underline truncate block leading-snug"
                             id="dispOwnerEmailLink"><?= htmlspecialchars($ownerEmail) ?></a>
                         <?php else: ?>
-                          <p class="text-xs font-bold text-slate-900 leading-snug" id="dispOwnerEmailText">—</p>
+                          <p class="text-sm font-bold text-slate-900 leading-snug" id="dispOwnerEmailText">—</p>
                         <?php endif; ?>
                       </div>
                     </div>
                   </div>
 
-                  <!-- Col 3 -->
-                  <div class="space-y-4">
-                    <div class="space-y-0.5">
-                      <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">SQM</p>
-                      <p class="text-xs font-bold text-slate-900 leading-snug" id="dispSqmVal"><?= $sqmVal ?></p>
-                    </div>
-                    <div class="space-y-0.5">
-                      <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Listing</p>
-                      <p class="text-xs font-bold text-slate-900 leading-snug" id="dispListingVal"><?= $listingVal ?>
-                      </p>
-                    </div>
-                    <div class="space-y-0.5">
-                      <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Contact</p>
-                      <p class="text-xs font-bold text-slate-900 font-mono tracking-tight leading-snug"
-                        id="dispOwnerContact"><?= $ownerContact ?></p>
-                    </div>
+                  <!-- Active Lease Period indicator -->
+                  <div class="mt-4 pt-3 border-t border-slate-200/70 flex flex-wrap items-center justify-between text-xs gap-2">
+                    <span class="text-slate-600 font-medium flex items-center gap-1.5">
+                      <span class="w-2 h-2 rounded-full bg-amber-500 inline-block"></span>
+                      Existing Active Lease:
+                    </span>
+                    <span class="font-bold text-slate-900 font-mono"
+                      id="dispUnitLeasePeriod"><?= htmlspecialchars($selectedUnitData['current_lease_period'] ?? 'No active lease') ?></span>
                   </div>
-                </div>
-
-                <!-- Active Lease Period indicator -->
-                <div
-                  class="mt-3.5 pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between text-xs gap-2">
-                  <span class="text-slate-500 font-medium flex items-center gap-1.5">
-                    <span class="w-2 h-2 rounded-full bg-amber-400 inline-block"></span>
-                    Existing Active Lease:
-                  </span>
-                  <span class="font-bold text-slate-900 font-mono"
-                    id="dispUnitLeasePeriod"><?= htmlspecialchars($selectedUnitData['current_lease_period'] ?? 'No active lease') ?></span>
                 </div>
               </div>
 
               <!-- 2. CLIENT INFORMATION -->
-              <div class="mb-6">
-                <div class="flex items-center gap-2 mb-3">
-                  <svg class="w-4 h-4 text-slate-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                      d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                  </svg>
-                  <h3 class="font-bold text-slate-900 text-sm uppercase tracking-wide">CLIENT INFORMATION</h3>
+              <div class="border-t border-slate-200/80 pt-6">
+                <div class="flex items-center gap-2.5 mb-4">
+                  <div class="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-900 shrink-0">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h3 class="text-base font-bold text-slate-900 uppercase tracking-wide">Client Information</h3>
+                    <p class="text-xs text-slate-500">Provide applicant details for lease or purchase processing</p>
+                  </div>
                 </div>
 
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <!-- Left: Auto-input Contact Details -->
-                  <div class="space-y-3.5">
-                    <div>
-                      <label class="block text-xs font-semibold text-slate-600 mb-1">Full Name</label>
-                      <input type="text" name="client_name" value="<?= htmlspecialchars($clientName) ?>"
-                        placeholder="John Doe" readonly
-                        class="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-900 focus:outline-none">
-                    </div>
-                    <div>
-                      <label class="block text-xs font-semibold text-slate-600 mb-1">Email</label>
-                      <input type="email" name="client_email" value="<?= htmlspecialchars($clientEmail) ?>"
-                        placeholder="johndoe@gmail.com" readonly
-                        class="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-900 focus:outline-none">
-                    </div>
-                    <div>
-                      <label class="block text-xs font-semibold text-slate-600 mb-1">Phone Number <span
-                          class="text-red-500">*</span></label>
-                      <div id="resPhoneWrapper"
-                        class="relative flex items-center rounded-lg border border-slate-200 bg-white focus-within:border-slate-900 transition-all shadow-2xs">
-                        <!-- Country Dial Code Dropdown Button -->
-                        <div class="relative">
-                          <button type="button" id="resCountryBtn"
-                            class="country-code-btn pr-5 h-full flex items-center gap-1 px-3 py-2 bg-slate-50 border-r border-slate-200 rounded-l-lg hover:bg-slate-100 transition-all cursor-pointer">
-                            <span class="flex items-center gap-1.5 shrink-0">
-                              <span class="mr-1 text-sm leading-none">🇵🇭</span>
-                              <span class="font-bold text-xs text-slate-900 font-mono">+63</span>
-                            </span>
-                            <svg class="w-3.5 h-3.5 text-slate-400 shrink-0 ml-1" fill="none" stroke="currentColor"
-                              viewBox="0 0 24 24">
-                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M19 9l-7 7-7-7" />
-                            </svg>
-                          </button>
-                          <div id="resCountryDropdown"
-                            class="hidden absolute left-0 top-full mt-1.5 w-72 bg-white rounded-xl shadow-xl border border-slate-200 z-50 overflow-hidden text-xs">
-                          </div>
-                        </div>
-
-                        <!-- Phone Number Input -->
-                        <input type="tel" id="res_phone_input" placeholder="917 123 4567" required
-                          value="<?= htmlspecialchars(preg_replace('/^(\+63|0)/', '', trim($clientContact ?? ''))) ?>"
-                          class="w-full bg-transparent px-3 py-2 text-xs font-semibold text-slate-900 font-mono focus:outline-none">
-                      </div>
-                      <input type="hidden" name="client_contact" id="client_contact"
-                        value="<?= htmlspecialchars($clientContact) ?>" required>
-                    </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
+                  <!-- Full Name (Read-only) -->
+                  <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-1.5">Full Name</label>
+                    <input type="text" name="client_name" value="<?= htmlspecialchars($clientName) ?>"
+                      placeholder="John Doe" readonly
+                      class="w-full px-3.5 py-2.5 bg-slate-100 border border-slate-200 rounded-xl text-sm font-semibold text-slate-700 cursor-not-allowed focus:outline-none">
                   </div>
 
-                  <!-- Right: Sex, Nationality -->
-                  <div class="space-y-3.5">
-                    <div>
-                      <label class="block text-xs font-semibold text-slate-600 mb-1">Sex <span
-                          class="text-red-500">*</span></label>
-                      <select name="client_sex" required
-                        class="w-full px-3.5 py-2 bg-white border border-slate-200 rounded-lg text-xs text-slate-800 focus:outline-none focus:border-slate-900">
-                        <option value="" disabled selected>Dropdown</option>
-                        <option value="Female">Female</option>
-                        <option value="Male">Male</option>
-                      </select>
+                  <!-- Email (Read-only) -->
+                  <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-1.5">Email Address</label>
+                    <input type="email" name="client_email" value="<?= htmlspecialchars($clientEmail) ?>"
+                      placeholder="johndoe@gmail.com" readonly
+                      class="w-full px-3.5 py-2.5 bg-slate-100 border border-slate-200 rounded-xl text-sm font-semibold text-slate-700 cursor-not-allowed focus:outline-none">
+                  </div>
+
+                  <!-- Phone Number (Editable) -->
+                  <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-1.5">Phone Number <span
+                        class="text-red-500">*</span></label>
+                    <div id="resPhoneWrapper"
+                      class="relative flex items-center rounded-xl border border-slate-300 bg-white focus-within:border-slate-900 focus-within:ring-2 focus-within:ring-slate-900/10 transition-all shadow-sm">
+                      <!-- Country Dial Code Dropdown Button -->
+                      <div class="relative">
+                        <button type="button" id="resCountryBtn"
+                          class="country-code-btn pr-4 h-full flex items-center gap-1 px-3.5 py-2.5 bg-slate-50 border-r border-slate-200 rounded-l-xl hover:bg-slate-100 transition-all cursor-pointer">
+                          <span class="flex items-center gap-1.5 shrink-0">
+                            <span class="mr-1 text-sm leading-none">🇵🇭</span>
+                            <span class="font-bold text-sm text-slate-900 font-mono">+63</span>
+                          </span>
+                          <svg class="w-3.5 h-3.5 text-slate-500 shrink-0 ml-1" fill="none" stroke="currentColor"
+                            viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </button>
+                        <div id="resCountryDropdown"
+                          class="hidden absolute left-0 top-full mt-1.5 w-72 bg-white rounded-xl shadow-xl border border-slate-200 z-50 overflow-hidden text-xs">
+                        </div>
+                      </div>
+
+                      <!-- Phone Number Input -->
+                      <input type="tel" id="res_phone_input" placeholder="917 123 4567" required
+                        value="<?= htmlspecialchars(preg_replace('/^(\+63|0)/', '', trim($clientContact ?? ''))) ?>"
+                        class="w-full bg-transparent px-3.5 py-2.5 text-sm font-semibold text-slate-900 font-mono focus:outline-none">
                     </div>
-                    <div>
-                      <label class="block text-xs font-semibold text-slate-600 mb-1">Nationality <span
-                          class="text-red-500">*</span></label>
-                      <div id="nationalitySelectContainer"></div>
-                      <input type="hidden" name="client_nationality" id="client_nationality" value="Filipino" required>
-                    </div>
+                    <input type="hidden" name="client_contact" id="client_contact"
+                      value="<?= htmlspecialchars($clientContact) ?>" required>
+                  </div>
+
+                  <!-- Sex (Editable) -->
+                  <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-1.5">Sex <span
+                        class="text-red-500">*</span></label>
+                    <select name="client_sex" required
+                      class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-sm text-slate-800 focus:outline-none focus:border-slate-900 focus:ring-2 focus:ring-slate-900/10 cursor-pointer shadow-sm">
+                      <option value="" disabled selected>Select sex</option>
+                      <option value="Female">Female</option>
+                      <option value="Male">Male</option>
+                    </select>
+                  </div>
+
+                  <!-- Nationality (Editable) -->
+                  <div class="sm:col-span-2">
+                    <label class="block text-sm font-semibold text-slate-700 mb-1.5">Nationality <span
+                        class="text-red-500">*</span></label>
+                    <div id="nationalitySelectContainer"></div>
+                    <input type="hidden" name="client_nationality" id="client_nationality" value="Filipino" required>
                   </div>
                 </div>
               </div>
 
               <?php if ($is_lease): ?>
                 <!-- 3. LEASE TERM DETAILS -->
-                <div id="leaseTermDetailsSection" class="mb-6">
-                  <div class="flex items-center gap-2 mb-3">
-                    <svg class="w-4 h-4 text-slate-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                    <h3 class="font-bold text-slate-900 text-sm uppercase tracking-wide">LEASE TERM DETAILS</h3>
+                <div id="leaseTermDetailsSection" class="border-t border-slate-200/80 pt-6">
+                  <div class="flex items-center gap-2.5 mb-4">
+                    <div class="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-900 shrink-0">
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <h3 class="text-base font-bold text-slate-900 uppercase tracking-wide">Lease Term Details</h3>
+                      <p class="text-xs text-slate-500">Specify your occupancy schedule and duration</p>
+                    </div>
                   </div>
 
-                  <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
                     <div>
-                      <label class="block text-xs font-semibold text-slate-600 mb-1">Preferred move-in time</label>
+                      <label class="block text-sm font-semibold text-slate-700 mb-1.5">Preferred Move-in Time</label>
                       <input type="text" name="preferred_move_in_time" value="<?= $inqPreferredMoveIn ?>" readonly
-                        class="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-700 focus:outline-none">
+                        class="w-full px-3.5 py-2.5 bg-slate-100 border border-slate-200 rounded-xl text-sm font-medium text-slate-700 cursor-not-allowed focus:outline-none">
                       <?php if ($isMoveInFlexible): ?>
-                        <p class="text-[10px] text-blue-600 mt-1 flex items-center gap-1 font-medium">
-                          <svg class="w-3 h-3 text-blue-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" stroke-width="2"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01"/></svg>
+                        <p class="text-xs text-blue-700 mt-1.5 flex items-center gap-1.5 font-medium">
+                          <svg class="w-3.5 h-3.5 text-blue-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" stroke-width="2"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01"/></svg>
                           <span>Flexible schedule: please select your official move-in date below.</span>
                         </p>
                       <?php endif; ?>
                     </div>
+
                     <div>
-                      <label class="block text-xs font-semibold text-slate-600 mb-1">Lease Duration</label>
+                      <label class="block text-sm font-semibold text-slate-700 mb-1.5">Lease Duration</label>
                       <?php if ($isDurationNotSure): ?>
                         <select id="leaseDurationDisplay" name="lease_duration" onchange="handleDurationChange(this.value)"
-                          class="w-full px-3.5 py-2 bg-white border border-blue-400 rounded-lg text-xs text-slate-800 font-semibold focus:outline-none focus:border-slate-900 cursor-pointer shadow-xs">
+                          class="w-full px-3.5 py-2.5 bg-white border border-blue-400 rounded-xl text-sm text-slate-900 font-semibold focus:outline-none focus:border-slate-900 focus:ring-2 focus:ring-slate-900/10 cursor-pointer shadow-sm">
                           <option value="1 year" selected>1 year (Standard)</option>
                           <option value="6 months">6 months</option>
                           <option value="3 months">3 months</option>
                           <option value="2 years">2 years</option>
                         </select>
-                        <p class="text-[10px] text-blue-600 mt-1 flex items-center gap-1 font-medium">
-                          <svg class="w-3 h-3 text-blue-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" stroke-width="2"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01"/></svg>
+                        <p class="text-xs text-blue-700 mt-1.5 flex items-center gap-1.5 font-medium">
+                          <svg class="w-3.5 h-3.5 text-blue-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" stroke-width="2"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01"/></svg>
                           <span>You selected "Not sure yet" on inquiry. Please choose your lease term.</span>
                         </p>
                       <?php else: ?>
                         <input type="text" id="leaseDurationDisplay" name="lease_duration" value="<?= $inqLeaseDuration ?>"
                           readonly
-                          class="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-700 focus:outline-none">
+                          class="w-full px-3.5 py-2.5 bg-slate-100 border border-slate-200 rounded-xl text-sm font-medium text-slate-700 cursor-not-allowed focus:outline-none">
                       <?php endif; ?>
                     </div>
 
                     <div>
-                      <label class="block text-xs font-semibold text-slate-600 mb-1">Move-in Date <span
+                      <label class="block text-sm font-semibold text-slate-700 mb-1.5">Move-in Date <span
                           class="text-red-500">*</span></label>
                       <input type="date" id="moveInDate" name="move_in_date" min="<?= $move_in_min ?>"
                         max="<?= $move_in_max ?>" required
-                        class="w-full px-3.5 py-2 bg-white border border-slate-200 rounded-lg text-xs text-slate-800 focus:outline-none focus:border-slate-900"
+                        class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-sm text-slate-900 focus:outline-none focus:border-slate-900 focus:ring-2 focus:ring-slate-900/10 cursor-pointer shadow-sm"
                         oninput="handleMoveInChange(this.value)" onchange="handleMoveInChange(this.value)">
-                      <p class="text-[11px] font-semibold text-emerald-700 mt-1.5 flex items-center gap-1.5"
+                      <p class="text-xs font-semibold text-emerald-800 mt-1.5 flex items-center gap-1.5"
                         id="dispEarliestMoveInWrap">
                         <span class="w-2 h-2 rounded-full bg-emerald-500 inline-block shrink-0"></span>
                         Earliest available move-in: <span class="font-bold font-mono"
                           id="dispEarliestMoveInDate"><?= htmlspecialchars($move_in_min_formatted) ?></span>
                       </p>
-                      <p class="text-[10px] text-slate-400 mt-0.5">Requires building admin clearance and prior tenant
-                        turnover.</p>
+                      <p class="text-xs text-slate-500 mt-0.5">Requires building admin clearance and prior tenant turnover.</p>
                     </div>
+
                     <div>
-                      <label class="block text-xs font-semibold text-slate-600 mb-1">Move-out Date</label>
+                      <label class="block text-sm font-semibold text-slate-700 mb-1.5">Move-out Date</label>
                       <input type="text" id="moveOutDateDisplay" name="move_out_date_display"
                         placeholder="auto calculated" readonly
-                        class="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-600 font-mono focus:outline-none">
+                        class="w-full px-3.5 py-2.5 bg-slate-100 border border-slate-200 rounded-xl text-sm text-slate-600 font-mono cursor-not-allowed focus:outline-none">
                     </div>
 
                     <div id="dateConflictAlert"
-                      class="hidden sm:col-span-2 p-3 bg-red-50 border border-red-200 rounded-lg text-xs text-red-700 flex items-start gap-2.5">
-                      <svg class="w-4 h-4 text-red-500 shrink-0 mt-0.5" fill="none" stroke="currentColor"
+                      class="hidden sm:col-span-2 p-4 bg-rose-50 border border-rose-200 rounded-xl text-sm text-rose-800 flex items-start gap-3 shadow-sm">
+                      <svg class="w-5 h-5 text-rose-600 shrink-0 mt-0.5" fill="none" stroke="currentColor"
                         viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                           d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                       </svg>
-                      <div>
-                        <p class="font-bold text-red-800" id="dateConflictTitle">Dates Conflict With Existing Reservation
-                        </p>
-                        <p class="text-[11px] text-red-600 mt-0.5 font-medium" id="dateConflictMessage"></p>
+                      <div class="space-y-1">
+                        <p class="font-bold text-rose-900 text-sm" id="dateConflictTitle">Dates Conflict With Existing Reservation</p>
+                        <p class="text-xs text-rose-700 leading-relaxed font-medium" id="dateConflictMessage"></p>
                       </div>
                     </div>
                   </div>
@@ -845,32 +839,34 @@ $signing_min = !$is_lease ? date('Y-m-d', strtotime('+3 days')) : date('Y-m-d');
               <?php endif; ?>
 
               <!-- 4. PAYMENT SECTION -->
-              <div class="mt-8 mb-6 pt-6 border-t border-slate-100">
-                <div class="grid grid-cols-1 md:grid-cols-[1fr_250px] gap-5 items-start">
+              <div class="border-t border-slate-200/80 pt-6">
+                <div class="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-6 items-start">
 
-                  <!-- Left Column: Header, Tabs, Panels -->
-                  <div>
-                    <div class="mb-3">
-                      <div class="flex items-center gap-2">
-                        <svg class="w-4 h-4 text-slate-900 shrink-0" fill="none" stroke="currentColor"
-                          viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-                        </svg>
-                        <h3 class="font-bold text-slate-900 text-sm uppercase tracking-wide">RESERVATION FEE</h3>
+                  <!-- Left Column: Tabs & Payment Methods -->
+                  <div class="space-y-4">
+                    <div>
+                      <div class="flex items-center gap-2.5">
+                        <div class="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-900 shrink-0">
+                          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                          </svg>
+                        </div>
+                        <div>
+                          <h3 class="text-base font-bold text-slate-900 uppercase tracking-wide">Reservation Fee</h3>
+                          <p class="text-xs text-slate-500">Fee is credited towards your downpayment</p>
+                        </div>
                       </div>
-                      <p class="text-xs text-slate-500 mt-1">Please note that the reservation fee will be added to your
-                        downpayment.</p>
                     </div>
 
-                    <!-- Payment Options Tabs -->
-                    <div class="flex border border-slate-200 rounded-lg overflow-hidden mb-4 max-w-sm">
+                    <!-- Payment Options Tabs (Segmented Control) -->
+                    <div class="inline-flex p-1 bg-slate-100 rounded-xl w-full max-w-sm border border-slate-200/80">
                       <button type="button" id="tabGcash" onclick="switchPaymentTab('GCash QR')"
-                        class="flex-1 py-2 px-3 text-xs font-bold transition-all bg-[#0f172a] text-white">
-                        Pay using GCASH QR
+                        class="flex-1 py-2.5 px-4 text-sm font-bold rounded-lg transition-all bg-slate-900 text-white shadow-sm cursor-pointer">
+                        Pay using GCash QR
                       </button>
                       <button type="button" id="tabInHouse" onclick="switchPaymentTab('In-House')"
-                        class="flex-1 py-2 px-3 text-xs font-bold transition-all bg-slate-100 text-slate-600 hover:bg-slate-200">
+                        class="flex-1 py-2.5 px-4 text-sm font-bold rounded-lg transition-all text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 cursor-pointer">
                         Pay In-House
                       </button>
                     </div>
@@ -878,176 +874,180 @@ $signing_min = !$is_lease ? date('Y-m-d', strtotime('+3 days')) : date('Y-m-d');
                     <!-- Panels -->
                     <div>
                       <!-- Panel 1: GCash QR -->
-                      <div id="panelGcash" class="flex flex-col sm:flex-row items-start gap-4">
+                      <div id="panelGcash" class="flex flex-col sm:flex-row items-start gap-5">
                         <!-- QR Code Box -->
                         <div
-                          class="w-32 h-32 border border-slate-200 rounded-xl p-2 bg-slate-50 flex items-center justify-center shrink-0 transition-all text-center group relative overflow-hidden <?= $owner_has_qr ? 'cursor-pointer hover:border-slate-400' : 'cursor-not-allowed opacity-90' ?>"
+                          class="w-36 h-36 sm:w-40 sm:h-40 border border-slate-200 rounded-2xl p-2 bg-slate-50 flex items-center justify-center shrink-0 transition-all text-center group relative overflow-hidden <?= $owner_has_qr ? 'cursor-pointer hover:border-slate-400 shadow-sm' : 'cursor-not-allowed opacity-90' ?>"
                           onclick="openQRModal()" id="qrCodeContainer">
                           <div id="qrImageWrap" class="<?= $owner_has_qr ? '' : 'hidden' ?> w-full h-full relative">
                             <img id="qrImgDisplay" src="<?= htmlspecialchars($resolvedOwnerQrUrl) ?>"
-                              alt="Owner GCash QR" class="w-full h-full object-contain rounded-lg">
+                              alt="Owner GCash QR" class="w-full h-full object-contain rounded-xl">
                             <div
-                              class="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-[10px] font-bold rounded-lg">
+                              class="absolute inset-0 bg-slate-900/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-bold rounded-xl backdrop-blur-sm">
                               Click to Enlarge
                             </div>
                           </div>
                           <div id="qrPlaceholderWrap"
-                            class="<?= $owner_has_qr ? 'hidden' : '' ?> space-y-1.5 p-1 text-center">
+                            class="<?= $owner_has_qr ? 'hidden' : '' ?> space-y-2 p-2 text-center">
                             <div
-                              class="w-8 h-8 mx-auto rounded-full bg-slate-200/90 flex items-center justify-center text-slate-500">
-                              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              class="w-10 h-10 mx-auto rounded-full bg-slate-200/80 flex items-center justify-center text-slate-500">
+                              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                   d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
                               </svg>
                             </div>
                             <span
-                              class="text-[10px] font-bold text-slate-700 tracking-wide block leading-tight uppercase">QR
-                              CODE NOT<br>AVAILABLE</span>
+                              class="text-xs font-bold text-slate-700 tracking-wide block leading-tight uppercase">QR CODE NOT<br>AVAILABLE</span>
                             <span
-                              class="inline-block text-[9px] font-semibold text-slate-500 bg-slate-200/60 px-1.5 py-0.5 rounded">Not
-                              Uploaded</span>
+                              class="inline-block text-xs font-semibold text-slate-500 bg-slate-200/80 px-2 py-0.5 rounded">Not Uploaded</span>
                           </div>
                         </div>
 
                         <!-- Right text & file upload -->
-                        <div class="flex-1 space-y-2.5 text-xs text-slate-600">
+                        <div class="flex-1 space-y-3 text-sm text-slate-600">
                           <p class="leading-relaxed" id="qrInstructionText">
                             <?= $owner_has_qr ? "Use the GCash app to scan and pay directly to the unit owner's GCash account." : "GCash QR code is currently not available for this unit." ?>
                           </p>
-                          <p class="font-medium text-slate-500 text-[11px]" id="qrClickNote">
+                          <p class="font-medium text-slate-500 text-xs" id="qrClickNote">
                             <?= $owner_has_qr ? "Click QR code to view full size." : "The unit owner has not yet uploaded their GCash QR." ?>
                           </p>
 
                           <!-- Upload Proof of Payment Option -->
                           <div id="proofUploadWrapper"
-                            class="transition-all <?= $owner_has_qr ? '' : 'opacity-40 pointer-events-none select-none bg-slate-100/70 p-2.5 rounded-xl border border-dashed border-slate-300' ?>">
-                            <label class="block text-xs font-bold text-slate-800 mb-1" id="proofUploadLabel">Upload
+                            class="transition-all <?= $owner_has_qr ? '' : 'opacity-50 pointer-events-none select-none bg-slate-100/80 p-3 rounded-xl border border-dashed border-slate-300' ?>">
+                            <label class="block text-sm font-bold text-slate-800 mb-1.5" id="proofUploadLabel">Upload
                               Proof of Payment <span class="text-red-500 <?= $owner_has_qr ? '' : 'hidden' ?>"
                                 id="proofReqStar">*</span></label>
                             <input type="file" id="proofUpload" name="payment_proof" accept=".jpg,.jpeg,.png,.webp"
                               <?= $owner_has_qr ? 'required' : 'disabled' ?>
-                              class="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-700 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-[11px] file:font-semibold file:bg-slate-100 file:text-slate-700 hover:file:bg-slate-200 cursor-pointer disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400">
-                            <p class="text-[10px] text-slate-400 mt-1" id="proofUploadNote">Note: Only JPG, PNG, and
-                              WEBP files are accepted.</p>
+                              class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-sm text-slate-700 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-slate-100 file:text-slate-800 hover:file:bg-slate-200 cursor-pointer disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400">
+                            <p class="text-xs text-slate-500 mt-1.5" id="proofUploadNote">Note: Only JPG, PNG, and WEBP files are accepted.</p>
                           </div>
 
                           <!-- Banner shown when QR is not uploaded -->
                           <div id="qrUnavailableBanner"
-                            class="<?= $owner_has_qr ? 'hidden' : '' ?> p-2.5 bg-amber-50 border border-amber-200/80 rounded-xl text-[11px] text-amber-800 flex items-start gap-2">
+                            class="<?= $owner_has_qr ? 'hidden' : '' ?> p-3.5 bg-amber-50 border border-amber-200/90 rounded-xl text-xs text-amber-900 flex items-start gap-2.5 shadow-sm">
                             <svg class="w-4 h-4 text-amber-600 shrink-0 mt-0.5" fill="none" stroke="currentColor"
                               viewBox="0 0 24 24">
                               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                 d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                             </svg>
-                            <span><strong>Upload Disabled:</strong> GCash QR code has not been uploaded yet by the unit
-                              owner. Please switch to <button type="button" onclick="switchPaymentTab('In-House')"
-                                class="underline font-bold text-amber-900 hover:text-black">Pay In-House</button> to
-                              complete your reservation.</span>
+                            <span><strong>Upload Disabled:</strong> GCash QR code has not been uploaded yet by the unit owner. Please switch to <button type="button" onclick="switchPaymentTab('In-House')"
+                                class="underline font-bold text-amber-900 hover:text-black cursor-pointer">Pay In-House</button> to complete your reservation.</span>
                           </div>
                         </div>
                       </div>
 
                       <!-- Panel 2: Pay In-House (Hidden by default) -->
                       <div id="panelInHouse"
-                        class="hidden p-4 border border-slate-200 rounded-xl bg-slate-50 space-y-2">
-                        <div class="flex items-center gap-2 text-slate-900">
-                          <svg class="w-4 h-4 text-slate-800 shrink-0" fill="none" stroke="currentColor"
+                        class="hidden p-5 border border-slate-200 rounded-2xl bg-slate-50 space-y-2.5">
+                        <div class="flex items-center gap-2.5 text-slate-900">
+                          <svg class="w-5 h-5 text-slate-800 shrink-0" fill="none" stroke="currentColor"
                             viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                               d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                           </svg>
-                          <h4 class="text-xs font-bold uppercase">Pay In-House During
+                          <h4 class="text-sm font-bold uppercase tracking-wide">Pay In-House During
                             <?= $is_lease ? 'Lease' : 'Contract' ?> Signing
                           </h4>
                         </div>
-                        <p class="text-xs text-slate-700 leading-relaxed">
-                          Please prepare the payment amount (cash or manager's check). Payment will be settled in person
-                          during your scheduled <?= $is_lease ? 'lease' : 'contract' ?> signing appointment.
+                        <p class="text-sm text-slate-700 leading-relaxed">
+                          Please prepare the payment amount (cash or manager's check). Payment will be settled in person during your scheduled <?= $is_lease ? 'lease' : 'contract' ?> signing appointment.
                         </p>
-                        <p class="text-[11px] text-slate-500 italic">No online proof of payment is required for in-house
-                          payment.</p>
+                        <p class="text-xs text-slate-500 italic">No online proof of payment is required for in-house payment.</p>
                       </div>
                     </div>
                   </div>
 
                   <!-- Right Column: PAYMENT BREAKDOWN -->
-                  <div class="border border-slate-200 rounded-xl p-4 bg-slate-50/80 space-y-2.5">
-                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">PAYMENT BREAKDOWN</p>
-                    <div>
-                      <p class="text-[10px] text-slate-500 mb-0.5" id="breakdownPriceLabel">
-                        <?= htmlspecialchars($price_label) ?>
-                      </p>
-                      <p class="text-base font-bold text-slate-900 font-mono" id="breakdownPriceVal">
-                        ₱<?= number_format($price_basis, 2) ?></p>
+                  <div class="border border-slate-200 rounded-2xl p-5 bg-slate-50/90 shadow-sm space-y-4">
+                    <div class="flex items-center justify-between pb-3 border-b border-slate-200/70">
+                      <p class="text-xs font-bold text-slate-600 uppercase tracking-wider">Payment Breakdown</p>
+                      <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-blue-800">Reservation</span>
+                    </div>
 
+                    <!-- Highlighted Required Amount -->
+                    <div class="bg-white rounded-xl p-4 border border-emerald-100 shadow-sm">
+                      <p class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Required Amount</p>
+                      <p class="text-2xl sm:text-3xl font-extrabold text-emerald-600 font-mono tracking-tight leading-none" id="dpAmount">
+                        ₱<?= number_format($price_basis * 0.35, 2) ?>
+                      </p>
+                      <p class="text-xs text-slate-500 mt-2 flex items-center gap-1">
+                        <svg class="w-3.5 h-3.5 text-emerald-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                        <span>Credited to your downpayment</span>
+                      </p>
                     </div>
-                    <div>
-                      <p class="text-[10px] text-slate-500 mb-0.5">Reservation Fee Percentage</p>
-                      <p class="text-base font-bold text-slate-900 font-mono">35%</p>
-                      <p class="text-[10px] text-slate-400 mt-0.5">Will be added to your downpayment</p>
-                      <input type="hidden" name="payment_percentage" id="paymentPercentageInput" value="0.35">
-                    </div>
-                    <div>
-                      <p class="text-[10px] text-slate-500 mb-0.5">Required Amount</p>
-                      <p class="text-base font-bold text-slate-900 font-mono" id="dpAmount">
-                        ₱<?= number_format($price_basis * 0.35, 2) ?></p>
+
+                    <!-- Secondary figures -->
+                    <div class="space-y-3 pt-1">
+                      <div class="flex items-center justify-between text-xs">
+                        <span class="font-semibold text-slate-600" id="breakdownPriceLabel"><?= htmlspecialchars($price_label) ?></span>
+                        <span class="font-bold text-slate-900 font-mono text-sm" id="breakdownPriceVal">₱<?= number_format($price_basis, 2) ?></span>
+                      </div>
+                      <div class="flex items-center justify-between text-xs pb-1">
+                        <span class="font-semibold text-slate-600">Reservation Percentage</span>
+                        <span class="font-bold text-slate-900 font-mono text-sm">35%</span>
+                        <input type="hidden" name="payment_percentage" id="paymentPercentageInput" value="0.35">
+                      </div>
                     </div>
                   </div>
 
                 </div>
               </div>
 
-              <!-- 5. LEASE SIGNING DATE -->
-              <div class="mt-8 mb-6 pt-6 border-t border-slate-100">
-                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+              <!-- 5. LEASE / CONTRACT SIGNING DATE -->
+              <div class="border-t border-slate-200/80 pt-6">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
                   <div>
-                    <div class="flex items-center gap-2">
-                      <svg class="w-4 h-4 text-slate-900 shrink-0" fill="none" stroke="currentColor"
-                        viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                          d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                      </svg>
-                      <h3 class="font-bold text-slate-900 text-sm uppercase tracking-wide">
-                        <?= $is_lease ? 'LEASE SIGNING DATE' : 'CONTRACT SIGNING DATE' ?>
-                      </h3>
+                    <div class="flex items-center gap-2.5">
+                      <div class="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-900 shrink-0">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                      </div>
+                      <div>
+                        <h3 class="text-base font-bold text-slate-900 uppercase tracking-wide">
+                          <?= $is_lease ? 'LEASE SIGNING DATE' : 'CONTRACT SIGNING DATE' ?>
+                        </h3>
+                        <p class="text-xs text-slate-500 mt-0.5" id="signingDateNote">
+                          <?= $is_lease
+                            ? 'Select one or multiple dates you are available for lease signing (must be on or before your move-in date).'
+                            : 'Select one or multiple dates you are available for contract signing (requires a 3-day buffer for document preparation).' ?>
+                        </p>
+                      </div>
                     </div>
-                    <p class="text-xs text-slate-500 mt-1" id="signingDateNote">
-                      <?= $is_lease
-                        ? 'Select one or multiple dates you are available for lease signing (must be on or before your move-in date).'
-                        : 'Select one or multiple dates you are available for contract signing (requires a 3-day buffer for document preparation).' ?>
-                    </p>
                   </div>
                   <label
-                    class="inline-flex items-center gap-2 cursor-pointer select-none bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-lg hover:bg-slate-100 transition-colors">
+                    class="inline-flex items-center gap-2.5 cursor-pointer select-none bg-slate-50 border border-slate-300 px-3.5 py-2 rounded-xl hover:bg-slate-100 transition-colors shadow-sm self-start sm:self-auto">
                     <input type="checkbox" id="imFlexible" name="is_flexible_signing" value="1"
-                      class="w-4 h-4 rounded text-slate-900 accent-slate-900" onchange="handleFlexibleSigning(this)">
-                    <span class="whitespace-nowrap text-xs font-semibold text-slate-700">Im Flexible</span>
+                      class="w-4 h-4 rounded text-slate-900 accent-slate-900 cursor-pointer" onchange="handleFlexibleSigning(this)">
+                    <span class="whitespace-nowrap text-xs sm:text-sm font-semibold text-slate-800">I'm Flexible</span>
                   </label>
                 </div>
 
                 <!-- Multi-date picker calendar container -->
                 <div id="signingCalendarWrapper"
-                  class="border border-slate-200 rounded-xl bg-slate-50/60 p-4 transition-all">
+                  class="border border-slate-200 rounded-2xl bg-slate-50/70 p-4 sm:p-5 transition-all space-y-4">
                   <input type="hidden" id="leaseSigningDate" name="lease_signing_date" value="">
 
-                  <div class="grid grid-cols-1 md:grid-cols-[250px_1fr] gap-4 items-stretch">
+                  <div class="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-4 sm:gap-5 items-stretch">
 
                     <!-- Left: Calendar Card -->
-                    <div id="calCard" class="bg-white border border-slate-200 rounded-xl p-3 shadow-xs">
+                    <div id="calCard" class="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm">
                       <!-- Calendar Header: Month Nav -->
-                      <div class="flex items-center justify-between pb-2 mb-2 border-b border-slate-100">
-                        <span id="calMonthYear" class="text-xs font-bold text-slate-900 tracking-wide uppercase">October
-                          2026</span>
-                        <div class="flex items-center gap-1">
+                      <div class="flex items-center justify-between pb-3 mb-3 border-b border-slate-100">
+                        <span id="calMonthYear" class="text-sm font-bold text-slate-900 tracking-wide uppercase">October 2026</span>
+                        <div class="flex items-center gap-1.5">
                           <button type="button" id="calPrevBtn" onclick="navSigningCal(-1)"
-                            class="w-6 h-6 rounded border border-slate-200 hover:bg-slate-100 flex items-center justify-center text-slate-600 transition-all text-xs font-bold disabled:opacity-25 disabled:cursor-not-allowed">‹</button>
+                            class="w-8 h-8 rounded-lg border border-slate-200 hover:bg-slate-100 flex items-center justify-center text-slate-700 transition-all text-sm font-bold disabled:opacity-25 disabled:cursor-not-allowed cursor-pointer">‹</button>
                           <button type="button" id="calNextBtn" onclick="navSigningCal(1)"
-                            class="w-6 h-6 rounded border border-slate-200 hover:bg-slate-100 flex items-center justify-center text-slate-600 transition-all text-xs font-bold disabled:opacity-25 disabled:cursor-not-allowed">›</button>
+                            class="w-8 h-8 rounded-lg border border-slate-200 hover:bg-slate-100 flex items-center justify-center text-slate-700 transition-all text-sm font-bold disabled:opacity-25 disabled:cursor-not-allowed cursor-pointer">›</button>
                         </div>
                       </div>
 
                       <!-- Day Names -->
-                      <div class="grid grid-cols-7 gap-1 text-center mb-1 text-[10px] font-semibold text-slate-400">
+                      <div class="grid grid-cols-7 gap-1 text-center mb-1.5 text-xs font-bold text-slate-500">
                         <span>Su</span><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span>
                       </div>
 
@@ -1059,26 +1059,24 @@ $signing_min = !$is_lease ? date('Y-m-d', strtotime('+3 days')) : date('Y-m-d');
 
                     <!-- Right: Selected Dates Panel -->
                     <div id="chipsSection"
-                      class="bg-white border border-slate-200 rounded-xl p-3.5 shadow-xs flex flex-col justify-between self-stretch min-h-[200px]">
+                      class="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-sm flex flex-col justify-between self-stretch min-h-[220px]">
                       <div>
-                        <div class="flex items-center justify-between pb-2 mb-2.5 border-b border-slate-100">
-                          <span class="font-bold text-slate-700 text-[11px] uppercase tracking-wide">
+                        <div class="flex items-center justify-between pb-3 mb-3 border-b border-slate-100">
+                          <span class="font-bold text-slate-700 text-xs uppercase tracking-wider">
                             Selected Dates (<span id="selectedDatesCount">0</span>)
                           </span>
                           <button type="button" id="btnClearDates" onclick="clearSelectedDates()"
-                            class="text-[11px] text-slate-400 hover:text-red-600 hidden font-medium transition-colors">Clear
-                            all</button>
+                            class="text-xs text-rose-600 hover:text-rose-700 hidden font-bold transition-colors cursor-pointer">Clear all</button>
                         </div>
 
-                        <div id="selectedDatesChips" class="flex flex-wrap items-center gap-1.5 min-h-[36px]">
-                          <span class="text-xs text-slate-400 italic" id="emptyDatesMsg">Click any date(s) on the
-                            calendar to select multiple dates.</span>
+                        <div id="selectedDatesChips" class="flex flex-wrap items-center gap-2 min-h-[40px]">
+                          <span class="text-sm text-slate-500 italic" id="emptyDatesMsg">Click any date(s) on the calendar to select multiple dates.</span>
                         </div>
                       </div>
 
                       <div
-                        class="mt-3 pt-2 border-t border-slate-100 text-[11px] text-slate-400 flex items-center gap-1.5">
-                        <svg class="w-3.5 h-3.5 text-blue-500 shrink-0" fill="none" stroke="currentColor"
+                        class="mt-4 pt-3 border-t border-slate-100 text-xs text-slate-500 flex items-center gap-2">
+                        <svg class="w-4 h-4 text-blue-500 shrink-0" fill="none" stroke="currentColor"
                           viewBox="0 0 24 24">
                           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                             d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -1091,190 +1089,206 @@ $signing_min = !$is_lease ? date('Y-m-d', strtotime('+3 days')) : date('Y-m-d');
 
                   <!-- Flexible banner -->
                   <div id="flexibleNotice"
-                    class="hidden mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800 flex items-center gap-2">
-                    <svg class="w-4 h-4 shrink-0 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    class="hidden p-4 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-900 flex items-start gap-3 shadow-sm">
+                    <svg class="w-5 h-5 shrink-0 text-amber-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                         d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
-                    <span>You marked yourself as <strong>Flexible</strong>. A signing schedule will be coordinated with
-                      you within the validity window.</span>
+                    <span class="text-xs sm:text-sm leading-relaxed">You marked yourself as <strong>Flexible</strong>. A signing schedule will be coordinated with you within the validity window.</span>
                   </div>
 
                 </div>
               </div>
 
               <!-- 6. REMARKS / SPECIAL REQUESTS -->
-              <div class="mb-6 space-y-1.5">
-                <label class="block text-xs font-semibold text-slate-700">Remarks / Special Requests (optional)</label>
+              <div class="border-t border-slate-200/80 pt-6 space-y-2">
+                <div class="flex items-center gap-2.5 mb-1">
+                  <div class="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-900 shrink-0">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h3 class="text-base font-bold text-slate-900 uppercase tracking-wide">Remarks / Special Requests</h3>
+                    <p class="text-xs text-slate-500">Optional notes for property management</p>
+                  </div>
+                </div>
+
                 <textarea id="resRemarks" name="remarks" rows="3" maxlength="500"
                   placeholder="Add any special requests or notes here..."
-                  class="w-full px-3.5 py-2 bg-white border border-slate-200 rounded-lg text-xs text-slate-800 resize-none focus:outline-none focus:border-slate-900"
+                  class="w-full px-4 py-3 bg-white border border-slate-300 rounded-xl text-sm text-slate-800 resize-none focus:outline-none focus:border-slate-900 focus:ring-2 focus:ring-slate-900/10 shadow-sm"
                   oninput="updateRemarksCount(this)"></textarea>
                 <div
-                  class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-1 text-[10px] text-slate-400">
-                  <p>Important Note: Special requests are subject to availability and property policies. Zeppelin Suites
-                    will make every reasonable effort to accommodate your request, but fulfillment is not guaranteed.
-                  </p>
-                  <span class="shrink-0 font-mono text-slate-500" id="remarksCount">0 / 500</span>
+                  class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-1.5 text-xs text-slate-500">
+                  <p>Important Note: Special requests are subject to availability and property policies.</p>
+                  <span class="shrink-0 font-mono text-slate-600 font-semibold" id="remarksCount">0 / 500</span>
                 </div>
               </div>
 
               <!-- 7. TERMS & CONDITIONS AND SUBMISSION -->
-              <div class="pt-4 border-t border-slate-100 flex flex-col gap-4">
+              <div class="border-t border-slate-200/80 pt-6 flex flex-col gap-5">
                 <label
-                  class="flex items-start gap-2.5 cursor-pointer select-none text-xs text-slate-600 leading-relaxed">
+                  class="flex items-start gap-3 cursor-pointer select-none text-sm text-slate-700 leading-relaxed">
                   <input type="checkbox" id="agreeTerms" required
-                    class="w-4 h-4 mt-0.5 rounded text-slate-900 accent-slate-900 shrink-0">
+                    class="w-4 h-4 mt-1 rounded text-slate-900 accent-slate-900 shrink-0 cursor-pointer">
                   <span>I agree to the <a href="<?= htmlspecialchars($baseUrl) ?>/terms-of-service" target="_blank"
-                      class="font-semibold text-slate-900 underline">Terms and Conditions</a> and <a
+                      class="font-semibold text-slate-900 underline hover:text-blue-600">Terms and Conditions</a> and <a
                       href="<?= htmlspecialchars($baseUrl) ?>/privacy-policy" target="_blank"
-                      class="font-semibold text-slate-900 underline">Privacy Policy</a> of Zeppelin Suites. I confirm
+                      class="font-semibold text-slate-900 underline hover:text-blue-600">Privacy Policy</a> of Zeppelin Suites. I confirm
                     that all information provided is accurate and complete.</span>
                 </label>
 
                 <div class="flex items-center justify-end pt-2">
                   <button type="submit" id="btnSubmitReservation"
-                    class="btn-press px-7 py-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-bold uppercase tracking-wider rounded-xl transition-all shadow-md hover:shadow-lg whitespace-nowrap">
-                    SUBMIT RESERVATION
+                    class="btn-press w-full sm:w-auto px-8 py-3.5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 disabled:bg-slate-300 disabled:cursor-not-allowed text-white text-sm font-bold uppercase tracking-wider rounded-xl transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2 cursor-pointer">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" />
+                    </svg>
+                    <span>SUBMIT RESERVATION</span>
                   </button>
                 </div>
               </div>
 
             </form>
           </div><!-- /formBody -->
-          <?php endif; ?>
+        <?php endif; ?>
 
-          <!-- Expired overlay -->
-          <div id="expiredOverlay" class="hidden p-10 text-center">
-            <div class="w-16 h-16 bg-red-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
-              <svg class="w-8 h-8 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                  d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-            <p class="text-xl font-bold text-slate-900 mb-2">Reservation Link Expired</p>
-            <p class="text-sm text-slate-500 mb-6">This reservation link is no longer valid. Please submit a new inquiry
-              to get a fresh reservation link.</p>
-            <a href="<?= htmlspecialchars($baseUrl) ?>/contact"
-              class="btn-press inline-block bg-slate-900 hover:bg-slate-700 text-white text-sm font-bold px-8 py-3 rounded-xl tracking-wide transition-all">Submit
-              New Inquiry</a>
+        <!-- Expired overlay -->
+        <div id="expiredOverlay" class="hidden p-10 text-center">
+          <div class="w-16 h-16 bg-rose-50 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-rose-100">
+            <svg class="w-8 h-8 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
           </div>
+          <p class="text-xl font-bold text-slate-900 mb-2">Reservation Link Expired</p>
+          <p class="text-sm text-slate-600 mb-6">This reservation link is no longer valid. Please submit a new inquiry to get a fresh reservation link.</p>
+          <a href="<?= htmlspecialchars($baseUrl) ?>/contact"
+            class="btn-press inline-block bg-slate-900 hover:bg-slate-700 text-white text-sm font-bold px-8 py-3.5 rounded-xl tracking-wide transition-all shadow-sm">Submit New Inquiry</a>
+        </div>
 
-        </div><!-- /form card -->
+      </div><!-- /form card -->
 
-        <!-- Need Help Card (Mobile only: displayed under form card) -->
-        <div class="block lg:hidden bg-white rounded-xl border border-slate-200 shadow-soft p-7">
-          <div class="flex items-center gap-3 mb-4">
-            <div class="w-8 h-8 rounded-full bg-slate-900 text-white flex items-center justify-center">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                  d="M8.228 9c.549-1.165 1.91-2 3.522-2 2.071 0 3.75 1.343 3.75 3 0 1.318-1.06 2.438-2.534 2.84-.815.222-1.216.81-1.216 1.41V15m0 4h.01" />
-              </svg>
-            </div>
-            <h3 class="text-lg font-bold uppercase tracking-wide">Need Help?</h3>
+      <!-- Need Help Card (Mobile only) -->
+      <div class="block lg:hidden bg-white rounded-2xl border border-slate-200 shadow-soft p-6 sm:p-7">
+        <div class="flex items-center gap-3 mb-3">
+          <div class="w-8 h-8 rounded-lg bg-slate-900 text-white flex items-center justify-center shrink-0">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M8.228 9c.549-1.165 1.91-2 3.522-2 2.071 0 3.75 1.343 3.75 3 0 1.318-1.06 2.438-2.534 2.84-.815.222-1.216.81-1.216 1.41V15m0 4h.01" />
+            </svg>
           </div>
-
-          <p class="text-sm text-slate-600 mb-5 ml-11">Our Sales Team is here to assist you.</p>
-
-          <div class="space-y-4 text-sm text-slate-800">
-            <div class="flex items-center gap-4">
-              <svg class="w-5 h-5 text-slate-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                  d="M3 5a2 2 0 012-2h2l2 5-2 1c1 2 3 4 5 5l1-2 5 2v2a2 2 0 01-2 2h-1C8.373 18 3 12.627 3 6V5z" />
-              </svg>
-              <span>+63 917 123 4567</span>
-            </div>
-
-            <div class="flex items-center gap-4">
-              <svg class="w-5 h-5 text-slate-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                  d="M3 8l9 6 9-6M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-              </svg>
-              <span>sales@zeppelinsuites.com</span>
-            </div>
-
-            <div class="flex items-center gap-4">
-              <svg class="w-5 h-5 text-slate-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                  d="M12 8v4l3 2m6-2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <span>Mon – Sat&nbsp;&nbsp; | &nbsp;&nbsp;9:00 AM – 6:00 PM</span>
-            </div>
+          <div>
+            <h3 class="text-sm font-bold uppercase tracking-wide text-slate-900">Need Help?</h3>
+            <p class="text-xs text-slate-500">Our Sales Team is here to assist you.</p>
           </div>
         </div>
-      
+
+        <div class="space-y-3 pt-3 border-t border-slate-100 text-sm text-slate-700">
+          <div class="flex items-center gap-3">
+            <svg class="w-4 h-4 text-slate-900 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M3 5a2 2 0 012-2h2l2 5-2 1c1 2 3 4 5 5l1-2 5 2v2a2 2 0 01-2 2h-1C8.373 18 3 12.627 3 6V5z" />
+            </svg>
+            <span class="font-medium">+63 917 123 4567</span>
+          </div>
+
+          <div class="flex items-center gap-3">
+            <svg class="w-4 h-4 text-slate-900 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M3 8l9 6 9-6M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+            </svg>
+            <span class="font-medium">sales@zeppelinsuites.com</span>
+          </div>
+
+          <div class="flex items-center gap-3">
+            <svg class="w-4 h-4 text-slate-900 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M12 8v4l3 2m6-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span class="font-medium">Mon – Sat | 9:00 AM – 6:00 PM</span>
+          </div>
+        </div>
+      </div>
+    
     </div>
   </main>
 
   <!-- 3. FOOTER -->
   <footer class="bg-slate-950 text-slate-300 mt-12">
-    <div class="max-w-[1180px] mx-auto px-5 py-5 flex flex-col md:flex-row justify-between gap-4 text-sm">
+    <div class="max-w-[1180px] mx-auto px-5 py-6 flex flex-col md:flex-row justify-between gap-4 text-sm">
       <div class="flex items-start gap-3">
-        <svg class="w-5 h-5 text-slate-400 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg class="w-5 h-5 text-slate-400 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
             d="M12 3l7 4v5c0 5-3.5 8.5-7 9-3.5-.5-7-4-7-9V7l7-4z" />
         </svg>
         <div>
           <p class="font-bold text-white">Your privacy is important to us.</p>
-          <p class="text-slate-500">All information collected is used solely for reservation purposes.</p>
+          <p class="text-slate-400 text-xs sm:text-sm">All information collected is used solely for reservation purposes.</p>
         </div>
       </div>
-      <p class="text-slate-500">© <?= date('Y') ?> Zeppelin Suites. All rights reserved.</p>
+      <p class="text-slate-400 text-xs sm:text-sm">© <?= date('Y') ?> Zeppelin Suites. All rights reserved.</p>
     </div>
   </footer>
 
   <!-- 4. MODALS -->
   <!-- Confirmation Modal -->
-  <div id="confirmModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50 px-4">
-    <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 space-y-4">
-      <h3 class="text-lg font-bold text-slate-900">Confirm Reservation Submission</h3>
-      <p class="text-xs text-slate-600 leading-relaxed">
+  <div id="confirmModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/60 backdrop-blur-sm px-4">
+    <div class="bg-white rounded-3xl shadow-2xl max-w-md w-full p-6 sm:p-7 space-y-4 border border-slate-100">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        </div>
+        <h3 class="text-lg font-bold text-slate-900">Confirm Reservation</h3>
+      </div>
+      <p class="text-sm text-slate-600 leading-relaxed">
         Please review your submitted information before continuing. Once submitted, your reservation will be forwarded
         to the administration and unit owner for review.
       </p>
-      <div class="flex justify-end gap-2.5 pt-2">
+      <div class="flex flex-col-reverse sm:flex-row justify-end gap-2.5 pt-3 border-t border-slate-100">
         <button type="button" onclick="closeConfirmModal()"
-          class="px-4 py-2 border border-slate-200 hover:bg-slate-50 rounded-lg text-xs font-semibold text-slate-700">Go
-          Back</button>
+          class="w-full sm:w-auto px-5 py-2.5 border border-slate-200 hover:bg-slate-50 rounded-xl text-sm font-semibold text-slate-700 transition-colors cursor-pointer">Go Back</button>
         <button type="button" onclick="proceedSubmit()"
-          class="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition-colors shadow-sm">Submit</button>
+          class="w-full sm:w-auto px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-bold transition-colors shadow-sm cursor-pointer">Yes, Submit</button>
       </div>
     </div>
   </div>
 
   <!-- QR Enlarged Lightbox Modal -->
-  <div id="qrModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/60 backdrop-blur-sm px-4"
+  <div id="qrModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/60 backdrop-blur-sm px-4"
     onclick="closeQRModal()">
-    <div class="bg-white rounded-3xl p-5 max-w-sm w-full shadow-2xl border border-slate-100 text-center"
+    <div class="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl border border-slate-100 text-center"
       onclick="event.stopPropagation()">
-      <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-3">
-        <h3 class="text-sm font-bold text-slate-900" id="qrModalTitle"><?= $ownerName ?>'s GCash QR</h3>
+      <div class="flex items-center justify-between pb-3.5 border-b border-slate-100 mb-4">
+        <h3 class="text-base font-bold text-slate-900" id="qrModalTitle"><?= $ownerName ?>'s GCash QR</h3>
         <button type="button" onclick="closeQRModal()"
-          class="p-1 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-700">
+          class="p-1.5 rounded-xl hover:bg-slate-100 text-slate-500 hover:text-slate-800 transition-colors cursor-pointer">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
           </svg>
         </button>
       </div>
-      <div class="p-3 bg-slate-50 rounded-2xl flex items-center justify-center min-h-[220px]" id="qrModalContent">
+      <div class="p-4 bg-slate-50 rounded-2xl flex items-center justify-center min-h-[240px]" id="qrModalContent">
         <img id="qrModalImg" src="<?= htmlspecialchars($resolvedOwnerQrUrl) ?>" alt="GCash QR"
           class="<?= $owner_has_qr ? '' : 'hidden' ?> max-h-[60vh] max-w-full object-contain rounded-xl shadow-sm">
         <div id="qrModalPlaceholder" class="<?= $owner_has_qr ? 'hidden' : '' ?> text-center py-6">
-          <div class="w-12 h-12 mx-auto rounded-full bg-slate-100 flex items-center justify-center text-slate-400 mb-2">
+          <div class="w-12 h-12 mx-auto rounded-full bg-slate-100 flex items-center justify-center text-slate-500 mb-2">
             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                 d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
             </svg>
           </div>
-          <p class="text-xs font-bold text-slate-700">QR Code Not Available</p>
-          <p class="text-[11px] text-slate-500 mt-1">This unit owner has not yet uploaded a GCash QR code.<br>Please
-            select 'Pay In-House' to complete your reservation.</p>
+          <p class="text-sm font-bold text-slate-800">QR Code Not Available</p>
+          <p class="text-xs text-slate-600 mt-1.5 leading-relaxed">This unit owner has not yet uploaded a GCash QR code.<br>Please select 'Pay In-House' to complete your reservation.</p>
         </div>
       </div>
-      <p class="text-xs text-slate-500 mt-3">Scan with GCash or any supported e-wallet</p>
-      <div class="pt-3 flex justify-end">
+      <p class="text-xs text-slate-500 mt-3 font-medium">Scan with GCash or any supported e-wallet</p>
+      <div class="pt-4 flex justify-end border-t border-slate-100 mt-3">
         <button type="button" onclick="closeQRModal()"
-          class="px-4 py-1.5 text-xs font-bold rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-200">Close</button>
+          class="w-full sm:w-auto px-5 py-2 text-sm font-bold rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors cursor-pointer">Close</button>
       </div>
     </div>
   </div>
@@ -1313,19 +1327,19 @@ $signing_min = !$is_lease ? date('Y-m-d', strtotime('+3 days')) : date('Y-m-d');
 
       if (now > expiresAt) {
         reservationStatus = 'expired';
-        banner.className = 'status-banner rounded-xl border px-5 sm:px-7 py-4 sm:py-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 sm:gap-5 bg-red-50 border-red-200 shadow-sm';
-        document.getElementById('countdownRing').innerHTML = '<svg class="w-11 h-11 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>';
+        banner.className = 'status-banner rounded-2xl border px-5 sm:px-7 py-4 sm:py-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 sm:gap-5 bg-rose-50 border-rose-200 shadow-sm';
+        document.getElementById('countdownRing').innerHTML = '<svg class="w-11 h-11 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>';
         title.textContent = 'Reservation Link Expired';
-        title.className = 'font-bold text-red-800';
+        title.className = 'font-bold text-rose-900 text-base';
         msg.textContent = 'This reservation link has expired. Please submit a new inquiry.';
-        msg.className = 'text-sm mt-1 text-red-700';
+        msg.className = 'text-sm mt-0.5 text-rose-700 leading-snug';
         if (timerGrid) timerGrid.classList.add('hidden');
         if (expiredText) expiredText.classList.remove('hidden');
-        if (timerCard) timerCard.className = 'rounded-xl border border-red-200 bg-red-50/90 px-4 py-2.5 text-center shrink-0 shadow-xs self-start sm:self-auto';
+        if (timerCard) timerCard.className = 'rounded-xl border border-rose-200 bg-rose-50/90 px-4 py-2.5 text-center shrink-0 shadow-sm self-start sm:self-auto';
         if (minutesBox) minutesBox.textContent = 'EXPIRED';
         if (countdown) countdown.textContent = '';
-        formBody.classList.add('hidden');
-        expiredOverlay.classList.remove('hidden');
+        if (formBody) formBody.classList.add('hidden');
+        if (expiredOverlay) expiredOverlay.classList.remove('hidden');
         if (submitBtn) submitBtn.disabled = true;
         return;
       }
@@ -1338,9 +1352,9 @@ $signing_min = !$is_lease ? date('Y-m-d', strtotime('+3 days')) : date('Y-m-d');
       const isUrgent = remaining <= 24 * 60 * 60; // last day
 
       title.textContent = 'Reservation Pending';
-      title.className = 'font-bold text-amber-800';
+      title.className = 'font-bold text-amber-900 text-base';
       msg.textContent = 'Please complete the form and submit before the reservation link expires.';
-      msg.className = 'text-sm text-slate-600 mt-1';
+      msg.className = 'text-sm text-slate-700 mt-0.5 leading-snug';
 
       if (timerGrid) timerGrid.classList.remove('hidden');
       if (expiredText) expiredText.classList.add('hidden');
@@ -1357,7 +1371,7 @@ $signing_min = !$is_lease ? date('Y-m-d', strtotime('+3 days')) : date('Y-m-d');
 
       if (ringLabel) {
         ringLabel.textContent = days > 0 ? days : hours;
-        ringLabel.className = `absolute inset-0 flex items-center justify-center text-[10px] font-bold ${isUrgent ? 'text-red-500' : 'text-amber-700'}`;
+        ringLabel.className = `absolute inset-0 flex items-center justify-center text-xs font-bold font-mono ${isUrgent ? 'text-rose-600' : 'text-amber-800'}`;
       }
     }
 
@@ -1461,14 +1475,14 @@ $signing_min = !$is_lease ? date('Y-m-d', strtotime('+3 days')) : date('Y-m-d');
           msgBox.textContent = `Your requested stay (${reqStart} – ${reqEnd}) overlaps with an existing active reservation on ${unitPrefix} (${cStart} – ${cEnd}). Please select a different move-in date.`;
         }
         if (moveInEl) {
-          moveInEl.classList.add('border-red-500', 'bg-red-50/40');
-          moveInEl.classList.remove('border-slate-200');
+          moveInEl.classList.add('border-rose-500', 'bg-rose-50/40');
+          moveInEl.classList.remove('border-slate-300');
         }
       } else {
         if (alertBox) alertBox.classList.add('hidden');
         if (moveInEl) {
-          moveInEl.classList.remove('border-red-500', 'bg-red-50/40');
-          moveInEl.classList.add('border-slate-200');
+          moveInEl.classList.remove('border-rose-500', 'bg-rose-50/40');
+          moveInEl.classList.add('border-slate-300');
         }
       }
 
@@ -1557,7 +1571,7 @@ $signing_min = !$is_lease ? date('Y-m-d', strtotime('+3 days')) : date('Y-m-d');
       let html = '';
 
       for (let i = 0; i < firstDayIndex; i++) {
-        html += '<span class="py-1 text-transparent select-none">.</span>';
+        html += '<span class="h-9 sm:h-10 flex items-center justify-center text-transparent select-none">.</span>';
       }
 
       for (let d = 1; d <= totalDays; d++) {
@@ -1572,11 +1586,11 @@ $signing_min = !$is_lease ? date('Y-m-d', strtotime('+3 days')) : date('Y-m-d');
 
         if (isOutOfRange) {
           const tooltip = isAfterMax ? 'Signing appointment must be on or before move-in date' : 'Date unavailable';
-          html += `<span class="py-1 text-slate-300 cursor-not-allowed select-none text-[11px]" title="${tooltip}">${d}</span>`;
+          html += `<span class="h-9 sm:h-10 flex items-center justify-center text-slate-300 cursor-not-allowed select-none text-xs sm:text-sm font-medium" title="${tooltip}">${d}</span>`;
         } else if (isSelected) {
-          html += `<button type="button" onclick="toggleSigningDate('${dateStr}')" class="py-1 bg-[#0f172a] text-white font-bold rounded-lg shadow-xs hover:bg-slate-800 transition-colors text-[11px]" title="Click to remove">${d}</button>`;
+          html += `<button type="button" onclick="toggleSigningDate('${dateStr}')" class="h-9 sm:h-10 flex items-center justify-center bg-slate-900 text-white font-bold rounded-xl shadow-sm hover:bg-slate-800 transition-colors text-xs sm:text-sm cursor-pointer" title="Click to remove">${d}</button>`;
         } else {
-          html += `<button type="button" onclick="toggleSigningDate('${dateStr}')" class="py-1 text-slate-700 hover:bg-blue-50 hover:text-blue-700 font-medium rounded-lg transition-colors text-[11px]">${d}</button>`;
+          html += `<button type="button" onclick="toggleSigningDate('${dateStr}')" class="h-9 sm:h-10 flex items-center justify-center text-slate-800 hover:bg-blue-50 hover:text-blue-700 font-semibold rounded-xl transition-colors text-xs sm:text-sm cursor-pointer">${d}</button>`;
         }
       }
 
@@ -1657,7 +1671,7 @@ $signing_min = !$is_lease ? date('Y-m-d', strtotime('+3 days')) : date('Y-m-d');
       if (!container) return;
 
       if (arr.length === 0) {
-        container.innerHTML = '<span class="text-xs text-slate-400 italic" id="emptyDatesMsg">Click any date(s) on the calendar to select multiple dates.</span>';
+        container.innerHTML = '<span class="text-sm text-slate-500 italic" id="emptyDatesMsg">Click any date(s) on the calendar to select multiple dates.</span>';
         return;
       }
 
@@ -1665,10 +1679,10 @@ $signing_min = !$is_lease ? date('Y-m-d', strtotime('+3 days')) : date('Y-m-d');
       arr.forEach(d => {
         const formatted = formatDisplayDate(d);
         chipsHtml += `
-      <span class="inline-flex items-center gap-1.5 bg-slate-900 text-white text-[11px] font-semibold px-2.5 py-0.5 rounded-full shadow-xs">
+      <span class="inline-flex items-center gap-2 bg-slate-900 text-white text-xs font-semibold px-3 py-1.5 rounded-full shadow-sm">
         <span>${formatted}</span>
-        <button type="button" onclick="removeSigningDate('${d}')" class="text-slate-300 hover:text-white transition-colors" title="Remove date">
-          <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
+        <button type="button" onclick="removeSigningDate('${d}')" class="text-slate-300 hover:text-white transition-colors cursor-pointer" title="Remove date">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
         </button>
       </span>
     `;
@@ -1744,7 +1758,7 @@ $signing_min = !$is_lease ? date('Y-m-d', strtotime('+3 days')) : date('Y-m-d');
         if (qrPlaceholderWrap) qrPlaceholderWrap.classList.add('hidden');
         if (qrCodeContainer) {
           qrCodeContainer.classList.remove('cursor-not-allowed', 'opacity-90');
-          qrCodeContainer.classList.add('cursor-pointer', 'hover:border-slate-400');
+          qrCodeContainer.classList.add('cursor-pointer', 'hover:border-slate-400', 'shadow-sm');
         }
         if (qrInstructionText) {
           qrInstructionText.textContent = "Use the GCash app to scan and pay directly to the unit owner's GCash account.";
@@ -1770,7 +1784,7 @@ $signing_min = !$is_lease ? date('Y-m-d', strtotime('+3 days')) : date('Y-m-d');
         if (qrPlaceholderWrap) qrPlaceholderWrap.classList.remove('hidden');
         if (qrCodeContainer) {
           qrCodeContainer.classList.add('cursor-not-allowed', 'opacity-90');
-          qrCodeContainer.classList.remove('cursor-pointer', 'hover:border-slate-400');
+          qrCodeContainer.classList.remove('cursor-pointer', 'hover:border-slate-400', 'shadow-sm');
         }
         if (qrInstructionText) {
           qrInstructionText.textContent = "GCash QR code is currently not available for this unit.";
@@ -1779,7 +1793,7 @@ $signing_min = !$is_lease ? date('Y-m-d', strtotime('+3 days')) : date('Y-m-d');
           qrClickNote.textContent = "The unit owner has not yet uploaded their GCash QR.";
         }
         if (proofUploadWrapper) {
-          proofUploadWrapper.className = 'transition-all opacity-40 pointer-events-none select-none bg-slate-100/70 p-2.5 rounded-xl border border-dashed border-slate-300';
+          proofUploadWrapper.className = 'transition-all opacity-50 pointer-events-none select-none bg-slate-100/80 p-3 rounded-xl border border-dashed border-slate-300';
         }
         if (proofUpload) {
           proofUpload.disabled = true;
@@ -1803,8 +1817,8 @@ $signing_min = !$is_lease ? date('Y-m-d', strtotime('+3 days')) : date('Y-m-d');
       const hasQr = currentUnitHasQr();
 
       if (type === 'GCash QR') {
-        tabGcash.className = 'flex-1 py-2 px-3 text-xs font-bold transition-all bg-[#0f172a] text-white';
-        tabInHouse.className = 'flex-1 py-2 px-3 text-xs font-bold transition-all bg-slate-100 text-slate-600 hover:bg-slate-200';
+        tabGcash.className = 'flex-1 py-2.5 px-4 text-sm font-bold rounded-lg transition-all bg-slate-900 text-white shadow-sm cursor-pointer';
+        tabInHouse.className = 'flex-1 py-2.5 px-4 text-sm font-bold rounded-lg transition-all text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 cursor-pointer';
         panelGcash.classList.remove('hidden');
         panelInHouse.classList.add('hidden');
         if (hasQr) {
@@ -1815,8 +1829,8 @@ $signing_min = !$is_lease ? date('Y-m-d', strtotime('+3 days')) : date('Y-m-d');
           proofUpload.disabled = true;
         }
       } else {
-        tabGcash.className = 'flex-1 py-2 px-3 text-xs font-bold transition-all bg-slate-100 text-slate-600 hover:bg-slate-200';
-        tabInHouse.className = 'flex-1 py-2 px-3 text-xs font-bold transition-all bg-[#0f172a] text-white';
+        tabGcash.className = 'flex-1 py-2.5 px-4 text-sm font-bold rounded-lg transition-all text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 cursor-pointer';
+        tabInHouse.className = 'flex-1 py-2.5 px-4 text-sm font-bold rounded-lg transition-all bg-slate-900 text-white shadow-sm cursor-pointer';
         panelGcash.classList.add('hidden');
         panelInHouse.classList.remove('hidden');
         proofUpload.required = false;
@@ -1873,7 +1887,7 @@ $signing_min = !$is_lease ? date('Y-m-d', strtotime('+3 days')) : date('Y-m-d');
       const dispUnitNum = document.getElementById('dispUnitNum');
       if (dispUnitNum) {
         const typeUpper = (unit.unit_type || 'STUDIO TYPE').toUpperCase();
-        dispUnitNum.textContent = `${unit.unit_number || '—'} - ${typeUpper}`;
+        dispUnitNum.textContent = `${unit.unit_number || '—'} — ${typeUpper}`;
       }
 
       const dispFurnishing = document.getElementById('dispFurnishing');
@@ -1896,9 +1910,9 @@ $signing_min = !$is_lease ? date('Y-m-d', strtotime('+3 days')) : date('Y-m-d');
       const emailWrapper = document.getElementById('dispOwnerEmailWrapper');
       if (emailWrapper) {
         if (unit.owner_email && unit.owner_email.trim() !== '') {
-          emailWrapper.innerHTML = `<a href="mailto:${escapeHtml(unit.owner_email)}" class="text-xs font-bold text-slate-900 underline hover:text-blue-600 truncate block leading-snug" id="dispOwnerEmailLink">${escapeHtml(unit.owner_email)}</a>`;
+          emailWrapper.innerHTML = `<a href="mailto:${escapeHtml(unit.owner_email)}" class="text-sm font-bold text-blue-600 hover:text-blue-800 underline truncate block leading-snug" id="dispOwnerEmailLink">${escapeHtml(unit.owner_email)}</a>`;
         } else {
-          emailWrapper.innerHTML = `<p class="text-xs font-bold text-slate-900 leading-snug" id="dispOwnerEmailText">—</p>`;
+          emailWrapper.innerHTML = `<p class="text-sm font-bold text-slate-900 leading-snug" id="dispOwnerEmailText">—</p>`;
         }
       }
 
@@ -2121,8 +2135,10 @@ $signing_min = !$is_lease ? date('Y-m-d', strtotime('+3 days')) : date('Y-m-d');
 
     function proceedSubmit() {
       const btn = document.getElementById('btnSubmitReservation');
-      btn.disabled = true;
-      btn.textContent = 'SUBMITTING...';
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<svg class="w-4 h-4 animate-spin shrink-0" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg><span>SUBMITTING...</span>';
+      }
       document.getElementById('reservationForm').submit();
     }
 
@@ -2179,16 +2195,16 @@ $signing_min = !$is_lease ? date('Y-m-d', strtotime('+3 days')) : date('Y-m-d');
 
   <!-- Form Validation Status Modal -->
   <div id="formStatusModal"
-    class="modal-backdrop fixed inset-0 z-[500] bg-slate-900/50 flex items-center justify-center p-4 hidden"
-    style="backdrop-filter: blur(3px);" onclick="if(event.target===this)closeFormStatusModal()">
+    class="modal-backdrop fixed inset-0 z-[500] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 hidden"
+    onclick="if(event.target===this)closeFormStatusModal()">
     <div
       class="modal-card bg-white rounded-3xl shadow-2xl border border-slate-100 p-6 sm:p-7 max-w-sm w-full text-center"
       onclick="event.stopPropagation()">
       <div id="formStatusIcon" class="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4 border"></div>
-      <h3 class="text-base sm:text-lg font-bold text-slate-900 mb-1" id="formStatusTitle">Notice</h3>
-      <p class="text-xs text-slate-500 mb-6 leading-relaxed" id="formStatusMessage"></p>
+      <h3 class="text-lg font-bold text-slate-900 mb-1.5" id="formStatusTitle">Notice</h3>
+      <p class="text-sm text-slate-600 mb-6 leading-relaxed" id="formStatusMessage"></p>
       <button type="button" onclick="closeFormStatusModal()"
-        class="w-full py-2.5 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold transition-all shadow-sm">
+        class="w-full py-3 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-sm font-bold transition-all shadow-sm cursor-pointer">
         Got It
       </button>
     </div>
