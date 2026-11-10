@@ -1012,10 +1012,44 @@ function switchCalendarView(mode) {
     if (hintEl) hintEl.innerHTML = '<span class="hidden sm:inline">Hover or tap on timeline bars for details</span>';
     renderTimeline();
     setTimeout(() => {
-      const today = toLocalISODate(new Date());
-      const todayTh = document.querySelector(`th[data-date="${today}"]`);
-      if (todayTh) todayTh.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
-    }, 100);
+      scrollTimelineToToday(true);
+    }, 50);
+  }
+}
+
+function scrollTimelineToToday(smooth = true, targetDate = null) {
+  const wrapper = document.getElementById("timelineWrapper");
+  if (!wrapper) return;
+
+  const targetDateStr = targetDate || toLocalISODate(new Date());
+  const targetTh = wrapper.querySelector(`th[data-date="${targetDateStr}"]`);
+  const labelTh = wrapper.querySelector("th.label-col");
+
+  if (targetTh) {
+    const wrapperRect = wrapper.getBoundingClientRect();
+    const labelThRect = labelTh ? labelTh.getBoundingClientRect() : { width: 160 };
+    const targetThRect = targetTh.getBoundingClientRect();
+
+    if (wrapperRect.width === 0 || targetThRect.width === 0) {
+      requestAnimationFrame(() => scrollTimelineToToday(smooth, targetDate));
+      return;
+    }
+
+    const targetVisualLeft = wrapperRect.left + labelThRect.width;
+    const delta = targetThRect.left - targetVisualLeft;
+    const targetScroll = Math.max(0, wrapper.scrollLeft + delta);
+
+    try {
+      wrapper.scrollTo({ left: targetScroll, behavior: smooth ? "smooth" : "auto" });
+    } catch (_) {
+      wrapper.scrollLeft = targetScroll;
+    }
+  } else {
+    try {
+      wrapper.scrollTo({ left: 0, behavior: smooth ? "smooth" : "auto" });
+    } catch (_) {
+      wrapper.scrollLeft = 0;
+    }
   }
 }
 
@@ -1499,6 +1533,9 @@ function changeMonth(dir) {
   currentDate.setMonth(currentDate.getMonth() + dir);
   closePickers();
   renderActiveView();
+  if (currentView === "timeline") {
+    setTimeout(() => scrollTimelineToToday(false), 50);
+  }
 }
 
 function goToday() {
@@ -1506,6 +1543,9 @@ function goToday() {
   selectedDate = toLocalISODate(new Date());
   closePickers();
   renderActiveView();
+  if (currentView === "timeline") {
+    setTimeout(() => scrollTimelineToToday(true), 50);
+  }
 }
 
 let yearPickerBase = Math.floor(new Date().getFullYear() / 12) * 12;
@@ -1599,6 +1639,9 @@ function populateMonthGrid() {
       currentDate.setMonth(idx);
       closePickers();
       renderActiveView();
+      if (currentView === "timeline") {
+        setTimeout(() => scrollTimelineToToday(false), 50);
+      }
     });
     grid.appendChild(btn);
   });
@@ -1630,6 +1673,9 @@ function populateYearGrid() {
       currentDate.setFullYear(y);
       closePickers();
       renderActiveView();
+      if (currentView === "timeline") {
+        setTimeout(() => scrollTimelineToToday(false), 50);
+      }
     });
     grid.appendChild(btn);
   }
@@ -1948,6 +1994,9 @@ function executeCalConfirm() {
   buildFilterSidebar();
   populateBlockManualUnits();
   switchCalendarView(currentView);
+  if (currentView === "timeline") {
+    setTimeout(() => scrollTimelineToToday(false), 80);
+  }
 })();
 </script>
 

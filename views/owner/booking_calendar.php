@@ -955,10 +955,44 @@ function switchCalendarView(mode) {
     if (hintEl) hintEl.innerHTML = '<span class="hidden sm:inline">Hover or tap on timeline bars for details</span>';
     renderTimeline();
     setTimeout(() => {
-      const today = toLocalISODate(new Date());
-      const todayTh = document.querySelector(`th[data-date="${today}"]`);
-      if (todayTh) todayTh.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
-    }, 100);
+      scrollTimelineToToday(true);
+    }, 50);
+  }
+}
+
+function scrollTimelineToToday(smooth = true, targetDate = null) {
+  const wrapper = document.getElementById("timelineWrapper");
+  if (!wrapper) return;
+
+  const targetDateStr = targetDate || toLocalISODate(new Date());
+  const targetTh = wrapper.querySelector(`th[data-date="${targetDateStr}"]`);
+  const labelTh = wrapper.querySelector("th.label-col");
+
+  if (targetTh) {
+    const wrapperRect = wrapper.getBoundingClientRect();
+    const labelThRect = labelTh ? labelTh.getBoundingClientRect() : { width: 160 };
+    const targetThRect = targetTh.getBoundingClientRect();
+
+    if (wrapperRect.width === 0 || targetThRect.width === 0) {
+      requestAnimationFrame(() => scrollTimelineToToday(smooth, targetDate));
+      return;
+    }
+
+    const targetVisualLeft = wrapperRect.left + labelThRect.width;
+    const delta = targetThRect.left - targetVisualLeft;
+    const targetScroll = Math.max(0, wrapper.scrollLeft + delta);
+
+    try {
+      wrapper.scrollTo({ left: targetScroll, behavior: smooth ? "smooth" : "auto" });
+    } catch (_) {
+      wrapper.scrollLeft = targetScroll;
+    }
+  } else {
+    try {
+      wrapper.scrollTo({ left: 0, behavior: smooth ? "smooth" : "auto" });
+    } catch (_) {
+      wrapper.scrollLeft = 0;
+    }
   }
 }
 
@@ -1251,10 +1285,17 @@ function confirmUnblockDirect(block) {
       fd.append("block_id", block.blockId);
 
       try {
-        const res = await fetch(`${BASE_URL}/owner/booking-calendar/unblock`, { method: "POST", body: fd });
-        const data = await res.json();
-        if (!data.success) {
-          showToast(`❌ ${data.message || 'Could not unblock dates.'}`);
+        const res = await fetch(`${BASE_URL}/owner/booking-calendar/unblock`, {
+          method: "POST",
+          headers: {
+            "X-Requested-With": "XMLHttpRequest",
+            "Accept": "application/json"
+          },
+          body: fd
+        });
+        const data = await res.json().catch(() => null);
+        if (!res.ok || !data || !data.success) {
+          showToast(`❌ ${data?.message || 'Could not unblock dates.'}`);
           return;
         }
         hideQuickView();
@@ -1457,12 +1498,18 @@ function changeMonth(dir) {
   currentDate.setMonth(currentDate.getMonth() + dir);
   closePickers();
   renderActiveView();
+  if (currentView === "timeline") {
+    setTimeout(() => scrollTimelineToToday(false), 50);
+  }
 }
 
 function goToday() {
   currentDate = new Date();
   closePickers();
   renderActiveView();
+  if (currentView === "timeline") {
+    setTimeout(() => scrollTimelineToToday(true), 50);
+  }
 }
 
 let yearPickerBase = Math.floor(new Date().getFullYear() / 12) * 12;
@@ -1583,6 +1630,9 @@ function selectMonth(monthIndex) {
   currentDate.setMonth(monthIndex);
   closePickers();
   renderActiveView();
+  if (currentView === "timeline") {
+    setTimeout(() => scrollTimelineToToday(false), 50);
+  }
 }
 
 function shiftYearPage(offset, e) {
@@ -1625,6 +1675,9 @@ function selectYear(year) {
   currentDate.setFullYear(year);
   closePickers();
   renderActiveView();
+  if (currentView === "timeline") {
+    setTimeout(() => scrollTimelineToToday(false), 50);
+  }
 }
 
 function handleCellClick(unitType, room, unitId, dateStr) {
@@ -1724,11 +1777,15 @@ async function handleSaveBlockDates(e) {
   try {
     const res = await fetch(`${BASE_URL}/owner/booking-calendar/block`, {
       method: "POST",
+      headers: {
+        "X-Requested-With": "XMLHttpRequest",
+        "Accept": "application/json"
+      },
       body: fd
     });
-    const data = await res.json();
-    if (!data.success) {
-      errNotice.textContent = data.message || "Failed to block dates.";
+    const data = await res.json().catch(() => null);
+    if (!res.ok || !data || !data.success) {
+      errNotice.textContent = data?.message || "Failed to block dates.";
       errNotice.classList.remove("hidden");
       btn.disabled = false;
       btn.textContent = "Block Dates";
@@ -1835,10 +1892,17 @@ async function handleUnblockClick() {
       fd.append("block_id", block.blockId);
 
       try {
-        const res = await fetch(`${BASE_URL}/owner/booking-calendar/unblock`, { method: "POST", body: fd });
-        const data = await res.json();
-        if (!data.success) {
-          showToast("❌ " + (data.message || "Could not unblock dates."));
+        const res = await fetch(`${BASE_URL}/owner/booking-calendar/unblock`, {
+          method: "POST",
+          headers: {
+            "X-Requested-With": "XMLHttpRequest",
+            "Accept": "application/json"
+          },
+          body: fd
+        });
+        const data = await res.json().catch(() => null);
+        if (!res.ok || !data || !data.success) {
+          showToast("❌ " + (data?.message || "Could not unblock dates."));
           return;
         }
         hideQuickView();
@@ -1922,6 +1986,9 @@ function executeCalConfirm() {
   buildFilterSidebar();
   populateBlockManualUnits();
   switchCalendarView(currentView);
+  if (currentView === "timeline") {
+    setTimeout(() => scrollTimelineToToday(false), 80);
+  }
 })();
 </script>
 

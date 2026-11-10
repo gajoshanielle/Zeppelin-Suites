@@ -121,80 +121,92 @@ class BookingCalendar extends Model {
         int $userId,
         string $role = 'admin'
     ): array {
-        if ($unitId <= 0) {
-            return ['success' => false, 'message' => 'Please select a valid unit.'];
+        try {
+            if ($unitId <= 0) {
+                return ['success' => false, 'message' => 'Please select a valid unit.'];
+            }
+
+            $startDate = trim($startDate);
+            $endDate = trim($endDate);
+
+            if ($startDate === '' || $endDate === '') {
+                return ['success' => false, 'message' => 'Start date and end date are required.'];
+            }
+
+            $today = date('Y-m-d');
+            if ($startDate < $today) {
+                return ['success' => false, 'message' => 'Start date cannot be in the past. It must be today or a future date.'];
+            }
+
+            if ($endDate < $startDate) {
+                return ['success' => false, 'message' => 'End date cannot be earlier than start date.'];
+            }
+
+            $allowedTypes = ['Not Available', 'Maintenance'];
+            if (!in_array($blockType, $allowedTypes, true)) {
+                $blockType = 'Not Available';
+            }
+
+            // Normalize role to strictly match enum('admin', 'unit owner') in unit_blocked_dates_table
+            $cleanRole = in_array(strtolower(trim($role)), ['unit owner', 'owner'], true) ? 'unit owner' : 'admin';
+
+            // 1. Verify unit exists
+            $unitStmt = $this->db->prepare("SELECT unit_id, unit_number, unit_type, unit_owner_id FROM units_table WHERE unit_id = ? LIMIT 1");
+            $unitStmt->execute([$unitId]);
+            $unit = $unitStmt->fetch(PDO::FETCH_ASSOC);
+
+            if (!$unit) {
+                return ['success' => false, 'message' => 'Selected unit not found.'];
+            }
+
+            // If unit owner, verify that this unit belongs to the owner
+            if ($cleanRole === 'unit owner' && $userId > 0 && (int)($unit['unit_owner_id'] ?? 0) !== $userId) {
+                return ['success' => false, 'message' => 'You do not have permission to block dates for this unit.'];
+            }
+
+            // 2. Check for overlapping active reservations
+            $resStmt = $this->db->prepare("
+                SELECT reservation_id, client_name, move_in_date, move_out_date 
+                FROM reservation_table 
+                WHERE unit_id = ? 
+                  AND LOWER(reservation_status) NOT IN ('cancelled', 'rejected')
+                  AND move_in_date <= ? AND move_out_date >= ?
+                LIMIT 1
+            ");
+            $resStmt->execute([$unitId, $endDate, $startDate]);
+            $overlap = $resStmt->fetch(PDO::FETCH_ASSOC);
+
+            if ($overlap) {
+                $msg = sprintf(
+                    'Cannot block dates: Unit %s already has an active lease for "%s" from %s to %s.',
+                    $unit['unit_number'],
+                    $overlap['client_name'],
+                    date('M j, Y', strtotime((string)$overlap['move_in_date'])),
+                    date('M j, Y', strtotime((string)$overlap['move_out_date']))
+                );
+                return ['success' => false, 'message' => $msg];
+            }
+
+            // 3. Insert into unit_blocked_dates_table
+            $insertStmt = $this->db->prepare("
+                INSERT INTO unit_blocked_dates_table 
+                    (unit_id, start_date, end_date, block_type, remarks, created_by_user_id, created_by_role)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            ");
+            $insertStmt->execute([
+                $unitId,
+                $startDate,
+                $endDate,
+                $blockType,
+                $remarks !== '' ? $remarks : null,
+                $userId,
+                $cleanRole,
+            ]);
+
+            return ['success' => true, 'message' => 'Unit dates blocked successfully.'];
+        } catch (\Throwable $e) {
+            return ['success' => false, 'message' => 'Failed to block unit dates: ' . $e->getMessage()];
         }
-
-        $startDate = trim($startDate);
-        $endDate = trim($endDate);
-
-        if ($startDate === '' || $endDate === '') {
-            return ['success' => false, 'message' => 'Start date and end date are required.'];
-        }
-
-        $today = date('Y-m-d');
-        if ($startDate < $today) {
-            return ['success' => false, 'message' => 'Start date cannot be in the past. It must be today or a future date.'];
-        }
-
-        if ($endDate < $startDate) {
-            return ['success' => false, 'message' => 'End date cannot be earlier than start date.'];
-        }
-
-        $allowedTypes = ['Not Available', 'Maintenance'];
-        if (!in_array($blockType, $allowedTypes, true)) {
-            $blockType = 'Not Available';
-        }
-
-        // 1. Verify unit exists
-        $unitStmt = $this->db->prepare("SELECT unit_id, unit_number, unit_type FROM units_table WHERE unit_id = ? LIMIT 1");
-        $unitStmt->execute([$unitId]);
-        $unit = $unitStmt->fetch(PDO::FETCH_ASSOC);
-
-        if (!$unit) {
-            return ['success' => false, 'message' => 'Selected unit not found.'];
-        }
-
-        // 2. Check for overlapping active reservations
-        $resStmt = $this->db->prepare("
-            SELECT reservation_id, client_name, move_in_date, move_out_date 
-            FROM reservation_table 
-            WHERE unit_id = ? 
-              AND LOWER(reservation_status) NOT IN ('cancelled', 'rejected')
-              AND move_in_date <= ? AND move_out_date >= ?
-            LIMIT 1
-        ");
-        $resStmt->execute([$unitId, $endDate, $startDate]);
-        $overlap = $resStmt->fetch(PDO::FETCH_ASSOC);
-
-        if ($overlap) {
-            $msg = sprintf(
-                'Cannot block dates: Unit %s already has an active lease for "%s" from %s to %s.',
-                $unit['unit_number'],
-                $overlap['client_name'],
-                date('M j, Y', strtotime((string)$overlap['move_in_date'])),
-                date('M j, Y', strtotime((string)$overlap['move_out_date']))
-            );
-            return ['success' => false, 'message' => $msg];
-        }
-
-        // 3. Insert into unit_blocked_dates_table
-        $insertStmt = $this->db->prepare("
-            INSERT INTO unit_blocked_dates_table 
-                (unit_id, start_date, end_date, block_type, remarks, created_by_user_id, created_by_role)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-        ");
-        $insertStmt->execute([
-            $unitId,
-            $startDate,
-            $endDate,
-            $blockType,
-            $remarks !== '' ? $remarks : null,
-            $userId,
-            $role,
-        ]);
-
-        return ['success' => true, 'message' => 'Unit dates blocked successfully.'];
     }
 
     /**
@@ -203,17 +215,21 @@ class BookingCalendar extends Model {
      * @return array{success: bool, message: string}
      */
     public function deleteBlockedDate(int $blockId): array {
-        if ($blockId <= 0) {
-            return ['success' => false, 'message' => 'Invalid block ID.'];
+        try {
+            if ($blockId <= 0) {
+                return ['success' => false, 'message' => 'Invalid block ID.'];
+            }
+
+            $stmt = $this->db->prepare("DELETE FROM unit_blocked_dates_table WHERE block_id = ? LIMIT 1");
+            $stmt->execute([$blockId]);
+
+            if ($stmt->rowCount() > 0) {
+                return ['success' => true, 'message' => 'Unit dates successfully unblocked.'];
+            }
+
+            return ['success' => false, 'message' => 'Block record not found or already removed.'];
+        } catch (\Throwable $e) {
+            return ['success' => false, 'message' => 'Failed to unblock dates: ' . $e->getMessage()];
         }
-
-        $stmt = $this->db->prepare("DELETE FROM unit_blocked_dates_table WHERE block_id = ? LIMIT 1");
-        $stmt->execute([$blockId]);
-
-        if ($stmt->rowCount() > 0) {
-            return ['success' => true, 'message' => 'Unit dates successfully unblocked.'];
-        }
-
-        return ['success' => false, 'message' => 'Block record not found or already removed.'];
     }
 }

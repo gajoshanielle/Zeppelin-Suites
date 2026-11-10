@@ -57,49 +57,57 @@ class BookingCalendarController extends Controller {
      * AJAX POST endpoint to block unit dates.
      */
     public function saveBlockedDate(): void {
-        $userSession = Middleware::requireRole(['admin']);
+        try {
+            $userSession = Middleware::requireRole(['admin']);
 
-        if (!$this->isPost()) {
-            $this->json(['success' => false, 'message' => 'Method not allowed.'], 405);
-            return;
+            if (!$this->isPost()) {
+                $this->json(['success' => false, 'message' => 'Method not allowed.'], 405);
+                return;
+            }
+
+            $unitId = (int)$this->getPost('unit_id', 0);
+            $startDate = (string)$this->getPost('start_date', '');
+            $endDate = (string)$this->getPost('end_date', '');
+            $blockType = (string)$this->getPost('block_type', 'Not Available');
+            $remarks = (string)$this->getPost('remarks', '');
+            $userId = (int)($userSession['user_id'] ?? 0);
+
+            $result = $this->calendarModel->saveBlockedDate(
+                $unitId,
+                $startDate,
+                $endDate,
+                $blockType,
+                $remarks,
+                $userId,
+                'admin'
+            );
+
+            $status = $result['success'] ? 200 : 422;
+            $this->json($result, $status);
+        } catch (\Throwable $e) {
+            $this->json(['success' => false, 'message' => 'Error: ' . $e->getMessage()], 500);
         }
-
-        $unitId = (int)$this->getPost('unit_id', 0);
-        $startDate = (string)$this->getPost('start_date', '');
-        $endDate = (string)$this->getPost('end_date', '');
-        $blockType = (string)$this->getPost('block_type', 'Not Available');
-        $remarks = (string)$this->getPost('remarks', '');
-        $userId = (int)($userSession['user_id'] ?? 0);
-
-        $result = $this->calendarModel->saveBlockedDate(
-            $unitId,
-            $startDate,
-            $endDate,
-            $blockType,
-            $remarks,
-            $userId,
-            'admin'
-        );
-
-        $status = $result['success'] ? 200 : 422;
-        $this->json($result, $status);
     }
 
     /**
      * AJAX POST endpoint to unblock unit dates.
      */
     public function deleteBlockedDate(): void {
-        Middleware::requireRole(['admin']);
+        try {
+            Middleware::requireRole(['admin']);
 
-        if (!$this->isPost()) {
-            $this->json(['success' => false, 'message' => 'Method not allowed.'], 405);
-            return;
+            if (!$this->isPost()) {
+                $this->json(['success' => false, 'message' => 'Method not allowed.'], 405);
+                return;
+            }
+
+            $blockId = (int)$this->getPost('block_id', 0);
+            $result = $this->calendarModel->deleteBlockedDate($blockId);
+
+            $status = $result['success'] ? 200 : 422;
+            $this->json($result, $status);
+        } catch (\Throwable $e) {
+            $this->json(['success' => false, 'message' => 'Error: ' . $e->getMessage()], 500);
         }
-
-        $blockId = (int)$this->getPost('block_id', 0);
-        $result = $this->calendarModel->deleteBlockedDate($blockId);
-
-        $status = $result['success'] ? 200 : 422;
-        $this->json($result, $status);
     }
 }

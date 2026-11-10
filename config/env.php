@@ -85,3 +85,6 @@ if (!function_exists('env')) {
 // Automatically load .env from the project root if it exists
 $rootDir = dirname(__DIR__);
 loadEnv($rootDir . DIRECTORY_SEPARATOR . '.env');
+
+// Set application default timezone
+date_default_timezone_set((string)env('APP_TIMEZONE', 'Asia/Manila'));
