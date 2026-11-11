@@ -1,0 +1,2247 @@
+<?php
+declare(strict_types=1);
+
+/**
+ * Zeppelin Suites - Reservation Form View
+ *
+ * @var array  $data
+ * @var bool   $owner_has_qr
+ * @var string $owner_qr_path
+ * @var bool   $is_lease
+ * @var float  $price_basis
+ * @var string $price_label
+ * @var string $transaction_type
+ * @var string $resident_type
+ * @var string $reservation_type
+ * @var int    $lease_months
+ * @var string $max_signing_date
+ * @var array  $blocked_ranges
+ * @var string $token
+ * @var string $baseUrl
+ * @var string $pageTitle
+ * @var string $activePage
+ */
+
+// Format unit numbers and values safely from controller payload
+$selectedUnitData = !empty($data['data']) && is_array($data['data']) ? $data['data'] : (isset($data['unit']) && is_array($data['unit']) ? $data['unit'] : (is_array($data) ? $data : []));
+$is_lease = isset($is_lease)
+  ? (bool) $is_lease
+  : (!empty($data['is_lease'])
+    ? (bool) $data['is_lease']
+    : (strpos(strtolower((string) ($selectedUnitData['listing_type'] ?? '')), 'resale') === false && strpos(strtolower((string) ($selectedUnitData['inquiry_type'] ?? '')), 'resale') === false));
+$approvedUnitsList = !empty($approved_units) ? $approved_units : (!empty($data['approved_units']) ? $data['approved_units'] : []);
+$selectedUnitId = (int) ($selectedUnitData['unit_id'] ?? ($selectedUnitData['approved_unit_id'] ?? 0));
+
+$allUnitsHeld = !empty($all_units_held) || !empty($data['all_units_held']);
+$hasTentativeUnits = !empty($has_tentative_units) || !empty($data['has_tentative_units']);
+$availableUnitsCount = isset($available_units_count) ? (int) $available_units_count : (isset($data['available_units_count']) ? (int) $data['available_units_count'] : count($approvedUnitsList));
+$tokenExpiresAt = !empty($token_expires_at) ? (string) $token_expires_at : (!empty($data['token_expires_at']) ? (string) $data['token_expires_at'] : (!empty($max_signing_date) ? (string) $max_signing_date : date('Y-m-d H:i:s', strtotime('+30 days'))));
+$tokenExpiresFormatted = date('F j, Y, g:i A', strtotime($tokenExpiresAt));
+
+if (empty($approvedUnitsList)) {
+  $approvedUnitsList[] = [
+    'unit_id' => $selectedUnitId,
+    'unit_number' => (string) ($selectedUnitData['unit_number'] ?? '—'),
+    'unit_type' => (string) ($selectedUnitData['unit_type'] ?? 'Studio Type'),
+    'floor_number' => (string) ($selectedUnitData['floor_number'] ?? '1'),
+    'sqm' => (string) ($selectedUnitData['sqm'] ?? '37'),
+    'furnishing' => (string) ($selectedUnitData['furnishing'] ?? 'Fully Furnished'),
+    'listing_type' => (string) ($selectedUnitData['listing_type'] ?? 'For Lease'),
+    'owner_name' => (string) ($selectedUnitData['owner_name'] ?? 'Unit Owner'),
+    'owner_email' => (string) ($selectedUnitData['owner_email'] ?? ''),
+    'owner_contact' => (string) ($selectedUnitData['owner_contact'] ?? '—'),
+    'price_basis' => (float) $price_basis,
+    'price_label' => (string) $price_label,
+    'formatted_price_basis' => '₱' . number_format((float) $price_basis, 2),
+    'dp_amount_35' => number_format((float) $price_basis * 0.35, 2),
+    'owner_has_qr' => (bool) $owner_has_qr,
+    'owner_qr_path' => (string) $owner_qr_path,
+    'is_available' => true,
+    'is_tentative' => false,
+    'dropdown_label' => ($selectedUnitData['unit_number'] ?? 'Unit') . ' (' . ($selectedUnitData['unit_type'] ?? 'Unit') . ') - ₱' . number_format((float) $price_basis, 0) . ' (' . ($selectedUnitData['owner_name'] ?? 'Owner') . ')',
+  ];
+}
+
+$unitNum = !empty($selectedUnitData['unit_number']) ? htmlspecialchars((string) $selectedUnitData['unit_number']) : '—';
+$unitTypeUpper = !empty($selectedUnitData['unit_type']) ? strtoupper(htmlspecialchars((string) $selectedUnitData['unit_type'])) : 'STUDIO TYPE';
+$floorNum = !empty($selectedUnitData['floor_number']) ? htmlspecialchars((string) $selectedUnitData['floor_number']) : '1';
+$sqmVal = !empty($selectedUnitData['sqm']) ? htmlspecialchars((string) $selectedUnitData['sqm']) : '37';
+$furnishingVal = !empty($selectedUnitData['furnishing']) ? htmlspecialchars((string) $selectedUnitData['furnishing']) : 'Fully Furnished.';
+$listingVal = !empty($selectedUnitData['listing_type']) ? htmlspecialchars((string) $selectedUnitData['listing_type']) : 'For Lease';
+$ownerName = !empty($selectedUnitData['owner_name']) ? htmlspecialchars((string) $selectedUnitData['owner_name']) : 'No owner assigned';
+$ownerEmail = !empty($selectedUnitData['owner_email']) ? htmlspecialchars((string) $selectedUnitData['owner_email']) : '';
+$ownerContact = !empty($selectedUnitData['owner_contact']) ? htmlspecialchars((string) $selectedUnitData['owner_contact']) : '—';
+$resolvedOwnerQrUrl = (str_starts_with((string) $owner_qr_path, 'http://') || str_starts_with((string) $owner_qr_path, 'https://'))
+  ? (string) $owner_qr_path
+  : rtrim($baseUrl, '/') . '/' . ltrim((string) $owner_qr_path, '/');
+
+// Format client information
+$clientName = !empty($selectedUnitData['sender_name']) ? (string) $selectedUnitData['sender_name'] : (!empty($client_name) ? (string) $client_name : (string) ($data['client_name'] ?? ''));
+$clientEmail = !empty($selectedUnitData['sender_email']) ? (string) $selectedUnitData['sender_email'] : (!empty($client_email) ? (string) $client_email : (string) ($data['client_email'] ?? ''));
+$clientContact = !empty($selectedUnitData['sender_contact']) ? (string) $selectedUnitData['sender_contact'] : (!empty($client_contact) ? (string) $client_contact : (string) ($data['client_contact'] ?? ''));
+
+// Format lease duration display
+$rawLeaseDuration = !empty($selectedUnitData['lease_duration']) ? (string) $selectedUnitData['lease_duration'] : '1 year';
+$isDurationNotSure = (stripos($rawLeaseDuration, 'not sure') !== false || empty($selectedUnitData['lease_duration']));
+$inqLeaseDuration = htmlspecialchars($rawLeaseDuration);
+if (stripos($inqLeaseDuration, 'longer') !== false || stripos($inqLeaseDuration, '3 year') !== false) {
+  $inqLeaseDuration = '1 year';
+}
+$inqPreferredMoveIn = !empty($selectedUnitData['preferred_move_in_time']) ? htmlspecialchars((string) $selectedUnitData['preferred_move_in_time']) : 'Immediately';
+$isMoveInFlexible = (stripos($inqPreferredMoveIn, 'flexible') !== false || stripos($inqPreferredMoveIn, 'not sure') !== false);
+
+// Expiry date for date limits and move-in lead time
+$maxSigningDate = !empty($max_signing_date) ? $max_signing_date : date('Y-m-d', strtotime('+30 days'));
+$move_in_min = !empty($selectedUnitData['earliest_move_in_date']) ? $selectedUnitData['earliest_move_in_date'] : (!empty($earliest_move_in_date) ? $earliest_move_in_date : date('Y-m-d', strtotime('+3 days')));
+$move_in_min_formatted = !empty($selectedUnitData['earliest_move_in_formatted']) ? $selectedUnitData['earliest_move_in_formatted'] : (!empty($earliest_move_in_formatted) ? $earliest_move_in_formatted : date('M j, Y', strtotime($move_in_min)));
+
+// Calculate maximum allowed move-in date based on earliest availability and preferred timeline
+$prefMoveLower = strtolower(trim((string) $inqPreferredMoveIn));
+
+// The move-in window must be anchored to the unit's earliest available date
+$baseMoveStart = new DateTime($move_in_min);
+$todayDate = new DateTime('today');
+if ($baseMoveStart < $todayDate) {
+  $baseMoveStart = clone $todayDate;
+}
+
+$moveMaxDate = clone $baseMoveStart;
+if (strpos($prefMoveLower, 'immediate') !== false) {
+  $moveMaxDate->modify('+30 days');
+} elseif (strpos($prefMoveLower, '1 month') !== false) {
+  $moveMaxDate->modify('+45 days');
+} elseif (strpos($prefMoveLower, '1-2') !== false || strpos($prefMoveLower, '1–2') !== false || strpos($prefMoveLower, '1-3') !== false || strpos($prefMoveLower, '1–3') !== false) {
+  $moveMaxDate->modify('+90 days');
+} elseif (strpos($prefMoveLower, '2-3') !== false || strpos($prefMoveLower, '2–3') !== false) {
+  $moveMaxDate->modify('+105 days');
+} elseif (strpos($prefMoveLower, '3-6') !== false || strpos($prefMoveLower, '3–6') !== false) {
+  $moveMaxDate->modify('+180 days');
+} else {
+  $moveMaxDate->modify('+180 days');
+}
+
+// Guarantee move_in_max is at least move_in_min + 30 days so the date picker range is always valid
+$minAllowedMax = (clone $baseMoveStart)->modify('+30 days');
+if ($moveMaxDate < $minAllowedMax) {
+  $moveMaxDate = $minAllowedMax;
+}
+
+$move_in_max = $moveMaxDate->format('Y-m-d');
+$signing_min = !$is_lease ? date('Y-m-d', strtotime('+3 days')) : date('Y-m-d');
+?>
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>
+    <?= htmlspecialchars($pageTitle ?? ($is_lease ? 'Zeppelin Suites — Unit Lease Reservation' : 'Zeppelin Suites — Unit Resale Reservation')) ?>
+  </title>
+  <link
+    href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=DM+Mono:wght@400;500;600&display=swap"
+    rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['DM Sans', 'sans-serif'],
+            mono: ['DM Mono', 'monospace']
+          },
+          boxShadow: {
+            soft: '0 22px 70px rgba(15, 23, 42, 0.08)'
+          },
+          colors: {
+            navy: {
+              900: '#0f172a',
+              950: '#090d16'
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    * {
+      font-family: 'DM Sans', sans-serif;
+    }
+
+    .btn-press {
+      transition: all 0.15s ease;
+    }
+
+    .btn-press:active {
+      transform: scale(0.98);
+    }
+
+    .zep-hero {
+      background:
+        radial-gradient(circle at 85% 25%, rgba(59, 130, 246, 0.08), transparent 26%),
+        linear-gradient(90deg, #ffffff 0%, #ffffff 58%, #f8fbff 100%);
+    }
+
+    .building-mark {
+      position: absolute;
+      right: 0;
+      bottom: 0;
+      width: 230px;
+      height: 110px;
+      opacity: .09;
+      background:
+        linear-gradient(90deg, transparent 0 8px, #0f172a 8px 12px, transparent 12px 24px) 0 0/24px 100%,
+        linear-gradient(0deg, transparent 0 12px, #0f172a 12px 15px, transparent 15px 28px) 0 0/100% 28px;
+      clip-path: polygon(18% 100%, 18% 24%, 42% 24%, 42% 4%, 67% 4%, 67% 42%, 91% 42%, 91% 100%);
+    }
+
+    .form-card-header {
+      background:
+        radial-gradient(circle at 100% 0%, rgba(29, 78, 216, .22), transparent 28%),
+        linear-gradient(135deg, #091329 0%, #1e293b 100%);
+    }
+
+    input[type="date"]::-webkit-calendar-picker-indicator {
+      cursor: pointer;
+      opacity: 0.6;
+    }
+
+    input[type="date"]::-webkit-calendar-picker-indicator:hover {
+      opacity: 1;
+    }
+
+    ::-webkit-scrollbar {
+      width: 5px;
+      height: 5px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: #f1f5f9;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+
+<body class="bg-slate-50 text-slate-900 min-h-screen">
+
+  <!-- 1. HERO HEADER -->
+  <header class="zep-hero relative overflow-hidden border-b border-slate-200 bg-white">
+    <div class="building-mark hidden md:block"></div>
+
+    <div class="max-w-[1180px] mx-auto px-5 py-7 md:py-8 flex flex-col sm:flex-row sm:items-center justify-between gap-6 relative">
+      <div>
+        <h1 class="text-3xl md:text-4xl font-bold tracking-tight text-slate-950">
+          <?= $is_lease ? 'Unit Lease Reservation' : 'Unit Resale Reservation' ?>
+        </h1>
+        <p class="mt-2 text-base md:text-lg text-slate-600">
+          Reserve your preferred unit for 30 days.
+        </p>
+      </div>
+
+      <div class="hidden md:flex items-center gap-3 bg-white/80 backdrop-blur-sm border border-slate-200/90 rounded-2xl px-4 py-3 shadow-sm">
+        <div class="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600 shrink-0">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M12 3l7 4v5c0 5-3.5 8.5-7 9-3.5-.5-7-4-7-9V7l7-4z" />
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4" />
+          </svg>
+        </div>
+        <div>
+          <p class="font-bold text-slate-900 text-sm leading-tight">Secure &amp; Confidential</p>
+          <p class="text-xs text-slate-500 mt-0.5">Your information is safe with us.</p>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN CONTENT CONTAINER -->
+  <main class="max-w-[1180px] mx-auto px-5 py-8 md:py-10">
+
+    <div class="grid grid-cols-1 lg:grid-cols-[minmax(0,720px)_360px] gap-8 lg:gap-9 items-start">
+
+      <!-- STATUS BANNER WRAPPER -->
+      <div class="lg:col-start-1 lg:row-start-1">
+        <!-- STATUS BANNER -->
+        <div
+          class="status-banner rounded-2xl border border-amber-200 bg-amber-50/90 shadow-sm px-5 sm:px-7 py-4 sm:py-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 sm:gap-5"
+          id="statusBanner">
+          <div class="flex items-center gap-4">
+            <div
+              class="w-14 h-14 rounded-2xl bg-white border border-amber-200/90 flex items-center justify-center shadow-sm shrink-0"
+              id="statusIconWrap">
+              <div id="countdownRing" class="relative w-11 h-11">
+                <svg class="w-11 h-11 -rotate-90" viewBox="0 0 44 44">
+                  <circle cx="22" cy="22" r="17" fill="none" stroke="#f1e1bd" stroke-width="4" />
+                  <circle id="ringProgress" cx="22" cy="22" r="17" fill="none" stroke="#b7791f" stroke-width="4"
+                    stroke-dasharray="106.8" stroke-dashoffset="0" stroke-linecap="round" />
+                </svg>
+                <span class="absolute inset-0 flex items-center justify-center text-xs font-bold font-mono text-amber-800"
+                  id="ringLabel">30</span>
+              </div>
+            </div>
+            <div>
+              <p class="font-bold text-amber-900 text-base" id="statusTitle">Reservation Pending</p>
+              <p class="text-sm text-slate-700 mt-0.5 leading-snug" id="statusMsg">Please complete the form and submit before the timer expires.</p>
+            </div>
+          </div>
+
+          <!-- TIME AND HOUR COUNTDOWN BOX -->
+          <div
+            class="rounded-xl border border-amber-200 bg-white px-4 py-2.5 text-center shrink-0 shadow-sm self-start sm:self-auto"
+            id="statusTimerBox">
+            <div class="flex items-center justify-center gap-2" id="timerGrid">
+              <!-- Days Column -->
+              <div class="flex flex-col items-center min-w-[36px]">
+                <span class="font-mono text-2xl font-extrabold text-amber-900 leading-none" id="statusDays">30</span>
+                <span class="text-xs font-bold text-amber-700 tracking-wider uppercase mt-1">Days</span>
+              </div>
+
+              <!-- Separator Colon -->
+              <span class="font-mono text-xl font-bold text-amber-400 leading-none -mt-3.5 select-none">:</span>
+
+              <!-- Hours Column -->
+              <div class="flex flex-col items-center min-w-[36px]">
+                <span class="font-mono text-2xl font-extrabold text-amber-900 leading-none" id="statusHours">00</span>
+                <span class="text-xs font-bold text-amber-700 tracking-wider uppercase mt-1">Hours</span>
+              </div>
+            </div>
+            <div id="statusExpiredText"
+              class="hidden font-mono text-xs font-bold text-rose-600 uppercase tracking-wider py-1 px-1">
+              Expired
+            </div>
+            <span id="statusMinutes" class="hidden"></span>
+            <p class="hidden text-xs font-semibold mt-1" id="statusCountdown" style="font-family:'DM Mono',monospace">
+            </p>
+          </div>
+        </div>
+      </div><!-- /status banner wrapper -->
+
+      <!-- RIGHT SIDEBAR: Guidelines & Help -->
+      <aside class="lg:col-start-2 lg:row-start-1 lg:row-end-3 space-y-6 lg:sticky lg:top-6">
+
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-soft p-6 sm:p-7">
+          <div class="flex items-center gap-3 mb-5">
+            <div class="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-900 shrink-0">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M9 5h6M9 3h6a2 2 0 012 2v1h1a2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V8a2 2 0 012-2h1V5a2 2 0 012-2z" />
+              </svg>
+            </div>
+            <h3 class="text-base sm:text-lg font-bold uppercase tracking-wide text-slate-900">Reservation Guidelines</h3>
+          </div>
+
+          <p class="text-sm sm:text-base leading-relaxed text-slate-700 mb-6">
+            A condominium unit may be reserved for thirty days by presenting a Reservation Fee per unit, and the following documents:
+          </p>
+
+          <div class="space-y-4 mb-6">
+            <div class="flex gap-3.5 items-start">
+              <div class="w-11 h-11 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600 shrink-0">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M10 6H5a2 2 0 00-2 2v8a2 2 0 002 2h5m4-12h5a2 2 0 012 2v8a2 2 0 01-2 2h-5M8 11h2m-2 4h2m5-4h1m-1 4h1" />
+                </svg>
+              </div>
+              <div>
+                <p class="font-bold text-slate-900 text-sm">Photocopy of two (2) valid IDs</p>
+                <p class="text-xs text-slate-500 mt-0.5">i.e. passport, driver's license</p>
+              </div>
+            </div>
+
+            <div class="flex gap-3.5 items-start">
+              <div class="w-11 h-11 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600 shrink-0">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 3h7l5 5v13H7V3z" />
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 3v6h5M10 14h6M10 18h6" />
+                </svg>
+              </div>
+              <div>
+                <p class="font-bold text-slate-900 text-sm">Tax Identification Number</p>
+                <p class="text-xs text-slate-500 mt-0.5">(TIN)</p>
+              </div>
+            </div>
+
+            <div class="flex gap-3.5 items-start">
+              <div class="w-11 h-11 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600 shrink-0">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L9.75 16.902 6 18l1.098-3.75L18.55 2.799" />
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M19 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h6" />
+                </svg>
+              </div>
+              <div>
+                <p class="font-bold text-slate-900 text-sm">Reservation Agreement</p>
+                <p class="text-xs text-slate-500 mt-0.5">signed by buyer / tenant</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="rounded-xl border border-blue-200 bg-blue-50/80 p-4 sm:p-5">
+            <div class="flex items-center gap-2.5 mb-2.5">
+              <div class="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-xs shrink-0">i</div>
+              <p class="text-blue-800 font-bold uppercase tracking-wide text-xs">Important</p>
+            </div>
+            <p class="text-xs sm:text-sm leading-relaxed text-slate-700">
+              Please submit the fee and the specified documents within <span class="font-bold text-slate-900">thirty (30) days</span>; otherwise your reservation may be cancelled and the fee may be forfeited.
+            </p>
+            <p class="text-xs sm:text-sm leading-relaxed text-slate-700 mt-2.5">
+              For assistance and clarification, please contact our Sales Department.
+            </p>
+          </div>
+
+          <div class="rounded-xl border border-blue-200 bg-blue-50/80 p-4 sm:p-5 mt-4">
+            <div class="flex items-center gap-2.5 mb-2.5">
+              <div class="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-xs shrink-0">!</div>
+              <p class="text-blue-800 font-bold uppercase tracking-wide text-xs">Please Note</p>
+            </div>
+            <p class="text-xs sm:text-sm leading-relaxed text-slate-700">
+              Submitting this form reserves your unit. We will notify you when your agreement is ready to sign. Afterwards, meet with the owner or representative to submit your signed agreement and valid IDs.
+            </p>
+          </div>
+        </div>
+
+        <!-- Need Help Card (Desktop) -->
+        <div class="hidden lg:block bg-white rounded-2xl border border-slate-200 shadow-soft p-6 sm:p-7">
+          <div class="flex items-center gap-3 mb-3">
+            <div class="w-8 h-8 rounded-lg bg-slate-900 text-white flex items-center justify-center shrink-0">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M8.228 9c.549-1.165 1.91-2 3.522-2 2.071 0 3.75 1.343 3.75 3 0 1.318-1.06 2.438-2.534 2.84-.815.222-1.216.81-1.216 1.41V15m0 4h.01" />
+              </svg>
+            </div>
+            <div>
+              <h3 class="text-sm font-bold uppercase tracking-wide text-slate-900">Need Help?</h3>
+              <p class="text-xs text-slate-500">Our Sales Team is here to assist you.</p>
+            </div>
+          </div>
+
+          <div class="space-y-3 pt-3 border-t border-slate-100 text-sm text-slate-700">
+            <div class="flex items-center gap-3">
+              <svg class="w-4 h-4 text-slate-900 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M3 5a2 2 0 012-2h2l2 5-2 1c1 2 3 4 5 5l1-2 5 2v2a2 2 0 01-2 2h-1C8.373 18 3 12.627 3 6V5z" />
+              </svg>
+              <span class="font-medium">+63 917 123 4567</span>
+            </div>
+
+            <div class="flex items-center gap-3">
+              <svg class="w-4 h-4 text-slate-900 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M3 8l9 6 9-6M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+              </svg>
+              <span class="font-medium">sales@zeppelinsuites.com</span>
+            </div>
+
+            <div class="flex items-center gap-3">
+              <svg class="w-4 h-4 text-slate-900 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M12 8v4l3 2m6-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span class="font-medium">Mon – Sat | 9:00 AM – 6:00 PM</span>
+            </div>
+          </div>
+        </div>
+
+      </aside>
+
+      <!-- FORM CARD -->
+      <div class="lg:col-start-1 lg:row-start-2 bg-white rounded-2xl border border-slate-200 shadow-soft overflow-hidden" id="formCard">
+
+        <!-- Form Card Header -->
+        <div class="form-card-header px-6 sm:px-8 py-6 text-white">
+          <h2 class="text-xl sm:text-2xl font-bold tracking-tight" id="formCardTitle">
+            <?= $allUnitsHeld ? 'Unit Reservation Status' : ($is_lease ? 'Unit Lease Reservation Form' : 'Unit Resale Reservation Form') ?>
+          </h2>
+          <p class="text-slate-300 text-xs sm:text-sm mt-1">
+            <?= $allUnitsHeld ? 'Zeppelin Suites — First-Come, First-Served Status Notice' : 'Zeppelin Suites — Please fill in all required fields' ?>
+          </p>
+        </div>
+
+        <?php if ($allUnitsHeld): ?>
+          <!-- TENTATIVE HOLD NOTICE FOR APPLICANT -->
+          <div class="p-8 sm:p-12 text-center space-y-6">
+            <div class="w-16 h-16 rounded-2xl bg-amber-50 border border-amber-200/80 flex items-center justify-center mx-auto text-amber-600 shadow-sm">
+              <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+
+            <div class="max-w-md mx-auto space-y-2">
+              <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-amber-100 text-amber-800">
+                <span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
+                Tentative Hold (FCFS)
+              </span>
+              <h3 class="text-2xl font-bold text-slate-900 tracking-tight">
+                <?= count($approvedUnitsList) > 1 ? 'Approved Units on Tentative Hold' : 'Unit Currently on Tentative Hold' ?>
+              </h3>
+              <p class="text-sm text-slate-600 leading-relaxed">
+                Another prospective client has tentatively submitted a reservation for <strong><?= $unitNum ?></strong> under our <strong>First-Come, First-Served</strong> policy.
+              </p>
+            </div>
+
+            <!-- Unit & Status Card -->
+            <div class="max-w-lg mx-auto bg-slate-50 border border-slate-200 rounded-2xl p-5 text-left space-y-3.5 shadow-sm">
+              <div class="flex items-center justify-between pb-3 border-b border-slate-200/70 text-xs">
+                <span class="font-semibold text-slate-500">Unit</span>
+                <span class="font-bold text-slate-900"><?= $unitNum ?> — <?= $unitTypeUpper ?></span>
+              </div>
+              <div class="flex items-center justify-between pb-3 border-b border-slate-200/70 text-xs">
+                <span class="font-semibold text-slate-500">Transaction</span>
+                <span class="font-bold text-slate-900"><?= htmlspecialchars($transactionType ?? 'Unit Resale') ?></span>
+              </div>
+              <div class="flex items-center justify-between pb-3 border-b border-slate-200/70 text-xs">
+                <span class="font-semibold text-slate-500">Reservation Status</span>
+                <span class="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-bold bg-amber-100 text-amber-800">Tentative Hold (Pending Review)</span>
+              </div>
+              <div class="flex items-center justify-between text-xs">
+                <span class="font-semibold text-slate-500">Your Link Remains Valid Until</span>
+                <span class="font-bold text-slate-900"><?= htmlspecialchars($tokenExpiresFormatted) ?></span>
+              </div>
+            </div>
+
+            <!-- Explanatory Box -->
+            <div class="max-w-lg mx-auto bg-blue-50/70 border border-blue-200/80 rounded-2xl p-4 text-left flex items-start gap-3">
+              <svg class="w-5 h-5 text-blue-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <div class="text-xs text-slate-700 leading-relaxed space-y-1">
+                <p class="font-bold text-blue-900">What happens next?</p>
+                <p>Because reservations are tentative pending administrative review of the payment proof and documents, your reservation link remains active. If the current applicant's reservation is cancelled or rejected, this unit will <strong>automatically reopen</strong> on this page.</p>
+              </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="flex flex-wrap items-center justify-center gap-3 pt-2">
+              <button type="button" onclick="window.location.reload()" class="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition shadow-sm flex items-center gap-2 cursor-pointer">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                Check Again / Refresh
+              </button>
+              <a href="<?= htmlspecialchars($baseUrl) ?>/" class="px-5 py-2.5 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 rounded-xl text-xs font-bold transition shadow-sm">
+                Return to Home
+              </a>
+            </div>
+          </div>
+        <?php else: ?>
+          <!-- Form Body -->
+          <div class="p-6 sm:p-8 space-y-8" id="formBody">
+            <form id="reservationForm" action="<?= htmlspecialchars($baseUrl) ?>/reservation/submit" method="POST"
+              enctype="multipart/form-data" onsubmit="return handleFormSubmit(event)">
+              <?= Csrf::field() ?>
+              <input type="hidden" name="reservation_token" value="<?= htmlspecialchars($token) ?>">
+              <input type="hidden" id="paymentMethodInput" name="payment_method" value="GCash QR">
+              <input type="hidden" id="moveOutDate" name="move_out_date">
+              <input type="hidden" id="declaredAmountInput" name="declared_amount"
+                value="<?= (float) $price_basis * 0.35 ?>">
+              <input type="hidden" id="selectedUnitId" name="selected_unit_id" value="<?= $selectedUnitId ?>">
+
+              <!-- 1. UNIT DETAILS BOX -->
+              <div class="border border-slate-200 rounded-2xl p-5 sm:p-6 bg-white shadow-sm mb-8 space-y-5">
+                <!-- Header Row -->
+                <div class="flex items-center justify-between pb-3.5 border-b border-slate-100">
+                  <div class="flex items-center gap-2.5">
+                    <div class="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-900 shrink-0">
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                      </svg>
+                    </div>
+                    <div>
+                      <h3 class="text-base font-bold text-slate-900 uppercase tracking-wide">Unit Details</h3>
+                    </div>
+                  </div>
+                  <span
+                    class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <?= count($approvedUnitsList) ?> Approved <?= count($approvedUnitsList) === 1 ? 'Unit' : 'Units' ?>
+                    <?php if ($availableUnitsCount < count($approvedUnitsList)): ?>
+                      <span class="text-slate-500 font-normal">(<?= $availableUnitsCount ?> Available)</span>
+                    <?php endif; ?>
+                  </span>
+                </div>
+
+                <!-- Full-Width Unit Selection Dropdown -->
+                <div>
+                  <label for="approvedUnitSelect" class="block text-sm font-semibold text-slate-700 mb-1.5">
+                    Choose Unit:
+                  </label>
+                  <div class="relative w-full">
+                    <select id="approvedUnitSelect" onchange="handleUnitSelectionChange(this.value)"
+                      class="w-full text-sm font-semibold text-slate-900 bg-white hover:bg-slate-50 border border-slate-300 rounded-xl py-3 pl-4 pr-10 focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-900 cursor-pointer shadow-sm transition-all appearance-none">
+                      <?php foreach ($approvedUnitsList as $au): ?>
+                        <?php 
+                          $isAvail = !isset($au['is_available']) || (bool)$au['is_available'];
+                          $isTent = !empty($au['is_tentative']);
+                        ?>
+                        <option value="<?= (int) $au['unit_id'] ?>" 
+                                <?= ((int) $au['unit_id'] === $selectedUnitId) ? 'selected' : '' ?>
+                                <?= !$isAvail ? 'disabled class="text-slate-400 bg-slate-100"' : '' ?>>
+                          <?= htmlspecialchars($au['dropdown_label'] ?? ($au['unit_number'] . ' - ' . $au['unit_type'])) ?>
+                        </option>
+                      <?php endforeach; ?>
+                    </select>
+                    <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-500">
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Clean Key-Value Card with Headline -->
+                <div class="bg-slate-50/80 rounded-xl p-4 sm:p-5 border border-slate-200/80">
+                  <div class="flex flex-col sm:flex-row sm:items-baseline justify-between gap-1 mb-4 pb-3 border-b border-slate-200/70">
+                    <div>
+                      <span class="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-0.5">Selected Unit</span>
+                      <h4 class="text-lg sm:text-xl font-extrabold text-slate-900 tracking-tight" id="dispUnitNum">
+                        <?= $unitNum ?> — <?= $unitTypeUpper ?>
+                      </h4>
+                    </div>
+                    <div class="text-left sm:text-right">
+                      <span class="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-0.5" id="dispPriceLabel"><?= htmlspecialchars($price_label) ?></span>
+                      <span class="text-base sm:text-lg font-extrabold text-slate-900 font-mono tracking-tight" id="dispPriceBasis">₱<?= number_format($price_basis, 0) ?> php</span>
+                    </div>
+                  </div>
+
+                  <!-- Key-Value Grid: 2 cols on mobile, 3 cols on desktop -->
+                  <div class="grid grid-cols-2 sm:grid-cols-3 gap-y-3.5 gap-x-4">
+                    <div>
+                      <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Floor</p>
+                      <p class="text-sm font-bold text-slate-900 mt-0.5" id="dispFloorNum"><?= $floorNum ?></p>
+                    </div>
+                    <div>
+                      <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">SQM</p>
+                      <p class="text-sm font-bold text-slate-900 mt-0.5" id="dispSqmVal"><?= $sqmVal ?></p>
+                    </div>
+                    <div>
+                      <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Listing</p>
+                      <p class="text-sm font-bold text-slate-900 mt-0.5" id="dispListingVal"><?= $listingVal ?></p>
+                    </div>
+                    <div>
+                      <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Furnishing</p>
+                      <p class="text-sm font-bold text-slate-900 mt-0.5" id="dispFurnishing"><?= $furnishingVal ?></p>
+                    </div>
+                    <div>
+                      <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Unit Owner</p>
+                      <p class="text-sm font-bold text-slate-900 mt-0.5" id="dispOwnerName"><?= $ownerName ?></p>
+                    </div>
+                    <div>
+                      <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Contact</p>
+                      <p class="text-sm font-bold text-slate-900 font-mono mt-0.5" id="dispOwnerContact"><?= $ownerContact ?></p>
+                    </div>
+                    <div class="col-span-2 sm:col-span-3 pt-2.5 border-t border-slate-200/60">
+                      <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Owner Email</p>
+                      <div id="dispOwnerEmailWrapper" class="mt-0.5">
+                        <?php if (!empty($ownerEmail)): ?>
+                          <a href="mailto:<?= htmlspecialchars($ownerEmail) ?>"
+                            class="text-sm font-bold text-blue-600 hover:text-blue-800 underline truncate block leading-snug"
+                            id="dispOwnerEmailLink"><?= htmlspecialchars($ownerEmail) ?></a>
+                        <?php else: ?>
+                          <p class="text-sm font-bold text-slate-900 leading-snug" id="dispOwnerEmailText">—</p>
+                        <?php endif; ?>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Active Lease Period indicator -->
+                  <div class="mt-4 pt-3 border-t border-slate-200/70 flex flex-wrap items-center justify-between text-xs gap-2">
+                    <span class="text-slate-600 font-medium flex items-center gap-1.5">
+                      <span class="w-2 h-2 rounded-full bg-amber-500 inline-block"></span>
+                      Existing Active Lease:
+                    </span>
+                    <span class="font-bold text-slate-900 font-mono"
+                      id="dispUnitLeasePeriod"><?= htmlspecialchars($selectedUnitData['current_lease_period'] ?? 'No active lease') ?></span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 2. CLIENT INFORMATION -->
+              <div class="border-t border-slate-200/80 pt-6">
+                <div class="flex items-center gap-2.5 mb-4">
+                  <div class="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-900 shrink-0">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h3 class="text-base font-bold text-slate-900 uppercase tracking-wide">Client Information</h3>
+                    <p class="text-xs text-slate-500">Provide applicant details for lease or purchase processing</p>
+                  </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
+                  <!-- Full Name (Read-only) -->
+                  <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-1.5">Full Name</label>
+                    <input type="text" name="client_name" value="<?= htmlspecialchars($clientName) ?>"
+                      placeholder="John Doe" readonly
+                      class="w-full px-3.5 py-2.5 bg-slate-100 border border-slate-200 rounded-xl text-sm font-semibold text-slate-700 cursor-not-allowed focus:outline-none">
+                  </div>
+
+                  <!-- Email (Read-only) -->
+                  <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-1.5">Email Address</label>
+                    <input type="email" name="client_email" value="<?= htmlspecialchars($clientEmail) ?>"
+                      placeholder="johndoe@gmail.com" readonly
+                      class="w-full px-3.5 py-2.5 bg-slate-100 border border-slate-200 rounded-xl text-sm font-semibold text-slate-700 cursor-not-allowed focus:outline-none">
+                  </div>
+
+                  <!-- Phone Number (Editable) -->
+                  <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-1.5">Phone Number <span
+                        class="text-red-500">*</span></label>
+                    <div id="resPhoneWrapper"
+                      class="relative flex items-center rounded-xl border border-slate-300 bg-white focus-within:border-slate-900 focus-within:ring-2 focus-within:ring-slate-900/10 transition-all shadow-sm">
+                      <!-- Country Dial Code Dropdown Button -->
+                      <div class="relative">
+                        <button type="button" id="resCountryBtn"
+                          class="country-code-btn pr-4 h-full flex items-center gap-1 px-3.5 py-2.5 bg-slate-50 border-r border-slate-200 rounded-l-xl hover:bg-slate-100 transition-all cursor-pointer">
+                          <span class="flex items-center gap-1.5 shrink-0">
+                            <span class="mr-1 text-sm leading-none">🇵🇭</span>
+                            <span class="font-bold text-sm text-slate-900 font-mono">+63</span>
+                          </span>
+                          <svg class="w-3.5 h-3.5 text-slate-500 shrink-0 ml-1" fill="none" stroke="currentColor"
+                            viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </button>
+                        <div id="resCountryDropdown"
+                          class="hidden absolute left-0 top-full mt-1.5 w-72 bg-white rounded-xl shadow-xl border border-slate-200 z-50 overflow-hidden text-xs">
+                        </div>
+                      </div>
+
+                      <!-- Phone Number Input -->
+                      <input type="tel" id="res_phone_input" placeholder="917 123 4567" required
+                        value="<?= htmlspecialchars(preg_replace('/^(\+63|0)/', '', trim($clientContact ?? ''))) ?>"
+                        class="w-full bg-transparent px-3.5 py-2.5 text-sm font-semibold text-slate-900 font-mono focus:outline-none">
+                    </div>
+                    <input type="hidden" name="client_contact" id="client_contact"
+                      value="<?= htmlspecialchars($clientContact) ?>" required>
+                  </div>
+
+                  <!-- Sex (Editable) -->
+                  <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-1.5">Sex <span
+                        class="text-red-500">*</span></label>
+                    <select name="client_sex" required
+                      class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-sm text-slate-800 focus:outline-none focus:border-slate-900 focus:ring-2 focus:ring-slate-900/10 cursor-pointer shadow-sm">
+                      <option value="" disabled selected>Select sex</option>
+                      <option value="Female">Female</option>
+                      <option value="Male">Male</option>
+                    </select>
+                  </div>
+
+                  <!-- Nationality (Editable) -->
+                  <div class="sm:col-span-2">
+                    <label class="block text-sm font-semibold text-slate-700 mb-1.5">Nationality <span
+                        class="text-red-500">*</span></label>
+                    <div id="nationalitySelectContainer"></div>
+                    <input type="hidden" name="client_nationality" id="client_nationality" value="Filipino" required>
+                  </div>
+                </div>
+              </div>
+
+              <?php if ($is_lease): ?>
+                <!-- 3. LEASE TERM DETAILS -->
+                <div id="leaseTermDetailsSection" class="border-t border-slate-200/80 pt-6">
+                  <div class="flex items-center gap-2.5 mb-4">
+                    <div class="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-900 shrink-0">
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <h3 class="text-base font-bold text-slate-900 uppercase tracking-wide">Lease Term Details</h3>
+                      <p class="text-xs text-slate-500">Specify your occupancy schedule and duration</p>
+                    </div>
+                  </div>
+
+                  <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
+                    <div>
+                      <label class="block text-sm font-semibold text-slate-700 mb-1.5">Preferred Move-in Time</label>
+                      <input type="text" name="preferred_move_in_time" value="<?= $inqPreferredMoveIn ?>" readonly
+                        class="w-full px-3.5 py-2.5 bg-slate-100 border border-slate-200 rounded-xl text-sm font-medium text-slate-700 cursor-not-allowed focus:outline-none">
+                      <?php if ($isMoveInFlexible): ?>
+                        <p class="text-xs text-blue-700 mt-1.5 flex items-center gap-1.5 font-medium">
+                          <svg class="w-3.5 h-3.5 text-blue-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" stroke-width="2"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01"/></svg>
+                          <span>Flexible schedule: please select your official move-in date below.</span>
+                        </p>
+                      <?php endif; ?>
+                    </div>
+
+                    <div>
+                      <label class="block text-sm font-semibold text-slate-700 mb-1.5">Lease Duration</label>
+                      <?php if ($isDurationNotSure): ?>
+                        <select id="leaseDurationDisplay" name="lease_duration" onchange="handleDurationChange(this.value)"
+                          class="w-full px-3.5 py-2.5 bg-white border border-blue-400 rounded-xl text-sm text-slate-900 font-semibold focus:outline-none focus:border-slate-900 focus:ring-2 focus:ring-slate-900/10 cursor-pointer shadow-sm">
+                          <option value="1 year" selected>1 year (Standard)</option>
+                          <option value="6 months">6 months</option>
+                          <option value="3 months">3 months</option>
+                          <option value="2 years">2 years</option>
+                        </select>
+                        <p class="text-xs text-blue-700 mt-1.5 flex items-center gap-1.5 font-medium">
+                          <svg class="w-3.5 h-3.5 text-blue-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" stroke-width="2"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01"/></svg>
+                          <span>You selected "Not sure yet" on inquiry. Please choose your lease term.</span>
+                        </p>
+                      <?php else: ?>
+                        <input type="text" id="leaseDurationDisplay" name="lease_duration" value="<?= $inqLeaseDuration ?>"
+                          readonly
+                          class="w-full px-3.5 py-2.5 bg-slate-100 border border-slate-200 rounded-xl text-sm font-medium text-slate-700 cursor-not-allowed focus:outline-none">
+                      <?php endif; ?>
+                    </div>
+
+                    <div>
+                      <label class="block text-sm font-semibold text-slate-700 mb-1.5">Move-in Date <span
+                          class="text-red-500">*</span></label>
+                      <input type="date" id="moveInDate" name="move_in_date" min="<?= $move_in_min ?>"
+                        max="<?= $move_in_max ?>" required
+                        class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-sm text-slate-900 focus:outline-none focus:border-slate-900 focus:ring-2 focus:ring-slate-900/10 cursor-pointer shadow-sm"
+                        oninput="handleMoveInChange(this.value)" onchange="handleMoveInChange(this.value)">
+                      <p class="text-xs font-semibold text-emerald-800 mt-1.5 flex items-center gap-1.5"
+                        id="dispEarliestMoveInWrap">
+                        <span class="w-2 h-2 rounded-full bg-emerald-500 inline-block shrink-0"></span>
+                        Earliest available move-in: <span class="font-bold font-mono"
+                          id="dispEarliestMoveInDate"><?= htmlspecialchars($move_in_min_formatted) ?></span>
+                      </p>
+                      <p class="text-xs text-slate-500 mt-0.5">Requires building admin clearance and prior tenant turnover.</p>
+                    </div>
+
+                    <div>
+                      <label class="block text-sm font-semibold text-slate-700 mb-1.5">Move-out Date</label>
+                      <input type="text" id="moveOutDateDisplay" name="move_out_date_display"
+                        placeholder="auto calculated" readonly
+                        class="w-full px-3.5 py-2.5 bg-slate-100 border border-slate-200 rounded-xl text-sm text-slate-600 font-mono cursor-not-allowed focus:outline-none">
+                    </div>
+
+                    <div id="dateConflictAlert"
+                      class="hidden sm:col-span-2 p-4 bg-rose-50 border border-rose-200 rounded-xl text-sm text-rose-800 flex items-start gap-3 shadow-sm">
+                      <svg class="w-5 h-5 text-rose-600 shrink-0 mt-0.5" fill="none" stroke="currentColor"
+                        viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                      </svg>
+                      <div class="space-y-1">
+                        <p class="font-bold text-rose-900 text-sm" id="dateConflictTitle">Dates Conflict With Existing Reservation</p>
+                        <p class="text-xs text-rose-700 leading-relaxed font-medium" id="dateConflictMessage"></p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              <?php endif; ?>
+
+              <!-- 4. PAYMENT SECTION -->
+              <div class="border-t border-slate-200/80 pt-6">
+                <div class="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-6 items-start">
+
+                  <!-- Left Column: Tabs & Payment Methods -->
+                  <div class="space-y-4">
+                    <div>
+                      <div class="flex items-center gap-2.5">
+                        <div class="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-900 shrink-0">
+                          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                          </svg>
+                        </div>
+                        <div>
+                          <h3 class="text-base font-bold text-slate-900 uppercase tracking-wide">Reservation Fee</h3>
+                          <p class="text-xs text-slate-500">Fee is credited towards your downpayment</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- Payment Options Tabs (Segmented Control) -->
+                    <div class="inline-flex p-1 bg-slate-100 rounded-xl w-full max-w-sm border border-slate-200/80">
+                      <button type="button" id="tabGcash" onclick="switchPaymentTab('GCash QR')"
+                        class="flex-1 py-2.5 px-4 text-sm font-bold rounded-lg transition-all bg-slate-900 text-white shadow-sm cursor-pointer">
+                        Pay using GCash QR
+                      </button>
+                      <button type="button" id="tabInHouse" onclick="switchPaymentTab('In-House')"
+                        class="flex-1 py-2.5 px-4 text-sm font-bold rounded-lg transition-all text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 cursor-pointer">
+                        Pay In-House
+                      </button>
+                    </div>
+
+                    <!-- Panels -->
+                    <div>
+                      <!-- Panel 1: GCash QR -->
+                      <div id="panelGcash" class="flex flex-col sm:flex-row items-start gap-5">
+                        <!-- QR Code Box -->
+                        <div
+                          class="w-36 h-36 sm:w-40 sm:h-40 border border-slate-200 rounded-2xl p-2 bg-slate-50 flex items-center justify-center shrink-0 transition-all text-center group relative overflow-hidden <?= $owner_has_qr ? 'cursor-pointer hover:border-slate-400 shadow-sm' : 'cursor-not-allowed opacity-90' ?>"
+                          onclick="openQRModal()" id="qrCodeContainer">
+                          <div id="qrImageWrap" class="<?= $owner_has_qr ? '' : 'hidden' ?> w-full h-full relative">
+                            <img id="qrImgDisplay" src="<?= htmlspecialchars($resolvedOwnerQrUrl) ?>"
+                              alt="Owner GCash QR" class="w-full h-full object-contain rounded-xl">
+                            <div
+                              class="absolute inset-0 bg-slate-900/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-bold rounded-xl backdrop-blur-sm">
+                              Click to Enlarge
+                            </div>
+                          </div>
+                          <div id="qrPlaceholderWrap"
+                            class="<?= $owner_has_qr ? 'hidden' : '' ?> space-y-2 p-2 text-center">
+                            <div
+                              class="w-10 h-10 mx-auto rounded-full bg-slate-200/80 flex items-center justify-center text-slate-500">
+                              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                  d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                              </svg>
+                            </div>
+                            <span
+                              class="text-xs font-bold text-slate-700 tracking-wide block leading-tight uppercase">QR CODE NOT<br>AVAILABLE</span>
+                            <span
+                              class="inline-block text-xs font-semibold text-slate-500 bg-slate-200/80 px-2 py-0.5 rounded">Not Uploaded</span>
+                          </div>
+                        </div>
+
+                        <!-- Right text & file upload -->
+                        <div class="flex-1 space-y-3 text-sm text-slate-600">
+                          <p class="leading-relaxed" id="qrInstructionText">
+                            <?= $owner_has_qr ? "Use the GCash app to scan and pay directly to the unit owner's GCash account." : "GCash QR code is currently not available for this unit." ?>
+                          </p>
+                          <p class="font-medium text-slate-500 text-xs" id="qrClickNote">
+                            <?= $owner_has_qr ? "Click QR code to view full size." : "The unit owner has not yet uploaded their GCash QR." ?>
+                          </p>
+
+                          <!-- Upload Proof of Payment Option -->
+                          <div id="proofUploadWrapper"
+                            class="transition-all <?= $owner_has_qr ? '' : 'opacity-50 pointer-events-none select-none bg-slate-100/80 p-3 rounded-xl border border-dashed border-slate-300' ?>">
+                            <label class="block text-sm font-bold text-slate-800 mb-1.5" id="proofUploadLabel">Upload
+                              Proof of Payment <span class="text-red-500 <?= $owner_has_qr ? '' : 'hidden' ?>"
+                                id="proofReqStar">*</span></label>
+                            <input type="file" id="proofUpload" name="payment_proof" accept=".jpg,.jpeg,.png,.webp"
+                              <?= $owner_has_qr ? 'required' : 'disabled' ?>
+                              class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-sm text-slate-700 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-slate-100 file:text-slate-800 hover:file:bg-slate-200 cursor-pointer disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400">
+                            <p class="text-xs text-slate-500 mt-1.5" id="proofUploadNote">Note: Only JPG, PNG, and WEBP files are accepted.</p>
+                          </div>
+
+                          <!-- Banner shown when QR is not uploaded -->
+                          <div id="qrUnavailableBanner"
+                            class="<?= $owner_has_qr ? 'hidden' : '' ?> p-3.5 bg-amber-50 border border-amber-200/90 rounded-xl text-xs text-amber-900 flex items-start gap-2.5 shadow-sm">
+                            <svg class="w-4 h-4 text-amber-600 shrink-0 mt-0.5" fill="none" stroke="currentColor"
+                              viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                            </svg>
+                            <span><strong>Upload Disabled:</strong> GCash QR code has not been uploaded yet by the unit owner. Please switch to <button type="button" onclick="switchPaymentTab('In-House')"
+                                class="underline font-bold text-amber-900 hover:text-black cursor-pointer">Pay In-House</button> to complete your reservation.</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <!-- Panel 2: Pay In-House (Hidden by default) -->
+                      <div id="panelInHouse"
+                        class="hidden p-5 border border-slate-200 rounded-2xl bg-slate-50 space-y-2.5">
+                        <div class="flex items-center gap-2.5 text-slate-900">
+                          <svg class="w-5 h-5 text-slate-800 shrink-0" fill="none" stroke="currentColor"
+                            viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                          </svg>
+                          <h4 class="text-sm font-bold uppercase tracking-wide">Pay In-House During
+                            <?= $is_lease ? 'Lease' : 'Contract' ?> Signing
+                          </h4>
+                        </div>
+                        <p class="text-sm text-slate-700 leading-relaxed">
+                          Please prepare the payment amount (cash or manager's check). Payment will be settled in person during your scheduled <?= $is_lease ? 'lease' : 'contract' ?> signing appointment.
+                        </p>
+                        <p class="text-xs text-slate-500 italic">No online proof of payment is required for in-house payment.</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Right Column: PAYMENT BREAKDOWN -->
+                  <div class="border border-slate-200 rounded-2xl p-5 bg-slate-50/90 shadow-sm space-y-4">
+                    <div class="flex items-center justify-between pb-3 border-b border-slate-200/70">
+                      <p class="text-xs font-bold text-slate-600 uppercase tracking-wider">Payment Breakdown</p>
+                      <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-blue-800">Reservation</span>
+                    </div>
+
+                    <!-- Highlighted Required Amount -->
+                    <div class="bg-white rounded-xl p-4 border border-emerald-100 shadow-sm">
+                      <p class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Required Amount</p>
+                      <p class="text-2xl sm:text-3xl font-extrabold text-emerald-600 font-mono tracking-tight leading-none" id="dpAmount">
+                        ₱<?= number_format($price_basis * 0.35, 2) ?>
+                      </p>
+                      <p class="text-xs text-slate-500 mt-2 flex items-center gap-1">
+                        <svg class="w-3.5 h-3.5 text-emerald-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                        <span>Credited to your downpayment</span>
+                      </p>
+                    </div>
+
+                    <!-- Secondary figures -->
+                    <div class="space-y-3 pt-1">
+                      <div class="flex items-center justify-between text-xs">
+                        <span class="font-semibold text-slate-600" id="breakdownPriceLabel"><?= htmlspecialchars($price_label) ?></span>
+                        <span class="font-bold text-slate-900 font-mono text-sm" id="breakdownPriceVal">₱<?= number_format($price_basis, 2) ?></span>
+                      </div>
+                      <div class="flex items-center justify-between text-xs pb-1">
+                        <span class="font-semibold text-slate-600">Reservation Percentage</span>
+                        <span class="font-bold text-slate-900 font-mono text-sm">35%</span>
+                        <input type="hidden" name="payment_percentage" id="paymentPercentageInput" value="0.35">
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+
+              <!-- 5. LEASE / CONTRACT SIGNING DATE -->
+              <div class="border-t border-slate-200/80 pt-6">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+                  <div>
+                    <div class="flex items-center gap-2.5">
+                      <div class="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-900 shrink-0">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                      </div>
+                      <div>
+                        <h3 class="text-base font-bold text-slate-900 uppercase tracking-wide">
+                          <?= $is_lease ? 'LEASE SIGNING DATE' : 'CONTRACT SIGNING DATE' ?>
+                        </h3>
+                        <p class="text-xs text-slate-500 mt-0.5" id="signingDateNote">
+                          <?= $is_lease
+                            ? 'Select one or multiple dates you are available for lease signing (must be on or before your move-in date).'
+                            : 'Select one or multiple dates you are available for contract signing (requires a 3-day buffer for document preparation).' ?>
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  <label
+                    class="inline-flex items-center gap-2.5 cursor-pointer select-none bg-slate-50 border border-slate-300 px-3.5 py-2 rounded-xl hover:bg-slate-100 transition-colors shadow-sm self-start sm:self-auto">
+                    <input type="checkbox" id="imFlexible" name="is_flexible_signing" value="1"
+                      class="w-4 h-4 rounded text-slate-900 accent-slate-900 cursor-pointer" onchange="handleFlexibleSigning(this)">
+                    <span class="whitespace-nowrap text-xs sm:text-sm font-semibold text-slate-800">I'm Flexible</span>
+                  </label>
+                </div>
+
+                <!-- Multi-date picker calendar container -->
+                <div id="signingCalendarWrapper"
+                  class="border border-slate-200 rounded-2xl bg-slate-50/70 p-4 sm:p-5 transition-all space-y-4">
+                  <input type="hidden" id="leaseSigningDate" name="lease_signing_date" value="">
+
+                  <div class="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-4 sm:gap-5 items-stretch">
+
+                    <!-- Left: Calendar Card -->
+                    <div id="calCard" class="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm">
+                      <!-- Calendar Header: Month Nav -->
+                      <div class="flex items-center justify-between pb-3 mb-3 border-b border-slate-100">
+                        <span id="calMonthYear" class="text-sm font-bold text-slate-900 tracking-wide uppercase">October 2026</span>
+                        <div class="flex items-center gap-1.5">
+                          <button type="button" id="calPrevBtn" onclick="navSigningCal(-1)"
+                            class="w-8 h-8 rounded-lg border border-slate-200 hover:bg-slate-100 flex items-center justify-center text-slate-700 transition-all text-sm font-bold disabled:opacity-25 disabled:cursor-not-allowed cursor-pointer">‹</button>
+                          <button type="button" id="calNextBtn" onclick="navSigningCal(1)"
+                            class="w-8 h-8 rounded-lg border border-slate-200 hover:bg-slate-100 flex items-center justify-center text-slate-700 transition-all text-sm font-bold disabled:opacity-25 disabled:cursor-not-allowed cursor-pointer">›</button>
+                        </div>
+                      </div>
+
+                      <!-- Day Names -->
+                      <div class="grid grid-cols-7 gap-1 text-center mb-1.5 text-xs font-bold text-slate-500">
+                        <span>Su</span><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span>
+                      </div>
+
+                      <!-- Days Grid -->
+                      <div id="calDaysGrid" class="grid grid-cols-7 gap-1 text-center text-xs">
+                        <!-- Populated dynamically via JS -->
+                      </div>
+                    </div>
+
+                    <!-- Right: Selected Dates Panel -->
+                    <div id="chipsSection"
+                      class="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-sm flex flex-col justify-between self-stretch min-h-[220px]">
+                      <div>
+                        <div class="flex items-center justify-between pb-3 mb-3 border-b border-slate-100">
+                          <span class="font-bold text-slate-700 text-xs uppercase tracking-wider">
+                            Selected Dates (<span id="selectedDatesCount">0</span>)
+                          </span>
+                          <button type="button" id="btnClearDates" onclick="clearSelectedDates()"
+                            class="text-xs text-rose-600 hover:text-rose-700 hidden font-bold transition-colors cursor-pointer">Clear all</button>
+                        </div>
+
+                        <div id="selectedDatesChips" class="flex flex-wrap items-center gap-2 min-h-[40px]">
+                          <span class="text-sm text-slate-500 italic" id="emptyDatesMsg">Click any date(s) on the calendar to select multiple dates.</span>
+                        </div>
+                      </div>
+
+                      <div
+                        class="mt-4 pt-3 border-t border-slate-100 text-xs text-slate-500 flex items-center gap-2">
+                        <svg class="w-4 h-4 text-blue-500 shrink-0" fill="none" stroke="currentColor"
+                          viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <span>Selected dates will be saved for scheduling.</span>
+                      </div>
+                    </div>
+
+                  </div>
+
+                  <!-- Flexible banner -->
+                  <div id="flexibleNotice"
+                    class="hidden p-4 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-900 flex items-start gap-3 shadow-sm">
+                    <svg class="w-5 h-5 shrink-0 text-amber-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span class="text-xs sm:text-sm leading-relaxed">You marked yourself as <strong>Flexible</strong>. A signing schedule will be coordinated with you within the validity window.</span>
+                  </div>
+
+                </div>
+              </div>
+
+              <!-- 6. REMARKS / SPECIAL REQUESTS -->
+              <div class="border-t border-slate-200/80 pt-6 space-y-2">
+                <div class="flex items-center gap-2.5 mb-1">
+                  <div class="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-900 shrink-0">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h3 class="text-base font-bold text-slate-900 uppercase tracking-wide">Remarks / Special Requests</h3>
+                    <p class="text-xs text-slate-500">Optional notes for property management</p>
+                  </div>
+                </div>
+
+                <textarea id="resRemarks" name="remarks" rows="3" maxlength="500"
+                  placeholder="Add any special requests or notes here..."
+                  class="w-full px-4 py-3 bg-white border border-slate-300 rounded-xl text-sm text-slate-800 resize-none focus:outline-none focus:border-slate-900 focus:ring-2 focus:ring-slate-900/10 shadow-sm"
+                  oninput="updateRemarksCount(this)"></textarea>
+                <div
+                  class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-1.5 text-xs text-slate-500">
+                  <p>Important Note: Special requests are subject to availability and property policies.</p>
+                  <span class="shrink-0 font-mono text-slate-600 font-semibold" id="remarksCount">0 / 500</span>
+                </div>
+              </div>
+
+              <!-- 7. TERMS & CONDITIONS AND SUBMISSION -->
+              <div class="border-t border-slate-200/80 pt-6 flex flex-col gap-5">
+                <label
+                  class="flex items-start gap-3 cursor-pointer select-none text-sm text-slate-700 leading-relaxed">
+                  <input type="checkbox" id="agreeTerms" required
+                    class="w-4 h-4 mt-1 rounded text-slate-900 accent-slate-900 shrink-0 cursor-pointer">
+                  <span>I agree to the <a href="<?= htmlspecialchars($baseUrl) ?>/terms-of-service" target="_blank"
+                      class="font-semibold text-slate-900 underline hover:text-blue-600">Terms and Conditions</a> and <a
+                      href="<?= htmlspecialchars($baseUrl) ?>/privacy-policy" target="_blank"
+                      class="font-semibold text-slate-900 underline hover:text-blue-600">Privacy Policy</a> of Zeppelin Suites. I confirm
+                    that all information provided is accurate and complete.</span>
+                </label>
+
+                <div class="flex items-center justify-end pt-2">
+                  <button type="submit" id="btnSubmitReservation"
+                    class="btn-press w-full sm:w-auto px-8 py-3.5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 disabled:bg-slate-300 disabled:cursor-not-allowed text-white text-sm font-bold uppercase tracking-wider rounded-xl transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2 cursor-pointer">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" />
+                    </svg>
+                    <span>SUBMIT RESERVATION</span>
+                  </button>
+                </div>
+              </div>
+
+            </form>
+          </div><!-- /formBody -->
+        <?php endif; ?>
+
+        <!-- Expired overlay -->
+        <div id="expiredOverlay" class="hidden p-10 text-center">
+          <div class="w-16 h-16 bg-rose-50 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-rose-100">
+            <svg class="w-8 h-8 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <p class="text-xl font-bold text-slate-900 mb-2">Reservation Link Expired</p>
+          <p class="text-sm text-slate-600 mb-6">This reservation link is no longer valid. Please submit a new inquiry to get a fresh reservation link.</p>
+          <a href="<?= htmlspecialchars($baseUrl) ?>/contact"
+            class="btn-press inline-block bg-slate-900 hover:bg-slate-700 text-white text-sm font-bold px-8 py-3.5 rounded-xl tracking-wide transition-all shadow-sm">Submit New Inquiry</a>
+        </div>
+
+      </div><!-- /form card -->
+
+      <!-- Need Help Card (Mobile only) -->
+      <div class="block lg:hidden bg-white rounded-2xl border border-slate-200 shadow-soft p-6 sm:p-7">
+        <div class="flex items-center gap-3 mb-3">
+          <div class="w-8 h-8 rounded-lg bg-slate-900 text-white flex items-center justify-center shrink-0">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M8.228 9c.549-1.165 1.91-2 3.522-2 2.071 0 3.75 1.343 3.75 3 0 1.318-1.06 2.438-2.534 2.84-.815.222-1.216.81-1.216 1.41V15m0 4h.01" />
+            </svg>
+          </div>
+          <div>
+            <h3 class="text-sm font-bold uppercase tracking-wide text-slate-900">Need Help?</h3>
+            <p class="text-xs text-slate-500">Our Sales Team is here to assist you.</p>
+          </div>
+        </div>
+
+        <div class="space-y-3 pt-3 border-t border-slate-100 text-sm text-slate-700">
+          <div class="flex items-center gap-3">
+            <svg class="w-4 h-4 text-slate-900 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M3 5a2 2 0 012-2h2l2 5-2 1c1 2 3 4 5 5l1-2 5 2v2a2 2 0 01-2 2h-1C8.373 18 3 12.627 3 6V5z" />
+            </svg>
+            <span class="font-medium">+63 917 123 4567</span>
+          </div>
+
+          <div class="flex items-center gap-3">
+            <svg class="w-4 h-4 text-slate-900 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M3 8l9 6 9-6M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+            </svg>
+            <span class="font-medium">sales@zeppelinsuites.com</span>
+          </div>
+
+          <div class="flex items-center gap-3">
+            <svg class="w-4 h-4 text-slate-900 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M12 8v4l3 2m6-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span class="font-medium">Mon – Sat | 9:00 AM – 6:00 PM</span>
+          </div>
+        </div>
+      </div>
+    
+    </div>
+  </main>
+
+  <!-- 3. FOOTER -->
+  <footer class="bg-slate-950 text-slate-300 mt-12">
+    <div class="max-w-[1180px] mx-auto px-5 py-6 flex flex-col md:flex-row justify-between gap-4 text-sm">
+      <div class="flex items-start gap-3">
+        <svg class="w-5 h-5 text-slate-400 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M12 3l7 4v5c0 5-3.5 8.5-7 9-3.5-.5-7-4-7-9V7l7-4z" />
+        </svg>
+        <div>
+          <p class="font-bold text-white">Your privacy is important to us.</p>
+          <p class="text-slate-400 text-xs sm:text-sm">All information collected is used solely for reservation purposes.</p>
+        </div>
+      </div>
+      <p class="text-slate-400 text-xs sm:text-sm">© <?= date('Y') ?> Zeppelin Suites. All rights reserved.</p>
+    </div>
+  </footer>
+
+  <!-- 4. MODALS -->
+  <!-- Confirmation Modal -->
+  <div id="confirmModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/60 backdrop-blur-sm px-4">
+    <div class="bg-white rounded-3xl shadow-2xl max-w-md w-full p-6 sm:p-7 space-y-4 border border-slate-100">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        </div>
+        <h3 class="text-lg font-bold text-slate-900">Confirm Reservation</h3>
+      </div>
+      <p class="text-sm text-slate-600 leading-relaxed">
+        Please review your submitted information before continuing. Once submitted, your reservation will be forwarded
+        to the administration and unit owner for review.
+      </p>
+      <div class="flex flex-col-reverse sm:flex-row justify-end gap-2.5 pt-3 border-t border-slate-100">
+        <button type="button" onclick="closeConfirmModal()"
+          class="w-full sm:w-auto px-5 py-2.5 border border-slate-200 hover:bg-slate-50 rounded-xl text-sm font-semibold text-slate-700 transition-colors cursor-pointer">Go Back</button>
+        <button type="button" onclick="proceedSubmit()"
+          class="w-full sm:w-auto px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-bold transition-colors shadow-sm cursor-pointer">Yes, Submit</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- QR Enlarged Lightbox Modal -->
+  <div id="qrModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/60 backdrop-blur-sm px-4"
+    onclick="closeQRModal()">
+    <div class="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl border border-slate-100 text-center"
+      onclick="event.stopPropagation()">
+      <div class="flex items-center justify-between pb-3.5 border-b border-slate-100 mb-4">
+        <h3 class="text-base font-bold text-slate-900" id="qrModalTitle"><?= $ownerName ?>'s GCash QR</h3>
+        <button type="button" onclick="closeQRModal()"
+          class="p-1.5 rounded-xl hover:bg-slate-100 text-slate-500 hover:text-slate-800 transition-colors cursor-pointer">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+      <div class="p-4 bg-slate-50 rounded-2xl flex items-center justify-center min-h-[240px]" id="qrModalContent">
+        <img id="qrModalImg" src="<?= htmlspecialchars($resolvedOwnerQrUrl) ?>" alt="GCash QR"
+          class="<?= $owner_has_qr ? '' : 'hidden' ?> max-h-[60vh] max-w-full object-contain rounded-xl shadow-sm">
+        <div id="qrModalPlaceholder" class="<?= $owner_has_qr ? 'hidden' : '' ?> text-center py-6">
+          <div class="w-12 h-12 mx-auto rounded-full bg-slate-100 flex items-center justify-center text-slate-500 mb-2">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+            </svg>
+          </div>
+          <p class="text-sm font-bold text-slate-800">QR Code Not Available</p>
+          <p class="text-xs text-slate-600 mt-1.5 leading-relaxed">This unit owner has not yet uploaded a GCash QR code.<br>Please select 'Pay In-House' to complete your reservation.</p>
+        </div>
+      </div>
+      <p class="text-xs text-slate-500 mt-3 font-medium">Scan with GCash or any supported e-wallet</p>
+      <div class="pt-4 flex justify-end border-t border-slate-100 mt-3">
+        <button type="button" onclick="closeQRModal()"
+          class="w-full sm:w-auto px-5 py-2 text-sm font-bold rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors cursor-pointer">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 5. JAVASCRIPT -->
+  <script>
+    // ======= Timer configuration =======
+    const expirationSeconds = 30 * 24 * 60 * 60; // 30 days
+    let reservationStatus = 'pending';
+
+    <?php
+    $expiresAtMs = !empty($data['reservation_token_expires_at'])
+      ? strtotime((string) $data['reservation_token_expires_at']) * 1000
+      : (time() + 30 * 24 * 60 * 60) * 1000;
+    ?>
+    const expiresAt = <?= (int) $expiresAtMs ?>;
+    const circumference = 2 * Math.PI * 17;
+
+    function updateStatus() {
+      const now = new Date().getTime();
+      const banner = document.getElementById('statusBanner');
+      const title = document.getElementById('statusTitle');
+      const msg = document.getElementById('statusMsg');
+      const countdown = document.getElementById('statusCountdown');
+      const minutesBox = document.getElementById('statusMinutes');
+      const daysBox = document.getElementById('statusDays');
+      const hoursBox = document.getElementById('statusHours');
+      const timerGrid = document.getElementById('timerGrid');
+      const expiredText = document.getElementById('statusExpiredText');
+      const timerCard = document.getElementById('statusTimerBox');
+      const ring = document.getElementById('ringProgress');
+      const ringLabel = document.getElementById('ringLabel');
+      const formBody = document.getElementById('formBody');
+      const expiredOverlay = document.getElementById('expiredOverlay');
+      const submitBtn = document.getElementById('btnSubmitReservation');
+
+      if (now > expiresAt) {
+        reservationStatus = 'expired';
+        banner.className = 'status-banner rounded-2xl border px-5 sm:px-7 py-4 sm:py-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 sm:gap-5 bg-rose-50 border-rose-200 shadow-sm';
+        document.getElementById('countdownRing').innerHTML = '<svg class="w-11 h-11 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>';
+        title.textContent = 'Reservation Link Expired';
+        title.className = 'font-bold text-rose-900 text-base';
+        msg.textContent = 'This reservation link has expired. Please submit a new inquiry.';
+        msg.className = 'text-sm mt-0.5 text-rose-700 leading-snug';
+        if (timerGrid) timerGrid.classList.add('hidden');
+        if (expiredText) expiredText.classList.remove('hidden');
+        if (timerCard) timerCard.className = 'rounded-xl border border-rose-200 bg-rose-50/90 px-4 py-2.5 text-center shrink-0 shadow-sm self-start sm:self-auto';
+        if (minutesBox) minutesBox.textContent = 'EXPIRED';
+        if (countdown) countdown.textContent = '';
+        if (formBody) formBody.classList.add('hidden');
+        if (expiredOverlay) expiredOverlay.classList.remove('hidden');
+        if (submitBtn) submitBtn.disabled = true;
+        return;
+      }
+
+      const remaining = Math.max(0, Math.ceil((expiresAt - now) / 1000));
+      const days = Math.floor(remaining / 86400);
+      const hours = Math.floor((remaining % 86400) / 3600);
+      const fraction = remaining / expirationSeconds;
+      const offset = circumference * (1 - fraction);
+      const isUrgent = remaining <= 24 * 60 * 60; // last day
+
+      title.textContent = 'Reservation Pending';
+      title.className = 'font-bold text-amber-900 text-base';
+      msg.textContent = 'Please complete the form and submit before the reservation link expires.';
+      msg.className = 'text-sm text-slate-700 mt-0.5 leading-snug';
+
+      if (timerGrid) timerGrid.classList.remove('hidden');
+      if (expiredText) expiredText.classList.add('hidden');
+      if (daysBox) daysBox.textContent = String(days).padStart(2, '0');
+      if (hoursBox) hoursBox.textContent = String(hours).padStart(2, '0');
+      if (minutesBox) minutesBox.textContent = `${String(days).padStart(2, '0')} : ${String(hours).padStart(2, '0')}`;
+      if (countdown) countdown.textContent = `Time remaining: ${days} day${days !== 1 ? 's' : ''}, ${hours} hour${hours !== 1 ? 's' : ''}`;
+
+      if (ring) {
+        ring.style.strokeDasharray = circumference;
+        ring.style.strokeDashoffset = offset;
+        ring.setAttribute('stroke', isUrgent ? '#ef4444' : '#b7791f');
+      }
+
+      if (ringLabel) {
+        ringLabel.textContent = days > 0 ? days : hours;
+        ringLabel.className = `absolute inset-0 flex items-center justify-center text-xs font-bold font-mono ${isUrgent ? 'text-rose-600' : 'text-amber-800'}`;
+      }
+    }
+
+    setInterval(updateStatus, 1000);
+    updateStatus();
+
+    // ======= Dynamic Units and Move-out date calculation =======
+    const approvedUnitsData = <?= json_encode($approvedUnitsList, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>;
+    const baseUrlStr = <?= json_encode($baseUrl) ?>;
+    const isLease = <?= json_encode((bool) $is_lease) ?>;
+    let currentPriceBasis = <?= (float) $price_basis ?>;
+    let currentUnitId = <?= $selectedUnitId ?>;
+    let leaseDurationStr = <?= json_encode($isDurationNotSure ? '1 year' : $inqLeaseDuration) ?>;
+
+    function handleDurationChange(val) {
+      leaseDurationStr = val;
+      const moveInInput = document.getElementById('moveInDate');
+      if (moveInInput && moveInInput.value) {
+        handleMoveInChange(moveInInput.value);
+      }
+    }
+
+    function parseDurationToMonths(str) {
+      if (!str) return 12;
+      const s = str.toLowerCase();
+      if (s.includes('longer') || s.includes('not sure')) {
+        return 12;
+      }
+      if (s.includes('year')) {
+        const match = s.match(/(\d+)/);
+        const yrs = match ? parseInt(match[1], 10) : 1;
+        return yrs >= 3 ? 12 : yrs * 12;
+      }
+      if (s.includes('month')) {
+        const match = s.match(/(\d+)/);
+        return match ? parseInt(match[1], 10) : 1;
+      }
+      return 12;
+    }
+
+    function addMonthsToDate(dateStr, months) {
+      if (!dateStr) return '';
+      const [y, m, d] = dateStr.split('-').map(Number);
+      const target = new Date(y, m - 1 + months, d);
+
+      const expectedMonth = (m - 1 + months) % 12;
+      if (target.getMonth() !== expectedMonth) {
+        target.setDate(0);
+      }
+
+      const yOut = target.getFullYear();
+      const mOut = String(target.getMonth() + 1).padStart(2, '0');
+      const dOut = String(target.getDate()).padStart(2, '0');
+      return `${yOut}-${mOut}-${dOut}`;
+    }
+
+    function formatDisplayDate(dateStr) {
+      if (!dateStr) return '';
+      const d = new Date(dateStr + 'T00:00:00');
+      return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    }
+
+    let blockedRanges = <?= json_encode($blocked_ranges ?? []) ?>;
+
+    function checkDateOverlap(moveInVal, moveOutVal) {
+      if (!isLease || !moveInVal || !moveOutVal || !Array.isArray(blockedRanges)) return null;
+      for (const range of blockedRanges) {
+        if (!range.start) continue;
+        const rStart = range.start;
+        const rEnd = range.end || range.start;
+        if (moveInVal <= rEnd && moveOutVal >= rStart) {
+          return range;
+        }
+      }
+      return null;
+    }
+
+    function handleMoveInChange(moveInVal) {
+      const months = parseDurationToMonths(leaseDurationStr);
+      const moveOutVal = addMonthsToDate(moveInVal, months);
+      const moveOutInput = document.getElementById('moveOutDate');
+      const moveOutDisplay = document.getElementById('moveOutDateDisplay');
+      if (moveOutInput) moveOutInput.value = moveOutVal;
+      if (moveOutDisplay) moveOutDisplay.value = moveOutVal ? formatDisplayDate(moveOutVal) : '';
+
+      // Real-time overlap check against active reservations
+      const conflict = checkDateOverlap(moveInVal, moveOutVal);
+      const alertBox = document.getElementById('dateConflictAlert');
+      const msgBox = document.getElementById('dateConflictMessage');
+      const moveInEl = document.getElementById('moveInDate');
+
+      if (conflict) {
+        if (alertBox) alertBox.classList.remove('hidden');
+        if (msgBox) {
+          const cStart = formatDisplayDate(conflict.start);
+          const cEnd = formatDisplayDate(conflict.end);
+          const reqStart = formatDisplayDate(moveInVal);
+          const reqEnd = formatDisplayDate(moveOutVal);
+          const currentUnitObj = (Array.isArray(approvedUnitsData) ? approvedUnitsData.find(u => parseInt(u.unit_id, 10) === currentUnitId) : null) || {};
+          const unitPrefix = currentUnitObj.unit_number ? `unit ${currentUnitObj.unit_number}` : 'this unit';
+          msgBox.textContent = `Your requested stay (${reqStart} – ${reqEnd}) overlaps with an existing active reservation on ${unitPrefix} (${cStart} – ${cEnd}). Please select a different move-in date.`;
+        }
+        if (moveInEl) {
+          moveInEl.classList.add('border-rose-500', 'bg-rose-50/40');
+          moveInEl.classList.remove('border-slate-300');
+        }
+      } else {
+        if (alertBox) alertBox.classList.add('hidden');
+        if (moveInEl) {
+          moveInEl.classList.remove('border-rose-500', 'bg-rose-50/40');
+          moveInEl.classList.add('border-slate-300');
+        }
+      }
+
+      updateSigningCalendarLimit(moveInVal);
+    }
+
+    // ======= Multi-Date Lease Signing Calendar =======
+    const minSigningDate = '<?= $signing_min ?>';
+    const absoluteMaxSigningDate = '<?= $maxSigningDate ?>';
+    const selectedSigningDates = new Set();
+
+    function getEffectiveMaxSigningDate() {
+      const moveInInput = document.getElementById('moveInDate');
+      if (isLease && moveInInput && moveInInput.value && moveInInput.value.trim() !== '') {
+        return moveInInput.value < absoluteMaxSigningDate ? moveInInput.value : absoluteMaxSigningDate;
+      }
+      return absoluteMaxSigningDate;
+    }
+
+    function updateSigningCalendarLimit(moveInVal) {
+      const effectiveMax = getEffectiveMaxSigningDate();
+      let pruned = false;
+      selectedSigningDates.forEach(dateStr => {
+        if (dateStr > effectiveMax) {
+          selectedSigningDates.delete(dateStr);
+          pruned = true;
+        }
+      });
+      if (pruned) {
+        syncSigningInput();
+      }
+
+      // Ensure calendar view does not stay on a month beyond effective max
+      const [maxYear, maxMonth] = effectiveMax.split('-').map(Number);
+      const maxMonth0 = maxMonth - 1;
+      if (calCurrentYear > maxYear || (calCurrentYear === maxYear && calCurrentMonth > maxMonth0)) {
+        calCurrentYear = maxYear;
+        calCurrentMonth = maxMonth0;
+      }
+
+      renderSigningCalendar();
+    }
+
+    const [startCalYear, startCalMonth] = '<?= date('Y-m') ?>'.split('-').map(Number);
+    let calCurrentYear = startCalYear;
+    let calCurrentMonth = startCalMonth - 1; // 0-indexed
+
+    const calMonthNames = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+
+    function renderSigningCalendar() {
+      const monthYearLabel = document.getElementById('calMonthYear');
+      const daysGrid = document.getElementById('calDaysGrid');
+      const prevBtn = document.getElementById('calPrevBtn');
+      const nextBtn = document.getElementById('calNextBtn');
+
+      if (!daysGrid) return;
+
+      if (monthYearLabel) {
+        monthYearLabel.textContent = `${calMonthNames[calCurrentMonth]} ${calCurrentYear}`;
+      }
+
+      const effectiveMaxSigningDate = getEffectiveMaxSigningDate();
+
+      const firstDayIndex = new Date(calCurrentYear, calCurrentMonth, 1).getDay();
+      const totalDays = new Date(calCurrentYear, calCurrentMonth + 1, 0).getDate();
+
+      const [minY, minM] = minSigningDate.split('-').map(Number);
+      const [maxY, maxM] = effectiveMaxSigningDate.split('-').map(Number);
+
+      const prevMonthYear = calCurrentMonth === 0 ? calCurrentYear - 1 : calCurrentYear;
+      const prevMonthNum = calCurrentMonth === 0 ? 12 : calCurrentMonth;
+
+      const nextMonthYear = calCurrentMonth === 11 ? calCurrentYear + 1 : calCurrentYear;
+      const nextMonthNum = calCurrentMonth === 11 ? 1 : calCurrentMonth + 2;
+
+      if (prevBtn) {
+        prevBtn.disabled = (prevMonthYear < minY) || (prevMonthYear === minY && prevMonthNum < minM);
+      }
+      if (nextBtn) {
+        nextBtn.disabled = (nextMonthYear > maxY) || (nextMonthYear === maxY && nextMonthNum > maxM);
+      }
+
+      let html = '';
+
+      for (let i = 0; i < firstDayIndex; i++) {
+        html += '<span class="h-9 sm:h-10 flex items-center justify-center text-transparent select-none">.</span>';
+      }
+
+      for (let d = 1; d <= totalDays; d++) {
+        const dayStr = String(d).padStart(2, '0');
+        const monthStr = String(calCurrentMonth + 1).padStart(2, '0');
+        const dateStr = `${calCurrentYear}-${monthStr}-${dayStr}`;
+
+        const isBeforeMin = dateStr < minSigningDate;
+        const isAfterMax = dateStr > effectiveMaxSigningDate;
+        const isOutOfRange = isBeforeMin || isAfterMax;
+        const isSelected = selectedSigningDates.has(dateStr);
+
+        if (isOutOfRange) {
+          const tooltip = isAfterMax ? 'Signing appointment must be on or before move-in date' : 'Date unavailable';
+          html += `<span class="h-9 sm:h-10 flex items-center justify-center text-slate-300 cursor-not-allowed select-none text-xs sm:text-sm font-medium" title="${tooltip}">${d}</span>`;
+        } else if (isSelected) {
+          html += `<button type="button" onclick="toggleSigningDate('${dateStr}')" class="h-9 sm:h-10 flex items-center justify-center bg-slate-900 text-white font-bold rounded-xl shadow-sm hover:bg-slate-800 transition-colors text-xs sm:text-sm cursor-pointer" title="Click to remove">${d}</button>`;
+        } else {
+          html += `<button type="button" onclick="toggleSigningDate('${dateStr}')" class="h-9 sm:h-10 flex items-center justify-center text-slate-800 hover:bg-blue-50 hover:text-blue-700 font-semibold rounded-xl transition-colors text-xs sm:text-sm cursor-pointer">${d}</button>`;
+        }
+      }
+
+      daysGrid.innerHTML = html;
+      renderSelectedChips();
+    }
+
+    function navSigningCal(direction) {
+      calCurrentMonth += direction;
+      if (calCurrentMonth < 0) {
+        calCurrentMonth = 11;
+        calCurrentYear -= 1;
+      } else if (calCurrentMonth > 11) {
+        calCurrentMonth = 0;
+        calCurrentYear += 1;
+      }
+      renderSigningCalendar();
+    }
+
+    function toggleSigningDate(dateStr) {
+      if (document.getElementById('imFlexible').checked) return;
+
+      if (dateStr < minSigningDate) {
+        showFormModal(false, 'Date Too Early', "Signing date must be at least 3 days from today (" + minSigningDate + ") to allow for document preparation.");
+        return;
+      }
+
+      const effectiveMax = getEffectiveMaxSigningDate();
+      if (dateStr > effectiveMax) {
+        const moveInInput = document.getElementById('moveInDate');
+        const moveInMsg = (moveInInput && moveInInput.value) ? `your move-in date (${moveInInput.value})` : effectiveMax;
+        showFormModal(false, 'Invalid Signing Date', `Lease signing date must be scheduled on or before ${moveInMsg}.`);
+        return;
+      }
+
+      if (selectedSigningDates.has(dateStr)) {
+        selectedSigningDates.delete(dateStr);
+      } else {
+        selectedSigningDates.add(dateStr);
+      }
+      syncSigningInput();
+      renderSigningCalendar();
+    }
+
+    function removeSigningDate(dateStr) {
+      selectedSigningDates.delete(dateStr);
+      syncSigningInput();
+      renderSigningCalendar();
+    }
+
+    function clearSelectedDates() {
+      selectedSigningDates.clear();
+      syncSigningInput();
+      renderSigningCalendar();
+    }
+
+    function syncSigningInput() {
+      const hiddenInput = document.getElementById('leaseSigningDate');
+      const arr = Array.from(selectedSigningDates).sort();
+      if (hiddenInput) {
+        hiddenInput.value = arr.join(', ');
+      }
+    }
+
+    function renderSelectedChips() {
+      const countEl = document.getElementById('selectedDatesCount');
+      const container = document.getElementById('selectedDatesChips');
+      const clearBtn = document.getElementById('btnClearDates');
+
+      const arr = Array.from(selectedSigningDates).sort();
+      if (countEl) countEl.textContent = arr.length;
+
+      if (clearBtn) {
+        if (arr.length > 0) clearBtn.classList.remove('hidden');
+        else clearBtn.classList.add('hidden');
+      }
+
+      if (!container) return;
+
+      if (arr.length === 0) {
+        container.innerHTML = '<span class="text-sm text-slate-500 italic" id="emptyDatesMsg">Click any date(s) on the calendar to select multiple dates.</span>';
+        return;
+      }
+
+      let chipsHtml = '';
+      arr.forEach(d => {
+        const formatted = formatDisplayDate(d);
+        chipsHtml += `
+      <span class="inline-flex items-center gap-2 bg-slate-900 text-white text-xs font-semibold px-3 py-1.5 rounded-full shadow-sm">
+        <span>${formatted}</span>
+        <button type="button" onclick="removeSigningDate('${d}')" class="text-slate-300 hover:text-white transition-colors cursor-pointer" title="Remove date">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </span>
+    `;
+      });
+
+      container.innerHTML = chipsHtml;
+    }
+
+    // ======= Flexible signing checkbox handler =======
+    function handleFlexibleSigning(cb) {
+      const calCard = document.getElementById('calCard');
+      const chipsSection = document.getElementById('chipsSection');
+      const flexNotice = document.getElementById('flexibleNotice');
+      const hiddenInput = document.getElementById('leaseSigningDate');
+
+      if (cb.checked) {
+        if (calCard) calCard.classList.add('opacity-40', 'pointer-events-none');
+        if (chipsSection) chipsSection.classList.add('opacity-40', 'pointer-events-none');
+        if (flexNotice) flexNotice.classList.remove('hidden');
+        if (hiddenInput) hiddenInput.value = '';
+      } else {
+        if (calCard) calCard.classList.remove('opacity-40', 'pointer-events-none');
+        if (chipsSection) chipsSection.classList.remove('opacity-40', 'pointer-events-none');
+        if (flexNotice) flexNotice.classList.add('hidden');
+        syncSigningInput();
+      }
+    }
+
+    // Initialize calendar
+    renderSigningCalendar();
+
+    // ======= Payment tab switcher =======
+    function currentUnitHasQr() {
+      if (Array.isArray(approvedUnitsData)) {
+        const unit = approvedUnitsData.find(u => parseInt(u.unit_id, 10) === currentUnitId);
+        if (unit) {
+          return Boolean(unit.owner_has_qr && unit.owner_qr_path);
+        }
+      }
+      return <?= $owner_has_qr ? 'true' : 'false' ?>;
+    }
+
+    function updateQrAndProofUI(hasQr, ownerName = '', qrPath = '') {
+      const qrImageWrap = document.getElementById('qrImageWrap');
+      const qrPlaceholderWrap = document.getElementById('qrPlaceholderWrap');
+      const qrImgDisplay = document.getElementById('qrImgDisplay');
+      const qrCodeContainer = document.getElementById('qrCodeContainer');
+      const qrInstructionText = document.getElementById('qrInstructionText');
+      const qrClickNote = document.getElementById('qrClickNote');
+      const proofUploadWrapper = document.getElementById('proofUploadWrapper');
+      const proofUpload = document.getElementById('proofUpload');
+      const proofReqStar = document.getElementById('proofReqStar');
+      const qrUnavailableBanner = document.getElementById('qrUnavailableBanner');
+      const qrModalTitle = document.getElementById('qrModalTitle');
+      const qrModalImg = document.getElementById('qrModalImg');
+      const qrModalPlaceholder = document.getElementById('qrModalPlaceholder');
+      const paymentMethodInput = document.getElementById('paymentMethodInput');
+
+      const qrSrc = hasQr ? (qrPath.startsWith('http') ? qrPath : `${baseUrlStr}/${qrPath}`) : '';
+
+      if (qrModalTitle && ownerName) {
+        qrModalTitle.textContent = `${ownerName}'s GCash QR`;
+      }
+
+      if (hasQr) {
+        if (qrImgDisplay) qrImgDisplay.src = qrSrc;
+        if (qrModalImg) {
+          qrModalImg.src = qrSrc;
+          qrModalImg.classList.remove('hidden');
+        }
+        if (qrModalPlaceholder) qrModalPlaceholder.classList.add('hidden');
+        if (qrImageWrap) qrImageWrap.classList.remove('hidden');
+        if (qrPlaceholderWrap) qrPlaceholderWrap.classList.add('hidden');
+        if (qrCodeContainer) {
+          qrCodeContainer.classList.remove('cursor-not-allowed', 'opacity-90');
+          qrCodeContainer.classList.add('cursor-pointer', 'hover:border-slate-400', 'shadow-sm');
+        }
+        if (qrInstructionText) {
+          qrInstructionText.textContent = "Use the GCash app to scan and pay directly to the unit owner's GCash account.";
+        }
+        if (qrClickNote) {
+          qrClickNote.textContent = "Click QR code to view full size.";
+        }
+        if (proofUploadWrapper) {
+          proofUploadWrapper.className = 'transition-all';
+        }
+        if (proofUpload) {
+          proofUpload.disabled = false;
+          if (paymentMethodInput && paymentMethodInput.value === 'GCash QR') {
+            proofUpload.required = true;
+          }
+        }
+        if (proofReqStar) proofReqStar.classList.remove('hidden');
+        if (qrUnavailableBanner) qrUnavailableBanner.classList.add('hidden');
+      } else {
+        if (qrModalImg) qrModalImg.classList.add('hidden');
+        if (qrModalPlaceholder) qrModalPlaceholder.classList.remove('hidden');
+        if (qrImageWrap) qrImageWrap.classList.add('hidden');
+        if (qrPlaceholderWrap) qrPlaceholderWrap.classList.remove('hidden');
+        if (qrCodeContainer) {
+          qrCodeContainer.classList.add('cursor-not-allowed', 'opacity-90');
+          qrCodeContainer.classList.remove('cursor-pointer', 'hover:border-slate-400', 'shadow-sm');
+        }
+        if (qrInstructionText) {
+          qrInstructionText.textContent = "GCash QR code is currently not available for this unit.";
+        }
+        if (qrClickNote) {
+          qrClickNote.textContent = "The unit owner has not yet uploaded their GCash QR.";
+        }
+        if (proofUploadWrapper) {
+          proofUploadWrapper.className = 'transition-all opacity-50 pointer-events-none select-none bg-slate-100/80 p-3 rounded-xl border border-dashed border-slate-300';
+        }
+        if (proofUpload) {
+          proofUpload.disabled = true;
+          proofUpload.required = false;
+          proofUpload.value = '';
+        }
+        if (proofReqStar) proofReqStar.classList.add('hidden');
+        if (qrUnavailableBanner) qrUnavailableBanner.classList.remove('hidden');
+      }
+    }
+
+    function switchPaymentTab(type) {
+      const tabGcash = document.getElementById('tabGcash');
+      const tabInHouse = document.getElementById('tabInHouse');
+      const panelGcash = document.getElementById('panelGcash');
+      const panelInHouse = document.getElementById('panelInHouse');
+      const paymentMethodInput = document.getElementById('paymentMethodInput');
+      const proofUpload = document.getElementById('proofUpload');
+
+      paymentMethodInput.value = type;
+      const hasQr = currentUnitHasQr();
+
+      if (type === 'GCash QR') {
+        tabGcash.className = 'flex-1 py-2.5 px-4 text-sm font-bold rounded-lg transition-all bg-slate-900 text-white shadow-sm cursor-pointer';
+        tabInHouse.className = 'flex-1 py-2.5 px-4 text-sm font-bold rounded-lg transition-all text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 cursor-pointer';
+        panelGcash.classList.remove('hidden');
+        panelInHouse.classList.add('hidden');
+        if (hasQr) {
+          proofUpload.required = true;
+          proofUpload.disabled = false;
+        } else {
+          proofUpload.required = false;
+          proofUpload.disabled = true;
+        }
+      } else {
+        tabGcash.className = 'flex-1 py-2.5 px-4 text-sm font-bold rounded-lg transition-all text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 cursor-pointer';
+        tabInHouse.className = 'flex-1 py-2.5 px-4 text-sm font-bold rounded-lg transition-all bg-slate-900 text-white shadow-sm cursor-pointer';
+        panelGcash.classList.add('hidden');
+        panelInHouse.classList.remove('hidden');
+        proofUpload.required = false;
+        proofUpload.value = '';
+      }
+    }
+
+    // ======= Payment breakdown calculation =======
+    function calculateBreakdown() {
+      const pct = 0.35;
+      const reqAmount = currentPriceBasis * pct;
+
+      const formatted = '₱' + reqAmount.toLocaleString('en-US', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      });
+
+      const dpAmountEl = document.getElementById('dpAmount');
+      if (dpAmountEl) dpAmountEl.textContent = formatted;
+      const declaredInput = document.getElementById('declaredAmountInput');
+      if (declaredInput) declaredInput.value = reqAmount;
+    }
+
+    // ======= Dynamic Unit Selection Handler =======
+    function handleUnitSelectionChange(unitIdStr) {
+      const unitId = parseInt(unitIdStr, 10);
+      if (!unitId || !Array.isArray(approvedUnitsData)) return;
+
+      const unit = approvedUnitsData.find(u => parseInt(u.unit_id, 10) === unitId);
+      if (!unit) return;
+
+      if (unit.is_available === false) {
+        const msg = unit.is_tentative 
+          ? 'This unit is currently on tentative hold by another applicant under our First-Come, First-Served policy.' 
+          : 'This unit is no longer available.';
+        if (typeof showFormModal === 'function') {
+          showFormModal(false, 'Unit Unavailable', msg);
+        } else {
+          alert(msg);
+        }
+        const selectElem = document.getElementById('approvedUnitSelect');
+        if (selectElem) selectElem.value = currentUnitId;
+        return;
+      }
+
+      currentUnitId = unitId;
+      currentPriceBasis = parseFloat(unit.price_basis) || 0;
+
+      // Sync hidden input
+      const hiddenUnitInput = document.getElementById('selectedUnitId');
+      if (hiddenUnitInput) hiddenUnitInput.value = unitId;
+
+      // 1. Update Unit Details First Panel
+      const dispUnitNum = document.getElementById('dispUnitNum');
+      if (dispUnitNum) {
+        const typeUpper = (unit.unit_type || 'STUDIO TYPE').toUpperCase();
+        dispUnitNum.textContent = `${unit.unit_number || '—'} — ${typeUpper}`;
+      }
+
+      const dispFurnishing = document.getElementById('dispFurnishing');
+      if (dispFurnishing) dispFurnishing.textContent = unit.furnishing || 'Fully Furnished';
+
+      const dispOwnerName = document.getElementById('dispOwnerName');
+      if (dispOwnerName) dispOwnerName.textContent = unit.owner_name || 'No owner assigned';
+
+      const dispFloorNum = document.getElementById('dispFloorNum');
+      if (dispFloorNum) dispFloorNum.textContent = unit.floor_number || '1';
+
+      const dispPriceLabel = document.getElementById('dispPriceLabel');
+      if (dispPriceLabel) dispPriceLabel.textContent = unit.price_label || 'Monthly Rate';
+
+      const dispPriceBasis = document.getElementById('dispPriceBasis');
+      if (dispPriceBasis) {
+        dispPriceBasis.textContent = `₱${Math.round(currentPriceBasis).toLocaleString('en-US')} php`;
+      }
+
+      const emailWrapper = document.getElementById('dispOwnerEmailWrapper');
+      if (emailWrapper) {
+        if (unit.owner_email && unit.owner_email.trim() !== '') {
+          emailWrapper.innerHTML = `<a href="mailto:${escapeHtml(unit.owner_email)}" class="text-sm font-bold text-blue-600 hover:text-blue-800 underline truncate block leading-snug" id="dispOwnerEmailLink">${escapeHtml(unit.owner_email)}</a>`;
+        } else {
+          emailWrapper.innerHTML = `<p class="text-sm font-bold text-slate-900 leading-snug" id="dispOwnerEmailText">—</p>`;
+        }
+      }
+
+      const dispSqmVal = document.getElementById('dispSqmVal');
+      if (dispSqmVal) dispSqmVal.textContent = unit.sqm || '37';
+
+      const dispListingVal = document.getElementById('dispListingVal');
+      if (dispListingVal) dispListingVal.textContent = unit.listing_type || 'For Lease';
+
+      const dispOwnerContact = document.getElementById('dispOwnerContact');
+      if (dispOwnerContact) dispOwnerContact.textContent = unit.owner_contact || '—';
+
+      // 2. Update Payment Breakdown Box
+      const breakdownPriceLabel = document.getElementById('breakdownPriceLabel');
+      if (breakdownPriceLabel) breakdownPriceLabel.textContent = unit.price_label || 'Monthly Rate';
+
+      const breakdownPriceVal = document.getElementById('breakdownPriceVal');
+      if (breakdownPriceVal) {
+        breakdownPriceVal.textContent = '₱' + currentPriceBasis.toLocaleString('en-US', {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2
+        });
+      }
+
+      calculateBreakdown();
+
+      // 3. Update GCash QR Display & Proof Upload state
+      const hasQr = Boolean(unit.owner_has_qr && unit.owner_qr_path);
+      updateQrAndProofUI(hasQr, unit.owner_name || 'Owner', unit.owner_qr_path || '');
+
+      // 4. Update Active Lease Period indicator
+      const dispUnitLeasePeriod = document.getElementById('dispUnitLeasePeriod');
+      if (dispUnitLeasePeriod) {
+        dispUnitLeasePeriod.textContent = unit.current_lease_period || 'No active lease';
+      }
+
+      // 5. Update blocked ranges for selected unit and re-check date overlap
+      if (Array.isArray(unit.blocked_ranges)) {
+        blockedRanges = unit.blocked_ranges;
+      } else {
+        blockedRanges = [];
+      }
+
+      // 6. Dynamically lock move-in datepicker min to unit's earliest available date and update max
+      const moveInInput = document.getElementById('moveInDate');
+      const dispEarliestDate = document.getElementById('dispEarliestMoveInDate');
+      if (unit.earliest_move_in_date) {
+        if (moveInInput) {
+          moveInInput.min = unit.earliest_move_in_date;
+
+          // Dynamically compute and update moveInInput.max based on unit's earliest available date
+          const [uY, uM, uD] = unit.earliest_move_in_date.split('-').map(Number);
+          const unitStartDate = new Date(uY, uM - 1, uD);
+          const maxDate = new Date(unitStartDate);
+          maxDate.setDate(maxDate.getDate() + 180);
+          const yOut = maxDate.getFullYear();
+          const mOut = String(maxDate.getMonth() + 1).padStart(2, '0');
+          const dOut = String(maxDate.getDate()).padStart(2, '0');
+          moveInInput.max = `${yOut}-${mOut}-${dOut}`;
+
+          // If the currently selected date is earlier than opening or beyond max, clamp it
+          if (moveInInput.value && moveInInput.value < unit.earliest_move_in_date) {
+            moveInInput.value = unit.earliest_move_in_date;
+          } else if (moveInInput.value && moveInInput.value > moveInInput.max) {
+            moveInInput.value = moveInInput.max;
+          }
+        }
+        if (dispEarliestDate) {
+          dispEarliestDate.textContent = unit.earliest_move_in_formatted || unit.earliest_move_in_date;
+        }
+      }
+
+      if (moveInInput && moveInInput.value) {
+        handleMoveInChange(moveInInput.value);
+      }
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    // ======= Remarks live counter =======
+    function updateRemarksCount(textarea) {
+      document.getElementById('remarksCount').textContent = `${textarea.value.length} / 500`;
+    }
+
+    // ======= QR lightbox modal =======
+    function openQRModal() {
+      const modal = document.getElementById('qrModal');
+      if (modal) {
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+      }
+    }
+    function closeQRModal() {
+      const modal = document.getElementById('qrModal');
+      if (modal) {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+      }
+    }
+
+    // ======= Form submit and validation =======
+    function handleFormSubmit(e) {
+      e.preventDefault();
+
+      const currentUnitObj = (Array.isArray(approvedUnitsData) ? approvedUnitsData.find(u => parseInt(u.unit_id, 10) === currentUnitId) : null) || {};
+      if (currentUnitObj.is_available === false) {
+        const msg = currentUnitObj.is_tentative 
+          ? 'This unit is currently on tentative hold by another applicant under our First-Come, First-Served policy.' 
+          : 'This unit is no longer available.';
+        showFormModal(false, 'Unit Unavailable', msg);
+        return false;
+      }
+
+      const agreeTerms = document.getElementById('agreeTerms');
+      if (!agreeTerms.checked) {
+        showFormModal(false, 'Terms Required', 'Please check and agree to the Terms and Conditions before submitting your reservation.');
+        agreeTerms.focus();
+        return false;
+      }
+
+      const moveIn = document.getElementById('moveInDate');
+      const minMoveIn = (moveIn && moveIn.min) ? moveIn.min : '<?= $move_in_min ?>';
+      if (isLease && (!moveIn || !moveIn.value)) {
+        showFormModal(false, 'Move-in Date Required', 'Please select your Move-in Date.');
+        if (moveIn) moveIn.focus();
+        return false;
+      }
+      if (isLease && moveIn && moveIn.value < minMoveIn) {
+        showFormModal(false, 'Invalid Move-in Date', "Move-in date must be on or after the unit's earliest opening date (" + minMoveIn + ") to allow for turnover and administration clearance.");
+        moveIn.focus();
+        return false;
+      }
+
+      if (isLease && moveIn && moveIn.value) {
+        const moveOutInput = document.getElementById('moveOutDate');
+        const conflict = checkDateOverlap(moveIn.value, moveOutInput ? moveOutInput.value : '');
+        if (conflict) {
+          const cStart = formatDisplayDate(conflict.start);
+          const cEnd = formatDisplayDate(conflict.end);
+          const currentUnitObj = (Array.isArray(approvedUnitsData) ? approvedUnitsData.find(u => parseInt(u.unit_id, 10) === currentUnitId) : null) || {};
+          const unitPrefix = currentUnitObj.unit_number ? `unit ${currentUnitObj.unit_number}` : 'this unit';
+          showFormModal(false, 'Reservation Date Conflict', "The selected lease period overlaps with an existing active reservation on " + unitPrefix + " (" + cStart + " to " + cEnd + "). Please choose a different move-in date.");
+          moveIn.focus();
+          return false;
+        }
+      }
+
+      // Validate that signing appointment is not scheduled after move-in date
+      if (isLease && moveIn && moveIn.value && !document.getElementById('imFlexible').checked) {
+        const effectiveMax = getEffectiveMaxSigningDate();
+        for (const sDate of selectedSigningDates) {
+          if (sDate > effectiveMax) {
+            showFormModal(false, 'Invalid Signing Date', "Your lease signing appointment (" + sDate + ") cannot be scheduled after your move-in date (" + moveIn.value + "). Please select signing dates on or before your move-in date.");
+            return false;
+          }
+        }
+      }
+
+      // Validate that resale contract signing is at least 3 days in advance
+      if (!isLease && !document.getElementById('imFlexible').checked) {
+        for (const sDate of selectedSigningDates) {
+          if (sDate < minSigningDate) {
+            showFormModal(false, 'Invalid Signing Date', "Contract signing date (" + sDate + ") must be at least 3 days from today (" + minSigningDate + ") to allow for document preparation.");
+            return false;
+          }
+        }
+      }
+
+      const paymentMethod = document.getElementById('paymentMethodInput').value;
+      const proof = document.getElementById('proofUpload');
+      if (paymentMethod === 'GCash QR') {
+        if (!currentUnitHasQr()) {
+          showFormModal(false, 'QR Not Available', "GCash QR code is not available for this unit. Please select 'Pay In-House' to complete your reservation.");
+          switchPaymentTab('In-House');
+          return false;
+        }
+        if (!proof.files || proof.files.length === 0) {
+          showFormModal(false, 'Proof of Payment Required', 'Please upload your proof of payment for the GCash QR payment option.');
+          proof.focus();
+          return false;
+        }
+      }
+
+      // Validate contact phone number
+      const contactVal = document.getElementById('client_contact') ? document.getElementById('client_contact').value.trim() : '';
+      if (!contactVal) {
+        showFormModal(false, 'Phone Number Required', 'Please enter your phone number.');
+        const pInput = document.getElementById('res_phone_input');
+        if (pInput) pInput.focus();
+        return false;
+      }
+
+      // Validate nationality
+      const nationalityVal = document.getElementById('client_nationality') ? document.getElementById('client_nationality').value.trim() : '';
+      if (!nationalityVal) {
+        showFormModal(false, 'Nationality Required', 'Please select your nationality.');
+        return false;
+      }
+
+      // Open confirmation modal
+      const modal = document.getElementById('confirmModal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+      return false;
+    }
+
+    function closeConfirmModal() {
+      const modal = document.getElementById('confirmModal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    function proceedSubmit() {
+      const btn = document.getElementById('btnSubmitReservation');
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<svg class="w-4 h-4 animate-spin shrink-0" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg><span>SUBMITTING...</span>';
+      }
+      document.getElementById('reservationForm').submit();
+    }
+
+    function showFormModal(isSuccess, title, message) {
+      const modal = document.getElementById('formStatusModal');
+      const icon = document.getElementById('formStatusIcon');
+      const t = document.getElementById('formStatusTitle');
+      const m = document.getElementById('formStatusMessage');
+      if (t) t.textContent = title;
+      if (m) m.textContent = message;
+      if (icon) {
+        if (isSuccess) {
+          icon.className = 'w-14 h-14 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto mb-4 border border-emerald-100';
+          icon.innerHTML = '<svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>';
+        } else {
+          icon.className = 'w-14 h-14 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center mx-auto mb-4 border border-rose-100';
+          icon.innerHTML = '<svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>';
+        }
+      }
+      if (modal) {
+        modal.classList.remove('hidden');
+        requestAnimationFrame(() => modal.classList.add('open'));
+      }
+    }
+    function closeFormStatusModal() {
+      const modal = document.getElementById('formStatusModal');
+      if (!modal || !modal.classList.contains('open')) return;
+      modal.classList.remove('open');
+      setTimeout(() => { if (!modal.classList.contains('open')) modal.classList.add('hidden'); }, 250);
+    }
+
+    // Initialize country phone dropdown and searchable nationality selector
+    window.addEventListener('DOMContentLoaded', () => {
+      if (window.initPhoneCountryDropdown) {
+        window.initPhoneCountryDropdown({
+          selectBtnId: 'resCountryBtn',
+          dropdownId: 'resCountryDropdown',
+          phoneInputId: 'res_phone_input',
+          hiddenFieldId: 'client_contact',
+          initialCode: 'PH',
+          initialPhone: <?= json_encode((string) ($clientContact ?? '')) ?>
+        });
+      }
+
+      if (window.initNationalityDropdown) {
+        window.initNationalityDropdown({
+          containerId: 'nationalitySelectContainer',
+          hiddenInputId: 'client_nationality',
+          defaultNationality: 'Filipino'
+        });
+      }
+    });
+  </script>
+
+  <!-- Form Validation Status Modal -->
+  <div id="formStatusModal"
+    class="modal-backdrop fixed inset-0 z-[500] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 hidden"
+    onclick="if(event.target===this)closeFormStatusModal()">
+    <div
+      class="modal-card bg-white rounded-3xl shadow-2xl border border-slate-100 p-6 sm:p-7 max-w-sm w-full text-center"
+      onclick="event.stopPropagation()">
+      <div id="formStatusIcon" class="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4 border"></div>
+      <h3 class="text-lg font-bold text-slate-900 mb-1.5" id="formStatusTitle">Notice</h3>
+      <p class="text-sm text-slate-600 mb-6 leading-relaxed" id="formStatusMessage"></p>
+      <button type="button" onclick="closeFormStatusModal()"
+        class="w-full py-3 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-sm font-bold transition-all shadow-sm cursor-pointer">
+        Got It
+      </button>
+    </div>
+  </div>
+
+  <style>
+    .modal-backdrop {
+      transition: opacity 0.2s ease;
+    }
+
+    .modal-backdrop.open {
+      opacity: 1;
+    }
+
+    .modal-backdrop:not(.open) {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .modal-card {
+      transition: transform 0.25s cubic-bezier(.34, 1.56, .64, 1), opacity 0.2s ease;
+    }
+
+    .modal-backdrop:not(.open) .modal-card {
+      transform: scale(0.92);
+      opacity: 0;
+    }
+
+    .modal-backdrop.open .modal-card {
+      transform: scale(1);
+      opacity: 1;
+    }
+  </style>
+
+  <!-- ── COUNTRY & NATIONALITY UTILITIES ──────────────────────────── -->
+  <?php include __DIR__ . '/../components/country_phone_library.php'; ?>
+
+</body>
+
+</html>

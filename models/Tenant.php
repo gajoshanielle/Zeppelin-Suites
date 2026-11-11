@@ -1,0 +1,435 @@
+<?php
+declare(strict_types=1);
+
+require_once __DIR__ . '/../core/Model.php';
+
+/**
+ * Zeppelin Suites - Tenant Model
+ * Handles database operations for tenant overview, profile updates, and maintenance requests.
+ * Pure MVC: strictly PDO prepared statements. Zero direct HTML or output.
+ */
+class Tenant extends Model {
+
+    /**
+     * Retrieve tenant overview data (lease, unit info, active maintenance count).
+     */
+    public function getOverviewData(int $tenantId, string $email, string $name): array {
+        // 1. Fetch user record
+        $user = $this->fetchOne("SELECT * FROM users_table WHERE user_id = ? LIMIT 1", [$tenantId]);
+
+        // 2. Fetch active lease & unit information
+        $leaseSql = "
+            SELECT 
+                r.reservation_id,
+                r.unit_id,
+                r.inq_id,
+                r.client_name,
+                r.client_email,
+                r.client_contact,
+                r.move_in_date,
+                r.move_out_date,
+                r.price_basis,
+                r.required_amount,
+                                r.payment_status,
+                r.reservation_status,
+                r.officially_booked_at,
+                u.unit_number,
+                u.unit_type,
+                u.floor_number,
+                u.sqm,
+                u.unit_current_status,
+                u.lease_rate,
+                owner.user_id AS owner_id,
+                owner.full_name AS owner_name,
+                owner.email AS owner_email,
+                owner.contact AS owner_contact,
+                i.preferred_move_in_time,
+                r.lease_signing_date,
+                r.transaction_type
+            FROM reservation_table r
+            INNER JOIN units_table u ON r.unit_id = u.unit_id
+            LEFT JOIN users_table owner ON u.unit_owner_id = owner.user_id
+            LEFT JOIN inquiry_table i ON r.inq_id = i.inq_id
+            WHERE r.client_email = ?
+              AND LOWER(r.reservation_status) NOT IN ('cancelled', 'rejected')
+            ORDER BY 
+                CASE 
+                    WHEN u.unit_current_status = 'Occupied' THEN 1
+                    WHEN r.officially_booked_at IS NOT NULL THEN 2
+                    WHEN r.reservation_status IN ('handover', 'moved in', 'reserved', 'Active', 'Approved') THEN 3
+                    ELSE 4
+                END,
+                r.reservation_id DESC
+            LIMIT 1
+        ";
+        $lookupEmail = $email !== '' ? $email : (string)($user['email'] ?? '');
+        $leaseInfo = $this->fetchOne($leaseSql, [$lookupEmail]);
+
+        // 3. Count active maintenance requests
+        $mCountSql = "
+            SELECT COUNT(*) AS total 
+            FROM maintenance_table 
+            WHERE submitted_by_user_id = ? 
+              AND LOWER(status) IN ('pending', 'in progress')
+        ";
+        $mCountRow = $this->fetchOne($mCountSql, [$tenantId]);
+        $activeMaintenanceCount = (int)($mCountRow['total'] ?? 0);
+
+        // 4. Fetch recent maintenance requests
+        $recentTicketsSql = "
+            SELECT 
+                m.maintenance_id,
+                m.subject,
+                m.category,
+                m.priority,
+                m.status,
+                m.submitted_at,
+                u.unit_number
+            FROM maintenance_table m
+            INNER JOIN units_table u ON m.unit_id = u.unit_id
+            WHERE m.submitted_by_user_id = ?
+            ORDER BY m.submitted_at DESC
+            LIMIT 5
+        ";
+        $recentTickets = $this->fetchAll($recentTicketsSql, [$tenantId]);
+
+        return [
+            'user'                   => $user,
+            'lease'                  => $leaseInfo,
+            'activeMaintenanceCount' => $activeMaintenanceCount,
+            'recentTickets'          => $recentTickets,
+        ];
+    }
+
+    /**
+     * Retrieve tenant account information along with leases and maintenance requests.
+     */
+    public function getAccountData(int $tenantId): ?array {
+        $tenant = $this->fetchOne("SELECT * FROM users_table WHERE user_id = ? LIMIT 1", [$tenantId]);
+        if (!$tenant) {
+            return null;
+        }
+
+        $email = (string)($tenant['email'] ?? '');
+        $name = (string)($tenant['full_name'] ?? '');
+
+        // Fetch Leases for this Tenant
+        $leaseSql = "
+            SELECT 
+                r.reservation_id,
+                r.unit_id,
+                r.inq_id,
+                r.client_name,
+                r.client_email,
+                r.client_contact,
+                r.move_in_date,
+                r.move_out_date,
+                r.price_basis,
+                r.required_amount,
+                                r.payment_status,
+                r.reservation_status,
+                r.officially_booked_at,
+                r.created_at,
+                u.unit_number,
+                u.unit_type,
+                u.floor_number,
+                u.sqm,
+                u.unit_current_status,
+                u.lease_rate,
+                owner.user_id AS owner_id,
+                owner.full_name AS owner_name,
+                owner.email AS owner_email,
+                owner.contact AS owner_contact
+            FROM reservation_table r
+            INNER JOIN units_table u ON r.unit_id = u.unit_id
+            LEFT JOIN users_table owner ON u.unit_owner_id = owner.user_id
+            WHERE r.client_email = ?
+            ORDER BY r.created_at DESC
+        ";
+        $leases = $this->fetchAll($leaseSql, [$email]);
+
+        // Fetch Documents for Tenant's Reservation(s)
+        $docSql = "
+            SELECT 
+                d.document_id,
+                d.reservation_id,
+                d.document_key,
+                d.document_name,
+                d.status,
+                d.document_link,
+                d.updated_at,
+                r.reservation_status,
+                u.unit_number,
+                u.unit_type
+            FROM reservation_documents_table d
+            INNER JOIN reservation_table r ON d.reservation_id = r.reservation_id
+            INNER JOIN units_table u ON r.unit_id = u.unit_id
+            WHERE r.client_email = ?
+            ORDER BY r.reservation_id DESC, d.document_id ASC
+        ";
+        $documents = $this->fetchAll($docSql, [$email]);
+
+        // Fetch Maintenance Requests
+        $mSql = "
+            SELECT 
+                m.maintenance_id,
+                m.unit_id,
+                m.unit_owner_id,
+                m.submitted_by_user_id,
+                COALESCE(m.subject, m.category, 'Maintenance Request') AS issue_title,
+                m.category,
+                m.description,
+                m.priority,
+                m.status,
+                m.submitted_at,
+                u.unit_number, 
+                u.unit_type 
+            FROM maintenance_table m 
+            LEFT JOIN units_table u ON m.unit_id = u.unit_id 
+            WHERE m.submitted_by_user_id = ?
+            ORDER BY m.submitted_at DESC 
+            LIMIT 50
+        ";
+        $maintenance = $this->fetchAll($mSql, [$tenantId]);
+
+        return [
+            'tenant'      => $tenant,
+            'leases'      => $leases,
+            'documents'   => $documents,
+            'maintenance' => $maintenance,
+        ];
+    }
+
+    /**
+     * Update tenant profile information.
+     */
+    public function updateProfile(int $tenantId, array $data): array {
+        $fullName = trim((string)($data['full_name'] ?? ''));
+        $contact = trim((string)($data['contact'] ?? ''));
+        $addEmail = !empty($data['additional_email']) ? trim((string)$data['additional_email']) : null;
+
+        if ($fullName === '') {
+            return ['success' => false, 'message' => 'Full name cannot be empty.'];
+        }
+
+        try {
+            $updates = ["full_name = ?", "contact = ?"];
+            $params = [$fullName, $contact];
+
+            // Inspect optional columns in users_table
+            $columnsStmt = $this->db->query("SHOW COLUMNS FROM users_table");
+            $columns = $columnsStmt->fetchAll(PDO::FETCH_COLUMN);
+
+            if (in_array('additional_email', $columns, true)) {
+                $updates[] = "additional_email = ?";
+                $params[] = $addEmail;
+            }
+            $params[] = $tenantId;
+            $sql = "UPDATE users_table SET " . implode(', ', $updates) . " WHERE user_id = ?";
+            $this->execute($sql, $params);
+
+            return ['success' => true, 'message' => 'Your profile has been updated successfully!'];
+        } catch (Throwable $e) {
+            return ['success' => false, 'message' => 'Failed to update profile: ' . $e->getMessage()];
+        }
+    }
+
+    /**
+     * Retrieve all units assigned to this tenant.
+     */
+    public function getTenantUnits(int $tenantId): array {
+        $sql = "
+            SELECT DISTINCT u.unit_id, u.unit_number, u.unit_type, u.floor_number, u.unit_owner_id,
+                   owner.full_name AS owner_name
+            FROM units_table u
+            INNER JOIN reservation_table r ON r.unit_id = u.unit_id
+            INNER JOIN users_table tenant ON tenant.email = r.client_email
+            LEFT JOIN users_table owner ON u.unit_owner_id = owner.user_id
+            WHERE tenant.user_id = ?
+              AND LOWER(r.reservation_status) NOT IN ('cancelled', 'rejected')
+            ORDER BY u.unit_number ASC
+        ";
+        return $this->fetchAll($sql, [$tenantId]);
+    }
+
+    /**
+     * Retrieve maintenance requests submitted by this tenant.
+     */
+    public function getMaintenanceTickets(int $tenantId, string $name): array {
+        $sql = "
+            SELECT 
+                m.maintenance_id,
+                m.unit_id,
+                m.unit_owner_id,
+                m.submitted_by_user_id,
+                m.submitted_by_role,
+                m.subject,
+                m.category,
+                m.description,
+                m.priority,
+                m.status,
+                m.photo_paths,
+                m.admin_remarks,
+                m.submitted_at,
+                m.updated_at,
+                m.resolved_at,
+                u.unit_number,
+                u.unit_type,
+                u.floor_number,
+                owner.full_name AS owner_name,
+                owner.email AS owner_email,
+                COALESCE(sub.full_name, ?) AS tenant_name
+            FROM maintenance_table m
+            INNER JOIN units_table u ON m.unit_id = u.unit_id
+            LEFT JOIN users_table owner ON m.unit_owner_id = owner.user_id
+            LEFT JOIN users_table sub ON m.submitted_by_user_id = sub.user_id
+            WHERE m.submitted_by_user_id = ?
+            ORDER BY m.submitted_at DESC
+        ";
+        return $this->fetchAll($sql, [$name, $tenantId]);
+    }
+
+    /**
+     * Create a new maintenance ticket submitted by the tenant.
+     */
+    public function createMaintenanceRequest(int $tenantId, string $email, string $name, array $data, array $files): array {
+        $subject = trim((string)($data['subject'] ?? ''));
+        $category = trim((string)($data['category'] ?? ''));
+        $priority = trim((string)($data['priority'] ?? 'normal'));
+        $description = trim((string)($data['description'] ?? ''));
+
+        $allowedCategories = ['Plumbing', 'Electrical', 'Cleaning', 'Fixture', 'Structural', 'Other'];
+        $allowedPriorities = ['low', 'normal', 'urgent'];
+
+        if ($subject === '' || $category === '' || $description === '') {
+            return ['success' => false, 'message' => 'Please complete all required fields.'];
+        }
+
+        if (!in_array($category, $allowedCategories, true)) {
+            return ['success' => false, 'message' => 'Invalid maintenance category.'];
+        }
+
+        if (!in_array($priority, $allowedPriorities, true)) {
+            return ['success' => false, 'message' => 'Invalid priority level.'];
+        }
+
+        // Retrieve all active leased units assigned to this tenant
+        $tenantUnits = $this->getTenantUnits($tenantId);
+        if (empty($tenantUnits)) {
+            return [
+                'success' => false,
+                'message' => 'Unable to verify an active lease. Please contact management.'
+            ];
+        }
+
+        $targetUnitId = (int)($data['unit_id'] ?? 0);
+        if ($targetUnitId <= 0 && count($tenantUnits) === 1) {
+            $targetUnitId = (int)$tenantUnits[0]['unit_id'];
+        }
+
+        $unit = null;
+        foreach ($tenantUnits as $tu) {
+            if ((int)$tu['unit_id'] === $targetUnitId) {
+                $unit = $tu;
+                break;
+            }
+        }
+
+        if ($unit === null) {
+            return [
+                'success' => false,
+                'message' => 'Please select a valid unit from your active leases.'
+            ];
+        }
+
+        $unitId = (int)$unit['unit_id'];
+        $unitOwnerId = (int)($unit['unit_owner_id'] ?? 0);
+
+        // Process file uploads
+        $photoPaths = [];
+        if (!empty($files['maintenance_photos']['name'][0])) {
+            $uploadDir = dirname(__DIR__) . '/images/maintenance/';
+            $dbDir = 'images/maintenance/';
+
+            if (!is_dir($uploadDir)) {
+                mkdir($uploadDir, 0775, true);
+            }
+
+            $allowedExt = ['jpg', 'jpeg', 'png', 'webp'];
+            $maxFiles = 5;
+            $maxSize = 5 * 1024 * 1024;
+            $fileCount = count($files['maintenance_photos']['name']);
+
+            if ($fileCount > $maxFiles) {
+                return ['success' => false, 'message' => 'You may upload up to 5 photos only.'];
+            }
+
+            for ($i = 0; $i < $fileCount; $i++) {
+                if ($files['maintenance_photos']['error'][$i] === UPLOAD_ERR_NO_FILE) {
+                    continue;
+                }
+
+                if ($files['maintenance_photos']['error'][$i] !== UPLOAD_ERR_OK) {
+                    return ['success' => false, 'message' => 'One of the uploaded photos failed to process.'];
+                }
+
+                if ($files['maintenance_photos']['size'][$i] > $maxSize) {
+                    return ['success' => false, 'message' => 'Each photo must be 5MB or below.'];
+                }
+
+                $originalName = (string)$files['maintenance_photos']['name'][$i];
+                $tmpName = (string)$files['maintenance_photos']['tmp_name'][$i];
+                $ext = strtolower(pathinfo($originalName, PATHINFO_EXTENSION));
+
+                if (!in_array($ext, $allowedExt, true)) {
+                    return ['success' => false, 'message' => 'Only JPG, PNG, and WEBP files are allowed.'];
+                }
+
+                $newName = 'maintenance_tnt_' . time() . '_' . bin2hex(random_bytes(8)) . '.' . $ext;
+                $targetPath = $uploadDir . $newName;
+                $dbPath = $dbDir . $newName;
+
+                if (!move_uploaded_file($tmpName, $targetPath)) {
+                    return ['success' => false, 'message' => 'Failed to upload photo.'];
+                }
+
+                $photoPaths[] = $dbPath;
+            }
+        }
+
+        $photoPathsValue = !empty($photoPaths) ? implode(',', $photoPaths) : null;
+
+        $insertSql = "
+            INSERT INTO maintenance_table (
+                submitted_by_user_id,
+                submitted_by_role,
+                unit_owner_id,
+                unit_id,
+                subject,
+                category,
+                description,
+                priority,
+                status,
+                photo_paths,
+                submitted_at
+            ) VALUES (?, 'tenant', ?, ?, ?, ?, ?, ?, 'pending', ?, NOW())
+        ";
+
+        try {
+            $this->execute($insertSql, [
+                $tenantId,
+                $unitOwnerId > 0 ? $unitOwnerId : null,
+                $unitId,
+                $subject,
+                $category,
+                $description,
+                $priority,
+                $photoPathsValue,
+            ]);
+
+            return ['success' => true, 'message' => 'Maintenance request submitted successfully!'];
+        } catch (Throwable $e) {
+            return ['success' => false, 'message' => 'Database error: ' . $e->getMessage()];
+        }
+    }
+}
