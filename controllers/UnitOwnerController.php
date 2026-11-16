@@ -151,7 +151,7 @@ class UnitOwnerController extends Controller {
             'success'    => true,
             'state'      => $state,
             'has_update' => $hasUpdate,
-            'message'    => $hasUpdate ? 'There is a new update in your Inquiries. Please refresh the page.' : 'Up to date.',
+            'message'    => $hasUpdate ? 'There is an update here. Please refresh the page.' : 'Up to date.',
         ]);
     }
 
@@ -190,7 +190,7 @@ class UnitOwnerController extends Controller {
             'success'    => true,
             'state'      => $state,
             'has_update' => $hasUpdate,
-            'message'    => $hasUpdate ? 'There is a new update in your Lease Management. Please refresh the page.' : 'Up to date.',
+            'message'    => $hasUpdate ? 'There is an update here. Please refresh the page.' : 'Up to date.',
         ]);
     }
 

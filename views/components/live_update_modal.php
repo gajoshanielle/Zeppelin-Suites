@@ -1,76 +1,55 @@
 <?php
 /**
- * Zeppelin Suites - Live Update Notification Modal & Auto-Check Component
+ * Zeppelin Suites - Simple Live Update Notification Modal
  * Reusable across Admin and Unit Owner portals (Inquiries & Lease Management).
- *
- * Expected variables (optional):
- * - $updateCheckUrl (string) Endpoint for checking updates
- * - $stateHash (string) Initial state hash from backend model
- * - $updateModalTitle (string) Header title for the modal
- * - $updateModalMessage (string) Message body for the modal
  */
-$updateModalTitle = $updateModalTitle ?? 'Page Update Available';
-$updateModalMessage = $updateModalMessage ?? 'There is a new update available. Please refresh the page to view the latest data.';
+$updateModalTitle = $updateModalTitle ?? 'Update Available';
+$updateModalMessage = $updateModalMessage ?? 'There is an update here. Please refresh the page.';
 ?>
 
-<!-- LIVE UPDATE NOTIFICATION MODAL -->
-<div id="liveUpdateModal" class="fixed inset-0 z-[120] hidden items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs transition-opacity duration-200" onclick="if(event.target===this)dismissLiveUpdateModal()">
-  <div class="bg-white rounded-3xl shadow-2xl border border-slate-100 max-w-md w-full p-6 sm:p-7 text-center overflow-hidden transform transition-all duration-200 scale-95 opacity-0" id="liveUpdateCard" onclick="event.stopPropagation()">
+<!-- SIMPLE LIVE UPDATE MODAL -->
+<div id="liveUpdateModal" class="fixed inset-0 z-[120] hidden items-center justify-center p-4 bg-slate-900/30 backdrop-blur-xs transition-opacity duration-200" onclick="if(event.target===this)dismissLiveUpdateModal()">
+  <div class="bg-white rounded-2xl shadow-xl border border-slate-100 max-w-sm w-full p-5 sm:p-6 text-center relative overflow-hidden transform transition-all duration-200 scale-95 opacity-0" id="liveUpdateCard" onclick="event.stopPropagation()">
     
-    <!-- Animated Refresh Icon Badge -->
-    <div class="w-16 h-16 rounded-2xl bg-amber-50 border border-amber-200 text-amber-600 flex items-center justify-center mx-auto mb-4 relative shadow-sm">
-      <svg class="w-8 h-8 animate-spin text-amber-600" style="animation-duration: 3s;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <!-- Top-right close button -->
+    <button type="button" onclick="dismissLiveUpdateModal()" class="absolute top-3.5 right-3.5 w-7 h-7 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 flex items-center justify-center transition-colors text-base font-medium cursor-pointer" title="Close">
+      &times;
+    </button>
+
+    <!-- Clean Refresh Icon -->
+    <div class="w-11 h-11 rounded-full bg-slate-100 text-slate-700 flex items-center justify-center mx-auto mb-3">
+      <svg class="w-5 h-5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
       </svg>
-      <span class="absolute -top-1 -right-1 flex h-3.5 w-3.5">
-        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-        <span class="relative inline-flex rounded-full h-3.5 w-3.5 bg-amber-500 border-2 border-white"></span>
-      </span>
     </div>
 
-    <span class="inline-block px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider bg-amber-50 text-amber-800 border border-amber-200/80 mb-2">
-      Live System Update
-    </span>
-    
-    <h3 class="text-lg font-bold text-slate-900 mb-1.5" id="liveUpdateTitle">
+    <!-- Title & Message -->
+    <h3 class="text-base font-bold text-slate-900 mb-1" id="liveUpdateTitle">
       <?= htmlspecialchars($updateModalTitle, ENT_QUOTES, 'UTF-8') ?>
     </h3>
 
-    <p class="text-xs sm:text-sm text-slate-600 leading-relaxed mb-6" id="liveUpdateDesc">
+    <p class="text-xs text-slate-500 leading-relaxed mb-5" id="liveUpdateDesc">
       <?= htmlspecialchars($updateModalMessage, ENT_QUOTES, 'UTF-8') ?>
     </p>
 
-    <div class="flex items-center gap-2.5">
+    <!-- Action Buttons -->
+    <div class="flex items-center gap-2">
       <button type="button" 
         onclick="dismissLiveUpdateModal()" 
-        class="flex-1 py-2.5 px-4 rounded-xl border border-slate-200 hover:border-slate-300 text-xs font-semibold text-slate-600 hover:text-slate-800 transition-all active:scale-95 cursor-pointer">
+        class="flex-1 py-2 px-3 rounded-xl border border-slate-200 hover:bg-slate-50 text-xs font-semibold text-slate-600 transition-all cursor-pointer">
         Dismiss
       </button>
       <button type="button" 
         onclick="handleManualPageRefresh()" 
-        class="flex-1 py-2.5 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-xs font-semibold text-white shadow-sm transition-all active:scale-95 flex items-center justify-center gap-2 cursor-pointer">
-        <svg class="w-3.5 h-3.5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        class="flex-1 py-2 px-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-xs font-semibold text-white shadow-sm transition-all flex items-center justify-center gap-1.5 cursor-pointer">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
         </svg>
-        <span>Refresh Page</span>
+        <span>Refresh</span>
       </button>
     </div>
-  </div>
-</div>
 
-<!-- SUBTLE FLOATING TOAST SNACKBAR (Shows after modal dismissal) -->
-<div id="liveUpdateToast" class="fixed bottom-5 right-5 z-[110] hidden items-center gap-3 bg-slate-900/95 text-white px-4 py-3 rounded-2xl shadow-2xl border border-slate-800 backdrop-blur-sm transition-all duration-200">
-  <div class="flex items-center gap-2">
-    <span class="relative flex h-2.5 w-2.5">
-      <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-      <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500"></span>
-    </span>
-    <span class="text-xs font-semibold text-slate-200">New updates available</span>
   </div>
-  <button type="button" onclick="handleManualPageRefresh()" class="text-xs font-bold text-amber-400 hover:text-amber-300 underline underline-offset-2 ml-1 cursor-pointer">
-    Refresh Now
-  </button>
-  <button type="button" onclick="document.getElementById('liveUpdateToast').classList.add('hidden')" class="text-slate-400 hover:text-white text-xs ml-1 font-mono cursor-pointer" title="Close">&times;</button>
 </div>
 
 <script>
@@ -106,18 +85,12 @@ $updateModalMessage = $updateModalMessage ?? 'There is a new update available. P
         modal.classList.remove('flex');
       }
     }, 200);
-
-    const toast = document.getElementById('liveUpdateToast');
-    if (toast) {
-      toast.classList.remove('hidden');
-      toast.classList.add('flex');
-    }
   };
 
   function showLiveUpdateModal(message) {
     modalShown = true;
 
-    // Activate the pinging badge on the circular refresh button
+    // Show indicator dot on the circular refresh button
     const badge = document.getElementById('refreshBtnBadge');
     if (badge) {
       badge.classList.remove('hidden');
@@ -161,7 +134,7 @@ $updateModalMessage = $updateModalMessage ?? 'There is a new update available. P
           currentHash = data.state.state_hash;
         } else if (data.has_update || (data.state && data.state.state_hash && data.state.state_hash !== currentHash)) {
           if (!modalShown) {
-            showLiveUpdateModal(data.message || 'There is an update available on this page. Please refresh the page to view the latest data.');
+            showLiveUpdateModal(data.message || 'There is an update here. Please refresh the page.');
           }
         }
       }
@@ -172,8 +145,8 @@ $updateModalMessage = $updateModalMessage ?? 'There is a new update available. P
     }
   }
 
-  // Periodic poll every 15 seconds
-  setInterval(checkForLiveUpdates, 15000);
+  // Periodic poll every 20 seconds
+  setInterval(checkForLiveUpdates, 20000);
 
   // Instant check when switching tabs back to this page
   document.addEventListener('visibilitychange', () => {
@@ -183,4 +156,3 @@ $updateModalMessage = $updateModalMessage ?? 'There is a new update available. P
   });
 })();
 </script>
-

@@ -60,7 +60,7 @@ class ReservationController extends Controller
             'success'    => true,
             'state'      => $state,
             'has_update' => $hasUpdate,
-            'message'    => $hasUpdate ? 'There is a new update in Lease Management. Please refresh the page.' : 'Up to date.',
+            'message'    => $hasUpdate ? 'There is an update here. Please refresh the page.' : 'Up to date.',
         ]);
     }
 

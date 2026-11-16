@@ -1742,8 +1742,8 @@ $statusMap = [
 
   <?php
   $updateCheckUrl = ($baseUrl ?? '') . '/admin/inquiries/check-updates';
-  $updateModalTitle = 'Inquiries Updated';
-  $updateModalMessage = 'There is an update in inquiries (new client messages or status updates have been recorded). Please refresh the page to view the latest data.';
+  $updateModalTitle = 'Update Available';
+  $updateModalMessage = 'There is an update here. Please refresh the page.';
   include dirname(__DIR__) . '/components/live_update_modal.php';
   ?>
 </body>

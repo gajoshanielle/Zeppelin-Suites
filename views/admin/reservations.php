@@ -1012,8 +1012,8 @@ if (document.readyState === 'loading') {
 
 <?php
 $updateCheckUrl = ($baseUrl ?? '') . '/admin/reservations/check-updates';
-$updateModalTitle = 'Lease Management Updated';
-$updateModalMessage = 'There is an update in reservations (new bookings, payments, or status updates have been recorded). Please refresh the page to view the latest data.';
+$updateModalTitle = 'Update Available';
+$updateModalMessage = 'There is an update here. Please refresh the page.';
 include dirname(__DIR__) . '/components/live_update_modal.php';
 ?>
 

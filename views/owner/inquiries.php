@@ -1175,8 +1175,8 @@ $inquiries = $inquiries ?? [];
 
   <?php
   $updateCheckUrl = ($baseUrl ?? '') . '/owner/inquiries/check-updates';
-  $updateModalTitle = 'Inquiries Updated';
-  $updateModalMessage = 'There is an update in your inquiries (new client approval requests or status changes have been recorded). Please refresh the page to view the latest data.';
+  $updateModalTitle = 'Update Available';
+  $updateModalMessage = 'There is an update here. Please refresh the page.';
   include dirname(__DIR__) . '/components/live_update_modal.php';
   ?>
 </body>
