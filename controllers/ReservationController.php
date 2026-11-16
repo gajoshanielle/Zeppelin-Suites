@@ -34,14 +34,33 @@ class ReservationController extends Controller
         $reservations = $this->reservationModel->getAllWithDetails();
 
         $baseUrl = rtrim((string) env('APP_URL', '/Zeppelin-Suites'), '/');
+        $resState = $this->reservationModel->getReservationCheckState();
 
         $this->render('admin/reservations', [
-            'pageTitle' => 'Zeppelin Suites Admin - Lease Management',
-            'activeTab' => 'reservation',
-            'adminName' => $userSession['full_name'],
+            'pageTitle'    => 'Zeppelin Suites Admin - Lease Management',
+            'activeTab'    => 'reservation',
+            'adminName'    => $userSession['full_name'],
             'adminInitial' => $userSession['initial'],
-            'baseUrl' => $baseUrl,
+            'baseUrl'      => $baseUrl,
             'reservations' => $reservations,
+            'stateHash'    => $resState['state_hash'] ?? '',
+        ]);
+    }
+
+    /**
+     * AJAX endpoint to check for live updates in reservations / lease management.
+     */
+    public function checkUpdates(): void
+    {
+        Middleware::requireRole(['admin']);
+        $state = $this->reservationModel->getReservationCheckState();
+        $clientHash = trim((string)$this->getQuery('hash', ''));
+        $hasUpdate = ($clientHash !== '' && $clientHash !== $state['state_hash']);
+        $this->json([
+            'success'    => true,
+            'state'      => $state,
+            'has_update' => $hasUpdate,
+            'message'    => $hasUpdate ? 'There is a new update in Lease Management. Please refresh the page.' : 'Up to date.',
         ]);
     }
 

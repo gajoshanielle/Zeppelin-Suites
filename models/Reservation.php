@@ -2621,6 +2621,61 @@ class Reservation extends Model
             error_log('Error notifying other applicants of unit release: ' . $e->getMessage());
         }
     }
+
+    /**
+     * Compute a lightweight state summary and hash for live reservation update polling.
+     */
+    public function getReservationCheckState(): array
+    {
+        try {
+            $row = $this->fetchOne("
+                SELECT 
+                    COUNT(*) as total_count,
+                    COALESCE(MAX(reservation_id), 0) as max_id,
+                    COALESCE(MAX(COALESCE(created_at, '1970-01-01 00:00:00')), '1970-01-01 00:00:00') as latest_timestamp,
+                    COALESCE(MAX(payment_reviewed_at), '1970-01-01 00:00:00') as latest_payment_review,
+                    COALESCE(MAX(officially_booked_at), '1970-01-01 00:00:00') as latest_booked,
+                    COALESCE(MAX(cancelled_at), '1970-01-01 00:00:00') as latest_cancelled,
+                    SUM(CASE WHEN payment_status = 'pending review' THEN 1 ELSE 0 END) as pending_payment,
+                    SUM(CASE WHEN LOWER(reservation_status) = 'reserved' THEN 1 ELSE 0 END) as reserved_count,
+                    SUM(CASE WHEN LOWER(reservation_status) = 'cancellation requested' THEN 1 ELSE 0 END) as cancel_requested
+                FROM reservation_table
+            ");
+
+            $totalCount = (int)($row['total_count'] ?? 0);
+            $maxId = (int)($row['max_id'] ?? 0);
+            $latestTs = (string)($row['latest_timestamp'] ?? '');
+            $latestPayReview = (string)($row['latest_payment_review'] ?? '');
+            $latestBooked = (string)($row['latest_booked'] ?? '');
+            $latestCancelled = (string)($row['latest_cancelled'] ?? '');
+            $pendingPay = (int)($row['pending_payment'] ?? 0);
+            $reserved = (int)($row['reserved_count'] ?? 0);
+            $cancelReq = (int)($row['cancel_requested'] ?? 0);
+
+            $hash = md5("{$totalCount}_{$maxId}_{$latestTs}_{$latestPayReview}_{$latestBooked}_{$latestCancelled}_{$pendingPay}_{$reserved}_{$cancelReq}");
+
+            return [
+                'total_count'            => $totalCount,
+                'max_id'                 => $maxId,
+                'latest_timestamp'       => $latestTs,
+                'pending_payment_count'  => $pendingPay,
+                'reserved_count'         => $reserved,
+                'cancel_requested_count' => $cancelReq,
+                'state_hash'             => $hash,
+            ];
+        } catch (\Throwable $e) {
+            error_log('getReservationCheckState error: ' . $e->getMessage());
+            return [
+                'total_count'            => 0,
+                'max_id'                 => 0,
+                'latest_timestamp'       => '',
+                'pending_payment_count'  => 0,
+                'reserved_count'         => 0,
+                'cancel_requested_count' => 0,
+                'state_hash'             => '',
+            ];
+        }
+    }
 }
 
 

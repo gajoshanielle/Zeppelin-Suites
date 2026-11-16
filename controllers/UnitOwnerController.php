@@ -125,6 +125,7 @@ class UnitOwnerController extends Controller {
         $ownerId = (int)$userSession['user_id'];
 
         $inquiries = $this->ownerModel->getOwnerInquiries($ownerId);
+        $inquiryState = $this->ownerModel->getOwnerInquiryCheckState($ownerId);
 
         $this->render('owner/inquiries', [
             'pageTitle'    => 'Zeppelin Suites — Inquiries',
@@ -133,6 +134,24 @@ class UnitOwnerController extends Controller {
             'ownerName'    => $userSession['full_name'],
             'ownerInitial' => $userSession['initial'],
             'inquiries'    => $inquiries,
+            'stateHash'    => $inquiryState['state_hash'] ?? '',
+        ]);
+    }
+
+    /**
+     * AJAX endpoint to check for live updates in owner inquiries / approval requests.
+     */
+    public function checkInquiryUpdates(): void {
+        $userSession = Middleware::requireRole(['unit owner']);
+        $ownerId = (int)$userSession['user_id'];
+        $state = $this->ownerModel->getOwnerInquiryCheckState($ownerId);
+        $clientHash = trim((string)$this->getQuery('hash', ''));
+        $hasUpdate = ($clientHash !== '' && $clientHash !== $state['state_hash']);
+        $this->json([
+            'success'    => true,
+            'state'      => $state,
+            'has_update' => $hasUpdate,
+            'message'    => $hasUpdate ? 'There is a new update in your Inquiries. Please refresh the page.' : 'Up to date.',
         ]);
     }
 
@@ -145,6 +164,7 @@ class UnitOwnerController extends Controller {
         $ownerId = (int)$userSession['user_id'];
 
         $reservations = $this->ownerModel->getOwnerReservations($ownerId);
+        $resState = $this->ownerModel->getOwnerReservationCheckState($ownerId);
 
         $this->render('owner/reservations', [
             'pageTitle'    => 'Zeppelin Suites — Lease Management',
@@ -153,6 +173,24 @@ class UnitOwnerController extends Controller {
             'ownerName'    => $userSession['full_name'],
             'ownerInitial' => $userSession['initial'],
             'reservations' => $reservations,
+            'stateHash'    => $resState['state_hash'] ?? '',
+        ]);
+    }
+
+    /**
+     * AJAX endpoint to check for live updates in owner reservations / lease management.
+     */
+    public function checkReservationUpdates(): void {
+        $userSession = Middleware::requireRole(['unit owner']);
+        $ownerId = (int)$userSession['user_id'];
+        $state = $this->ownerModel->getOwnerReservationCheckState($ownerId);
+        $clientHash = trim((string)$this->getQuery('hash', ''));
+        $hasUpdate = ($clientHash !== '' && $clientHash !== $state['state_hash']);
+        $this->json([
+            'success'    => true,
+            'state'      => $state,
+            'has_update' => $hasUpdate,
+            'message'    => $hasUpdate ? 'There is a new update in your Lease Management. Please refresh the page.' : 'Up to date.',
         ]);
     }
 

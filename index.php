@@ -256,6 +256,7 @@ $router->get('/admin/logs', [AdminController::class, 'logs'], ['admin']);
 $router->post('/admin/logs/clear', [AdminController::class, 'clearLogs'], ['admin']);
 
 $router->get('/admin/inquiries', [InquiryController::class, 'index'], ['admin']);
+$router->get('/admin/inquiries/check-updates', [InquiryController::class, 'checkUpdates'], ['admin']);
 $router->post('/admin/inquiries/status', [InquiryController::class, 'updateStatus'], ['admin']);
 $router->get('/admin/inquiries/reply', [InquiryController::class, 'replyForm'], ['admin']);
 $router->post('/admin/inquiries/reply', [InquiryController::class, 'sendReply'], ['admin']);
@@ -265,6 +266,7 @@ $router->post('/admin/inquiries/cancel-approval', [InquiryController::class, 'ca
 $router->post('/admin/inquiries/assign-unit', [InquiryController::class, 'assignUnit'], ['admin']);
 
 $router->get('/admin/reservations', [ReservationController::class, 'index'], ['admin']);
+$router->get('/admin/reservations/check-updates', [ReservationController::class, 'checkUpdates'], ['admin']);
 $router->get('/admin/reservations/view', [ReservationController::class, 'show'], ['admin']);
 $router->get('/admin/reservations/documents', [ReservationController::class, 'getDocuments'], ['admin']);
 $router->post('/admin/reservations/documents', [ReservationController::class, 'saveDocuments'], ['admin']);
@@ -326,8 +328,10 @@ $router->get('/owner/units/view', [UnitOwnerController::class, 'showUnit'], ['un
 $router->post('/owner/units/update', [UnitOwnerController::class, 'updateUnit'], ['unit owner']);
 $router->post('/owner/units/acknowledge', [UnitOwnerController::class, 'acknowledgeUnit'], ['unit owner']);
 $router->get('/owner/inquiries', [UnitOwnerController::class, 'inquiries'], ['unit owner']);
+$router->get('/owner/inquiries/check-updates', [UnitOwnerController::class, 'checkInquiryUpdates'], ['unit owner']);
 $router->post('/owner/inquiries/respond', [UnitOwnerController::class, 'respondApproval'], ['unit owner']);
 $router->get('/owner/reservations', [UnitOwnerController::class, 'reservations'], ['unit owner']);
+$router->get('/owner/reservations/check-updates', [UnitOwnerController::class, 'checkReservationUpdates'], ['unit owner']);
 $router->get('/owner/reservations/view', [UnitOwnerController::class, 'showReservation'], ['unit owner']);
 $router->get('/owner/reservations/documents', [UnitOwnerController::class, 'getDocuments'], ['unit owner']);
 $router->post('/owner/reservations/documents', [UnitOwnerController::class, 'saveDocuments'], ['unit owner']);

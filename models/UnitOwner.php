@@ -1564,6 +1564,105 @@ class UnitOwner extends Model {
 
         return ['success' => true, 'message' => 'Your cancellation request has been cancelled. The reservation remains active.'];
     }
+
+    /**
+     * Compute a lightweight state summary and hash for owner inquiries / approval requests live update polling.
+     */
+    public function getOwnerInquiryCheckState(int $ownerId): array {
+        try {
+            $row = $this->fetchOne("
+                SELECT 
+                    COUNT(*) as total_count,
+                    COALESCE(MAX(r.request_id), 0) as max_id,
+                    COALESCE(MAX(r.requested_at), '1970-01-01 00:00:00') as latest_requested,
+                    COALESCE(MAX(r.responded_at), '1970-01-01 00:00:00') as latest_responded,
+                    SUM(CASE WHEN r.request_status = 'pending' THEN 1 ELSE 0 END) as pending_count
+                FROM owner_approval_table r
+                WHERE r.unit_owner_id = ?
+            ", [$ownerId]);
+
+            $totalCount = (int)($row['total_count'] ?? 0);
+            $maxId = (int)($row['max_id'] ?? 0);
+            $latestReq = (string)($row['latest_requested'] ?? '');
+            $latestResp = (string)($row['latest_responded'] ?? '');
+            $pending = (int)($row['pending_count'] ?? 0);
+
+            $hash = md5("{$totalCount}_{$maxId}_{$latestReq}_{$latestResp}_{$pending}");
+
+            return [
+                'total_count'      => $totalCount,
+                'max_id'           => $maxId,
+                'latest_timestamp' => $latestReq,
+                'pending_count'    => $pending,
+                'state_hash'       => $hash,
+            ];
+        } catch (\Throwable $e) {
+            error_log('getOwnerInquiryCheckState error: ' . $e->getMessage());
+            return [
+                'total_count'      => 0,
+                'max_id'           => 0,
+                'latest_timestamp' => '',
+                'pending_count'    => 0,
+                'state_hash'       => '',
+            ];
+        }
+    }
+
+    /**
+     * Compute a lightweight state summary and hash for owner reservations live update polling.
+     */
+    public function getOwnerReservationCheckState(int $ownerId): array {
+        try {
+            $row = $this->fetchOne("
+                SELECT 
+                    COUNT(*) as total_count,
+                    COALESCE(MAX(r.reservation_id), 0) as max_id,
+                    COALESCE(MAX(COALESCE(r.created_at, '1970-01-01 00:00:00')), '1970-01-01 00:00:00') as latest_timestamp,
+                    COALESCE(MAX(r.payment_reviewed_at), '1970-01-01 00:00:00') as latest_payment_review,
+                    COALESCE(MAX(r.officially_booked_at), '1970-01-01 00:00:00') as latest_booked,
+                    COALESCE(MAX(r.cancelled_at), '1970-01-01 00:00:00') as latest_cancelled,
+                    SUM(CASE WHEN r.payment_status = 'pending review' THEN 1 ELSE 0 END) as pending_payment,
+                    SUM(CASE WHEN LOWER(r.reservation_status) = 'reserved' THEN 1 ELSE 0 END) as reserved_count,
+                    SUM(CASE WHEN LOWER(r.reservation_status) = 'cancellation requested' THEN 1 ELSE 0 END) as cancel_requested
+                FROM reservation_table r
+                INNER JOIN units_table u ON r.unit_id = u.unit_id
+                WHERE u.unit_owner_id = ?
+            ", [$ownerId]);
+
+            $totalCount = (int)($row['total_count'] ?? 0);
+            $maxId = (int)($row['max_id'] ?? 0);
+            $latestTs = (string)($row['latest_timestamp'] ?? '');
+            $latestPayReview = (string)($row['latest_payment_review'] ?? '');
+            $latestBooked = (string)($row['latest_booked'] ?? '');
+            $latestCancelled = (string)($row['latest_cancelled'] ?? '');
+            $pendingPay = (int)($row['pending_payment'] ?? 0);
+            $reserved = (int)($row['reserved_count'] ?? 0);
+            $cancelReq = (int)($row['cancel_requested'] ?? 0);
+
+            $hash = md5("{$totalCount}_{$maxId}_{$latestTs}_{$latestPayReview}_{$latestBooked}_{$latestCancelled}_{$pendingPay}_{$reserved}_{$cancelReq}");
+
+            return [
+                'total_count'            => $totalCount,
+                'max_id'                 => $maxId,
+                'latest_timestamp'       => $latestTs,
+                'pending_payment_count'  => $pendingPay,
+                'reserved_count'         => $reserved,
+                'cancel_requested_count' => $cancelReq,
+                'state_hash'             => $hash,
+            ];
+        } catch (\Throwable $e) {
+            error_log('getOwnerReservationCheckState error: ' . $e->getMessage());
+            return [
+                'total_count'            => 0,
+                'max_id'                 => 0,
+                'latest_timestamp'       => '',
+                'pending_payment_count'  => 0,
+                'reserved_count'         => 0,
+                'cancel_requested_count' => 0,
+                'state_hash'             => '',
+            ];
+        }
+    }
 }
 
 

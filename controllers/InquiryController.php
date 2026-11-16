@@ -34,6 +34,8 @@ class InquiryController extends Controller {
         $errorMessage = $this->getFlash('error_message') ?? ($_SESSION['error_message'] ?? null);
         unset($_SESSION['success_message'], $_SESSION['error_message']);
 
+        $inquiryState = $this->inquiryModel->getInquiryCheckState();
+
         $this->render('admin/inquiries', [
             'pageTitle'           => 'Zeppelin Suites - Inquiries',
             'activeTab'           => 'inquiry',
@@ -46,6 +48,23 @@ class InquiryController extends Controller {
             'pendingReservations' => $pendingCounts['pending_reservations'],
             'successMessage'      => $successMessage,
             'errorMessage'        => $errorMessage,
+            'stateHash'           => $inquiryState['state_hash'] ?? '',
+        ]);
+    }
+
+    /**
+     * AJAX endpoint to check for live updates in inquiries.
+     */
+    public function checkUpdates(): void {
+        Middleware::requireRole(['admin']);
+        $state = $this->inquiryModel->getInquiryCheckState();
+        $clientHash = trim((string)$this->getQuery('hash', ''));
+        $hasUpdate = ($clientHash !== '' && $clientHash !== $state['state_hash']);
+        $this->json([
+            'success'    => true,
+            'state'      => $state,
+            'has_update' => $hasUpdate,
+            'message'    => $hasUpdate ? 'There is a new update in Inquiries. Please refresh the page.' : 'Up to date.',
         ]);
     }
 

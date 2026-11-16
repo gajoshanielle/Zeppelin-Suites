@@ -1278,5 +1278,51 @@ class Inquiry extends Model {
             return ['success' => false, 'error' => 'Database error submitting inquiry. Please try again.'];
         }
     }
+
+    /**
+     * Compute a lightweight state summary and hash for live update polling.
+     */
+    public function getInquiryCheckState(): array {
+        try {
+            $row = $this->fetchOne("
+                SELECT 
+                    COUNT(*) as total_count,
+                    COALESCE(MAX(inq_id), 0) as max_id,
+                    COALESCE(MAX(timestamp), '1970-01-01 00:00:00') as latest_timestamp,
+                    COALESCE(MAX(approval_approved_at), '1970-01-01 00:00:00') as latest_approved,
+                    SUM(CASE WHEN status = 'pending' OR status = '' OR status IS NULL THEN 1 ELSE 0 END) as pending_count,
+                    SUM(CASE WHEN status = 'responded' THEN 1 ELSE 0 END) as responded_count
+                FROM inquiry_table
+            ");
+
+            $totalCount = (int)($row['total_count'] ?? 0);
+            $maxId = (int)($row['max_id'] ?? 0);
+            $latestTs = (string)($row['latest_timestamp'] ?? '');
+            $latestApproved = (string)($row['latest_approved'] ?? '');
+            $pending = (int)($row['pending_count'] ?? 0);
+            $responded = (int)($row['responded_count'] ?? 0);
+
+            $hash = md5("{$totalCount}_{$maxId}_{$latestTs}_{$latestApproved}_{$pending}_{$responded}");
+
+            return [
+                'total_count'      => $totalCount,
+                'max_id'           => $maxId,
+                'latest_timestamp' => $latestTs,
+                'pending_count'    => $pending,
+                'responded_count'  => $responded,
+                'state_hash'       => $hash,
+            ];
+        } catch (\Throwable $e) {
+            error_log('getInquiryCheckState error: ' . $e->getMessage());
+            return [
+                'total_count'      => 0,
+                'max_id'           => 0,
+                'latest_timestamp' => '',
+                'pending_count'    => 0,
+                'responded_count'  => 0,
+                'state_hash'       => '',
+            ];
+        }
+    }
 }
 

@@ -183,6 +183,23 @@ $totalCount = count($reservations);
           <p class="text-xs text-slate-500 mt-0.5">Reservations and active leases across your owned units</p>
         </div>
         <div class="flex items-center gap-2">
+          <!-- CIRCULAR REFRESH BUTTON -->
+          <button type="button" 
+            id="pageRefreshBtn" 
+            onclick="handleManualPageRefresh()" 
+            title="Refresh reservations" 
+            class="relative w-9 h-9 rounded-full bg-white border border-slate-200/90 hover:border-slate-300 text-slate-600 hover:text-slate-900 flex items-center justify-center shadow-xs transition-all active:scale-90 hover:bg-slate-50 cursor-pointer group"
+            aria-label="Refresh reservations">
+            <svg id="refreshBtnIcon" class="w-4 h-4 text-slate-600 group-hover:text-slate-900 transition-transform duration-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            <!-- Update Badge Ping -->
+            <span id="refreshBtnBadge" class="hidden absolute -top-1 -right-1 flex h-3 w-3">
+              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+              <span class="relative inline-flex rounded-full h-3 w-3 bg-amber-500 border border-white"></span>
+            </span>
+          </button>
+
           <div class="flex bg-slate-100 rounded-full p-1 gap-0.5 text-xs font-semibold overflow-x-auto max-w-full">
             <button type="button"
               class="res-filter-btn active px-3.5 py-1.5 rounded-full bg-white text-slate-900 shadow-sm active:scale-95 transition-all cursor-pointer font-semibold whitespace-nowrap"
@@ -797,5 +814,12 @@ document.addEventListener('DOMContentLoaded', () => {
   applyReservationFilters();
 });
 </script>
+
+<?php
+$updateCheckUrl = ($baseUrl ?? '') . '/owner/reservations/check-updates';
+$updateModalTitle = 'Lease Management Updated';
+$updateModalMessage = 'There is an update in your lease reservations (new bookings, payments, or status updates have been recorded). Please refresh the page to view the latest data.';
+include dirname(__DIR__) . '/components/live_update_modal.php';
+?>
 </body>
 </html>
