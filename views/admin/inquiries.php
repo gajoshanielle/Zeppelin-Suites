@@ -1739,13 +1739,6 @@ $statusMap = [
       setFilter('pending');
     });
   </script>
-
-  <?php
-  $updateCheckUrl = ($baseUrl ?? '') . '/admin/inquiries/check-updates';
-  $updateModalTitle = 'Update Available';
-  $updateModalMessage = 'There is an update here. Please refresh the page.';
-  include dirname(__DIR__) . '/components/live_update_modal.php';
-  ?>
 </body>
 
 </html>

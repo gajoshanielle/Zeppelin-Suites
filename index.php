@@ -254,6 +254,7 @@ $router->get('/admin/backup/download', [AdminController::class, 'backupDownload'
 $router->post('/admin/backup/restore', [AdminController::class, 'restoreDatabase'], ['admin']);
 $router->get('/admin/logs', [AdminController::class, 'logs'], ['admin']);
 $router->post('/admin/logs/clear', [AdminController::class, 'clearLogs'], ['admin']);
+$router->get('/admin/live-updates', [AdminController::class, 'checkLiveUpdates'], ['admin']);
 
 $router->get('/admin/inquiries', [InquiryController::class, 'index'], ['admin']);
 $router->get('/admin/inquiries/check-updates', [InquiryController::class, 'checkUpdates'], ['admin']);
@@ -327,6 +328,7 @@ $router->get('/owner/units', [UnitOwnerController::class, 'units'], ['unit owner
 $router->get('/owner/units/view', [UnitOwnerController::class, 'showUnit'], ['unit owner']);
 $router->post('/owner/units/update', [UnitOwnerController::class, 'updateUnit'], ['unit owner']);
 $router->post('/owner/units/acknowledge', [UnitOwnerController::class, 'acknowledgeUnit'], ['unit owner']);
+$router->get('/owner/live-updates', [UnitOwnerController::class, 'checkLiveUpdates'], ['unit owner']);
 $router->get('/owner/inquiries', [UnitOwnerController::class, 'inquiries'], ['unit owner']);
 $router->get('/owner/inquiries/check-updates', [UnitOwnerController::class, 'checkInquiryUpdates'], ['unit owner']);
 $router->post('/owner/inquiries/respond', [UnitOwnerController::class, 'respondApproval'], ['unit owner']);

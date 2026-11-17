@@ -180,3 +180,8 @@ function closeMobileSidebar() {
   if (ov) ov.classList.remove('show');
 }
 </script>
+
+<?php
+$notifierRole = 'owner';
+include __DIR__ . '/live_update_modal.php';
+?>

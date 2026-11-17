@@ -180,3 +180,8 @@ $navItems = [
     if (ov) ov.classList.remove('show');
   }
 </script>
+
+<?php
+$notifierRole = 'admin';
+include __DIR__ . '/live_update_modal.php';
+?>

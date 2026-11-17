@@ -40,6 +40,23 @@ $searchAttr = $navSearchHandler ?? '';
       <?= $navExtraRight ?>
     <?php endif; ?>
 
+    <!-- Universal Circular Refresh Button -->
+    <button type="button" 
+      id="navbarRefreshBtn" 
+      onclick="handleManualGlobalRefresh()" 
+      title="Refresh data" 
+      class="relative w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 flex items-center justify-center transition-all active:scale-90 cursor-pointer group"
+      aria-label="Refresh data">
+      <svg id="navbarRefreshIcon" class="w-3.5 h-3.5 text-slate-600 group-hover:text-slate-900 transition-transform duration-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+      </svg>
+      <!-- Update Badge Ping -->
+      <span id="navbarRefreshBadge" class="hidden absolute -top-0.5 -right-0.5 flex h-2.5 w-2.5">
+        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+        <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500 border border-white"></span>
+      </span>
+    </button>
+
     <!-- User Profile Dropdown Menu -->
     <div class="relative" id="profileWrapper">
       <button onclick="toggleProfile(event)" class="flex items-center gap-2.5 pl-3 border-l border-slate-200 hover:bg-slate-50 rounded-xl px-3 py-1.5 transition-all btn-press active:scale-95" id="profileBtn">

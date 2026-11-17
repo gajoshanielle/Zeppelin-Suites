@@ -323,4 +323,52 @@ class Maintenance extends Model {
             throw $e;
         }
     }
+
+    /**
+     * Compute a lightweight state summary and hash for live maintenance updates polling.
+     */
+    public function getMaintenanceCheckState(): array {
+        try {
+            $stmt = $this->db->prepare("
+                SELECT 
+                    COUNT(*) as total_count,
+                    COALESCE(MAX(maintenance_id), 0) as max_id,
+                    COALESCE(MAX(COALESCE(updated_at, submitted_at, '1970-01-01 00:00:00')), '1970-01-01 00:00:00') as latest_timestamp,
+                    COALESCE(MAX(resolved_at), '1970-01-01 00:00:00') as latest_resolved,
+                    SUM(CASE WHEN LOWER(status) = 'pending' THEN 1 ELSE 0 END) as pending_count,
+                    SUM(CASE WHEN LOWER(status) = 'in progress' THEN 1 ELSE 0 END) as in_progress_count
+                FROM maintenance_table
+            ");
+            $stmt->execute();
+            $row = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
+
+            $totalCount = (int)($row['total_count'] ?? 0);
+            $maxId = (int)($row['max_id'] ?? 0);
+            $latestTs = (string)($row['latest_timestamp'] ?? '');
+            $latestResolved = (string)($row['latest_resolved'] ?? '');
+            $pending = (int)($row['pending_count'] ?? 0);
+            $inProgress = (int)($row['in_progress_count'] ?? 0);
+
+            $hash = md5("{$totalCount}_{$maxId}_{$latestTs}_{$latestResolved}_{$pending}_{$inProgress}");
+
+            return [
+                'total_count'       => $totalCount,
+                'max_id'            => $maxId,
+                'latest_timestamp'  => $latestTs,
+                'pending_count'     => $pending,
+                'in_progress_count' => $inProgress,
+                'state_hash'        => $hash,
+            ];
+        } catch (\Throwable $e) {
+            error_log('getMaintenanceCheckState error: ' . $e->getMessage());
+            return [
+                'total_count'       => 0,
+                'max_id'            => 0,
+                'latest_timestamp'  => '',
+                'pending_count'     => 0,
+                'in_progress_count' => 0,
+                'state_hash'        => '',
+            ];
+        }
+    }
 }

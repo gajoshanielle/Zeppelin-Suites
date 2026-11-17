@@ -814,12 +814,5 @@ document.addEventListener('DOMContentLoaded', () => {
   applyReservationFilters();
 });
 </script>
-
-<?php
-$updateCheckUrl = ($baseUrl ?? '') . '/owner/reservations/check-updates';
-$updateModalTitle = 'Update Available';
-$updateModalMessage = 'There is an update here. Please refresh the page.';
-include dirname(__DIR__) . '/components/live_update_modal.php';
-?>
 </body>
 </html>

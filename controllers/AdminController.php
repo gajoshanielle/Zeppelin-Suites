@@ -7,6 +7,8 @@ require_once __DIR__ . '/../core/Logger.php';
 require_once __DIR__ . '/../models/Analytics.php';
 require_once __DIR__ . '/../models/Backup.php';
 require_once __DIR__ . '/../models/Reservation.php';
+require_once __DIR__ . '/../models/Inquiry.php';
+require_once __DIR__ . '/../models/Maintenance.php';
 require_once __DIR__ . '/../models/User.php';
 
 /**
@@ -557,5 +559,71 @@ class AdminController extends Controller {
 
         $appUrl = rtrim((string)env('APP_URL', '/Zeppelin-Suites'), '/');
         $this->redirect("{$appUrl}/admin/logs?date={$date}");
+    }
+
+    /**
+     * Universal live update checker for all admin pages.
+     * Monitors inquiries, reservations/leases, and maintenance tickets in one call.
+     */
+    public function checkLiveUpdates(): void {
+        Middleware::requireRole(['admin']);
+
+        $inquiryModel = new Inquiry();
+        $maintModel = new Maintenance();
+
+        $inqState = $inquiryModel->getInquiryCheckState();
+        $resState = $this->reservationModel->getReservationCheckState();
+        $maintState = $maintModel->getMaintenanceCheckState();
+
+        $inqHash = trim((string)$this->getQuery('inquiry_hash', ''));
+        $resHash = trim((string)$this->getQuery('reservation_hash', ''));
+        $maintHash = trim((string)$this->getQuery('maintenance_hash', ''));
+
+        $inqUpdated = ($inqHash !== '' && $inqHash !== $inqState['state_hash']);
+        $resUpdated = ($resHash !== '' && $resHash !== $resState['state_hash']);
+        $maintUpdated = ($maintHash !== '' && $maintHash !== $maintState['state_hash']);
+
+        $primary = null;
+        $title = 'Update Available';
+        $message = 'There is an update available. Please refresh the page.';
+        $targetUrl = '';
+        $actionLabel = 'Refresh';
+
+        $baseUrl = rtrim((string)env('APP_URL', '/Zeppelin-Suites'), '/');
+
+        if ($inqUpdated) {
+            $primary = 'inquiry';
+            $title = 'Inquiry Update';
+            $message = 'There is an update in Inquiries (new client inquiry or status change).';
+            $targetUrl = $baseUrl . '/admin/inquiries';
+            $actionLabel = 'Go to Inquiries';
+        } elseif ($maintUpdated) {
+            $primary = 'maintenance';
+            $title = 'Maintenance Update';
+            $message = 'There is an update in Maintenance (new request or ticket status updated).';
+            $targetUrl = $baseUrl . '/admin/maintenance';
+            $actionLabel = 'Go to Maintenance';
+        } elseif ($resUpdated) {
+            $primary = 'reservation';
+            $title = 'Lease Management Update';
+            $message = 'There is an update in Lease Management (new reservation or payment status change).';
+            $targetUrl = $baseUrl . '/admin/reservations';
+            $actionLabel = 'Go to Lease Management';
+        }
+
+        $this->json([
+            'success'        => true,
+            'has_update'     => ($inqUpdated || $resUpdated || $maintUpdated),
+            'primary_update' => $primary,
+            'title'          => $title,
+            'message'        => $message,
+            'target_url'     => $targetUrl,
+            'action_label'   => $actionLabel,
+            'hashes'         => [
+                'inquiry'     => $inqState['state_hash'] ?? '',
+                'reservation' => $resState['state_hash'] ?? '',
+                'maintenance' => $maintState['state_hash'] ?? '',
+            ],
+        ]);
     }
 }

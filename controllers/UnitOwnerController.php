@@ -195,6 +195,70 @@ class UnitOwnerController extends Controller {
     }
 
     /**
+     * Universal live update checker for all unit owner pages.
+     * Monitors owner inquiries, owner lease reservations, and owner maintenance tickets in one call.
+     */
+    public function checkLiveUpdates(): void {
+        $userSession = Middleware::requireRole(['unit owner']);
+        $ownerId = (int)$userSession['user_id'];
+
+        $inqState = $this->ownerModel->getOwnerInquiryCheckState($ownerId);
+        $resState = $this->ownerModel->getOwnerReservationCheckState($ownerId);
+        $maintState = $this->ownerModel->getOwnerMaintenanceCheckState($ownerId);
+
+        $inqHash = trim((string)$this->getQuery('inquiry_hash', ''));
+        $resHash = trim((string)$this->getQuery('reservation_hash', ''));
+        $maintHash = trim((string)$this->getQuery('maintenance_hash', ''));
+
+        $inqUpdated = ($inqHash !== '' && $inqHash !== $inqState['state_hash']);
+        $resUpdated = ($resHash !== '' && $resHash !== $resState['state_hash']);
+        $maintUpdated = ($maintHash !== '' && $maintHash !== $maintState['state_hash']);
+
+        $primary = null;
+        $title = 'Update Available';
+        $message = 'There is an update available. Please refresh the page.';
+        $targetUrl = '';
+        $actionLabel = 'Refresh';
+
+        $baseUrl = rtrim((string)env('APP_URL', '/Zeppelin-Suites'), '/');
+
+        if ($inqUpdated) {
+            $primary = 'inquiry';
+            $title = 'Inquiry Update';
+            $message = 'There is an update in Inquiries (new approval request or client message).';
+            $targetUrl = $baseUrl . '/owner/inquiries';
+            $actionLabel = 'Go to Inquiries';
+        } elseif ($maintUpdated) {
+            $primary = 'maintenance';
+            $title = 'Maintenance Update';
+            $message = 'There is an update in Maintenance (ticket status updated or response received).';
+            $targetUrl = $baseUrl . '/owner/maintenance';
+            $actionLabel = 'Go to Maintenance';
+        } elseif ($resUpdated) {
+            $primary = 'reservation';
+            $title = 'Lease Management Update';
+            $message = 'There is an update in Lease Management (new booking or payment status change).';
+            $targetUrl = $baseUrl . '/owner/reservations';
+            $actionLabel = 'Go to Lease Management';
+        }
+
+        $this->json([
+            'success'        => true,
+            'has_update'     => ($inqUpdated || $resUpdated || $maintUpdated),
+            'primary_update' => $primary,
+            'title'          => $title,
+            'message'        => $message,
+            'target_url'     => $targetUrl,
+            'action_label'   => $actionLabel,
+            'hashes'         => [
+                'inquiry'     => $inqState['state_hash'] ?? '',
+                'reservation' => $resState['state_hash'] ?? '',
+                'maintenance' => $maintState['state_hash'] ?? '',
+            ],
+        ]);
+    }
+
+    /**
      * Display Single Reservation Detail for Owner.
      */
     public function showReservation(): void {
